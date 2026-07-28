@@ -96,8 +96,15 @@ describe('CAM-503 resolvePlace — BR-2 landmark detection (bare name = area-int
   });
 
   it('[normal] an alias resolves to the landmark\'s canonical nameTh, not the alias text itself', () => {
-    expect(resolvePlace('แคมป์อำเภอปาย')).toEqual({ near: 'ปาย', nearIsLandmark: true });
+    // CAM-599 (owner decision 2026-07-28) — "แคมป์อำเภอปาย" now resolves the
+    // ปาย DISTRICT, not the landmark radius (the "อำเภอ" marker wins over a
+    // landmark match on the same bare name); that new precedence is pinned
+    // in __tests__/cam-599-named-district-beats-landmark.test.ts. This test
+    // keeps its own original point — a non-อำเภอ-prefixed alias still
+    // resolves to the landmark's canonical nameTh — using the gazetteer's
+    // third, un-prefixed alias for ปาย instead.
     expect(resolvePlace('พักที่เมืองปาย')).toEqual({ near: 'ปาย', nearIsLandmark: true });
+    expect(resolvePlace('ปายแม่ฮ่องสอน')).toEqual({ near: 'ปาย', nearIsLandmark: true });
   });
 
   it('[DEF-2 fix] a context-guarded bare landmark name ("ปาย") WITH a camping-context marker DOES resolve (a bare skip would defeat P3\'s own point)', () => {

@@ -40,9 +40,49 @@
  * the real resolver wouldn't also recognize, and a pre-pass false positive
  * is caught downstream by the tool's existing honest-empty path (CAM-587
  * BR-2), never silently wrong.
+ *
+ * CAM-599 (owner decision 2026-07-28, "อำเภอปายควรได้อำเภอนั้น") — adds ONE
+ * more detector, `detectExplicitDistrictPrefix` below, that runs BEFORE the
+ * landmark check: a camper who explicitly writes "อำเภอ"/"อ." in front of a
+ * real district name (e.g. "อำเภอปาย", "อ.ปาย") is asking for THAT district,
+ * even when the same bare name also sits in the landmark gazetteer (`ปาย`,
+ * `เขาค้อ`, `สวนผึ้ง`, `วังน้ำเขียว` all have an "อำเภอ"-prefixed alias —
+ * measured, `prisma/data/landmark-gazetteer.json`). CAM-503 put the landmark
+ * check first deliberately, and that reasoning still holds for a BARE
+ * landmark mention (a landmark like เขาใหญ่ spans several provinces, so
+ * `near` is the only honest answer) — this story does not change that case
+ * at all. What changed is CAM-596: district is now a first-class,
+ * deterministically-resolved level, so an EXPLICITLY-named อำเภอ finally has
+ * somewhere better to go than a 250km radius.
+ *
+ * CAM-600 (owner decision 2026-07-28, "ค้นด้วยตำบล ทำรายชื่อตำบลคัดมาเฉพาะที่
+ * มีแคมป์จริง") — adds a ตำบล (sub-district) detector, `detectSubDistrict`
+ * below, completing the ladder CAM-596 deliberately left incomplete. CAM-596
+ * measured that scanning all 7,452 Thai sub-districts was unsafe (ordinary
+ * words like เหนือ/กลาง/ตากแดด ARE real sub-district names, and this
+ * assistant's own camping-context marker gives no protection against them).
+ * The owner's insight changes the math: a camper can only usefully ask about
+ * a sub-district that actually HOLDS a camp — 422 of the 7,452, a 94%
+ * reduction — which is what makes a deterministic detector defensible here.
+ * That shortlist is DATA (which sub-districts hold a camp today), not a
+ * static fact like the province/district gazetteer, so it lives in its own
+ * generated artifact (`prisma/data/subdistrict-shortlist.json`, regenerated
+ * by `scripts/generate-subdistrict-shortlist.mjs` — see that script's own
+ * docblock for the build-time-vs-runtime decision and staleness handling)
+ * rather than being derived from `thailandLocations` the way districts are.
+ * The shortlist is necessary but NOT sufficient by itself — see
+ * `buildSubDistrictCandidates`'s own doc comment for the two further,
+ * MEASURED guards this story adds on top of it (a length floor and a
+ * curated ordinary-vocabulary skip-set), and `detectSubDistrict`'s own doc
+ * comment for how a name that collides WITHIN the shortlist itself (the
+ * same sub-district name in >1 province) is required to be scoped by a
+ * co-occurring district/province name before it is ever hinted — an
+ * unresolvable ambiguity is never guessed. See `resolvePlace`'s own
+ * docblock below for the full, updated precedence rule.
  */
 import thailandLocations from '@/prisma/data/thailand-locations.json';
 import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
+import subDistrictShortlistData from '@/prisma/data/subdistrict-shortlist.json';
 
 export interface ResolvedPlace {
   /** DB-canonical English province name (`Location.province` / `ThailandLocation.provinceNameEn`), e.g. "Chiang Mai". */
@@ -91,8 +131,49 @@ export interface ResolvedPlace {
    * "ตำบล" mention today gets no pre-pass hint, unchanged from before this
    * story; the model may still set `subDistrict` on its own initiative per
    * the tool's own parameter description).
+   *
+   * CAM-599 — ALSO set (via `detectExplicitDistrictPrefix`, checked even
+   * BEFORE the landmark check) when the camper writes an explicit
+   * "อำเภอ"/"อ." marker in front of a real district name — this wins over a
+   * landmark gazetteer match on the exact same bare name (e.g. "อำเภอปาย"),
+   * unlike the plain, marker-less `detectDistrict` path above which the
+   * landmark check still runs ahead of.
+   *
+   * CAM-600 — ALSO set alongside `subDistrict` below (never on its own) as
+   * the scoping district a matched sub-district sits inside — see
+   * `subDistrict`'s own doc comment.
    */
   district?: string;
+  /**
+   * CAM-600 — an exact Thai ตำบล (sub-district) name detected in free text
+   * against the curated, camp-holding shortlist (`prisma/data/
+   * subdistrict-shortlist.json`) — the MOST specific level, checked before
+   * the plain, marker-less `district` detection above (a named sub-district
+   * is more specific than a district) but AFTER the landmark/explicit-
+   * district-marker/bare-Bangkok checks (see `resolvePlace`'s own docblock
+   * for the full, measured reasoning behind that placement — a landmark
+   * bare mention, e.g. "เขาค้อ", which also happens to be a real,
+   * camp-holding sub-district name, must still resolve as the landmark's
+   * area radius, not narrow to one administrative sub-district).
+   *
+   * ALWAYS set together with `district` (the sub-district's own, known-
+   * correct parent district) — never alone — because the tool's own
+   * resolution (`resolveExactInsideAdminAreaIds`, `search-campsites.ts`,
+   * unchanged) only properly scopes a sub-district match by a `district`
+   * parentId; a sub-district name can repeat nationally even when it is the
+   * ONLY camp-holding one under that exact name (measured: 155 of the 422
+   * shortlisted names also exist as a DIFFERENT, camp-less sub-district
+   * elsewhere in Thailand), so omitting `district` risks the tool's own
+   * `matchAdminArea` arbitrarily matching the wrong, camp-less row.
+   *
+   * A shortlisted name that collides WITH ITSELF (the same name held by
+   * >1 camp-holding sub-district, in different districts/provinces) is
+   * hinted ONLY when the SAME message also names the one disambiguating
+   * district or province — see `detectSubDistrict`'s own doc comment. An
+   * unresolvable collision is never hinted at all (falls through to the
+   * next, coarser level below — district/province/region — never a guess).
+   */
+  subDistrict?: string;
 }
 
 interface ProvinceEntry {
@@ -548,34 +629,315 @@ function detectDistrict(text: string): string | undefined {
 }
 
 /**
- * BR-1/BR-3 — the resolver itself. CAM-503 BR-2/EC-4 — a landmark match is
- * checked FIRST, ahead of the proximity/province/region checks below: a
- * landmark name already implies area-intent on its own (no proximity marker
- * required), and per EC-4 a landmark match takes precedence when the text
- * names a specific landmark (the current gazetteer has no nameTh collision
- * with a real province's full name, so this ordering never shadows a
- * genuine province mention today). Below the landmark check, behavior is
- * BYTE-IDENTICAL to before this story: `near` (proximity) is checked next —
- * a proximity marker + a province mention resolves to `near`, never
- * `province` (EC-3, mutually exclusive). Absent a proximity marker, province
- * wins over region when both are found (EC-3 from CAM-501); neither is set
- * when neither is found (AC-4 — a bare terrain/facility word resolves to
- * `{}`).
+ * CAM-600 — the raw "this ตำบล currently holds >=1 published, non-deleted
+ * camp" fact, generated offline by `scripts/generate-subdistrict-shortlist.mjs`
+ * from the live `AdminArea`/`Location`/`CampSite` tables (never queried here
+ * — see this module's own top docblock for why the detector below must stay
+ * synchronous/DB-free). `districtNameTh`/`provinceNameTh` are the
+ * sub-district's OWN immediate parent chain, walked at generation time —
+ * the exact fact `resolveExactInsideAdminAreaIds` (search-campsites.ts,
+ * CAM-587, unchanged) needs to scope a `subDistrict` argument correctly via
+ * a `district` parentId.
+ */
+interface SubDistrictShortlistEntry {
+  nameTh: string;
+  districtNameTh: string;
+  provinceNameTh: string;
+}
+
+const SUBDISTRICT_SHORTLIST = subDistrictShortlistData as readonly SubDistrictShortlistEntry[];
+
+/**
+ * CAM-600 — a curated skip-set of shortlisted ตำบล names that are ALSO
+ * ordinary, high-frequency Thai vocabulary, mirroring
+ * `AMBIGUOUS_PROVINCE_NAMES_TH`'s own treatment (measured, not exhaustive —
+ * a general "every common word" list is explicitly out of scope, the same
+ * acceptance CAM-596's own docblock records for "เมือง"/"ท่า"):
+ * - "เหนือ" ("north"/"above") — CAM-596's own docblock already measured this
+ *   exact word as a real sub-district name (Kalasin) that fires even
+ *   alongside a camping-context marker; re-measured here directly against
+ *   this file's existing `cam-501`/`cam-503` regression fixtures
+ *   ("ริมน้ำภาคเหนือ", "ภาคตะวันออกเฉียงเหนือ", …), which all contain the
+ *   substring "เหนือ" and must keep resolving as a REGION, never a
+ *   sub-district.
+ * - "สะอาด" ("clean") and "สำราญ" ("relaxed/content") — common adjectives
+ *   that plausibly co-occur with a camping/accommodation review
+ *   ("ที่พักสะอาด", "พักผ่อนสำราญ"), the exact class of collision this
+ *   story's own ticket names (ตลาด/ถนน/ช่อง/บ่อ) at the <=4-char tier; both
+ *   happen to be exactly 5 Thai characters (one character above the length
+ *   floor below), so the floor alone does not catch them.
+ * Follow-up CAM ticket only if evals surface a further, evidenced miss —
+ * the same acceptance already recorded for the district-level guards this
+ * story extends.
+ */
+const AMBIGUOUS_SUBDISTRICT_VOCAB_TH: ReadonlySet<string> = new Set([
+  'เหนือ', // north/above — measured against this file's own region fixtures
+  'สะอาด', // clean — common adjective
+  'สำราญ', // relaxed/content — common adjective, camping-review-adjacent
+]);
+
+/**
+ * CAM-600 — a shortlisted ตำบล name shorter than this is excluded entirely,
+ * mirroring `MIN_ADMIN_AREA_NAME_LENGTH`'s own "too short/generic" treatment
+ * for districts — set ONE character higher (5, not 4) because the measured
+ * ordinary-vocabulary collision risk at this denser, 7,452-name level is
+ * worse (this story's own ticket names ตลาด/ถนน/ช่อง/บ่อ/ดู่/ปอ as the
+ * concrete evidence — every one of them is <=4 Thai characters).
+ */
+const MIN_SUBDISTRICT_NAME_LENGTH = 5;
+
+/**
+ * CAM-600 — one candidate PER DISTINCT shortlisted name, carrying every
+ * `{districtNameTh, provinceNameTh}` it maps to (usually exactly one; 13 of
+ * the 422 shortlisted names, measured, repeat across >1 province — the SAME
+ * name held by a DIFFERENT camp-holding sub-district elsewhere, e.g.
+ * "ในเมือง" in 5 different provinces). `entries.length === 1` fires
+ * unconditionally (see `detectSubDistrict` below); `entries.length > 1`
+ * requires a co-occurring, entry-specific district/province name in the
+ * SAME text before it may fire at all — an unresolvable ambiguity is never
+ * guessed.
+ */
+interface SubDistrictCandidate {
+  nameTh: string;
+  entries: ReadonlyArray<{ districtNameTh: string; provinceNameTh: string }>;
+}
+
+/**
+ * CAM-600 — built ONCE at module load from `SUBDISTRICT_SHORTLIST` above,
+ * applying two guards (measured, not guessed):
+ * 1. Shorter than `MIN_SUBDISTRICT_NAME_LENGTH` Thai characters, or a
+ *    member of `AMBIGUOUS_SUBDISTRICT_VOCAB_TH` -> excluded entirely.
+ * 2. A substring of ANY real province's own `nameTh` (reusing the SAME
+ *    `isSubstringOfAnyProvince` the district candidates above already use,
+ *    never a second copy) -> excluded entirely. Measured, not hypothetical:
+ *    shortlisted ตำบล "สระแก้ว" and "หนองบัว" are each an EXACT duplicate of
+ *    a real, DIFFERENT province's name (จ.สระแก้ว / a substring of
+ *    หนองบัวลำภู), and "ประจวบคีรีขันธ์"/"บึงกาฬ" are each a shortlisted
+ *    ตำบล that exactly duplicates its OWN province's full name — the
+ *    existing `detectProvince` already resolves any of these bare mentions
+ *    correctly, so a sub-district hint on the identical text would be
+ *    redundant at best, wrong-scoped at worst.
  *
- * CAM-596 BR-1 — a district check is inserted here, AFTER the landmark +
- * Bangkok-bare-mention checks above (both unchanged) and BEFORE the plain
- * `province`/`region` checks below — mirroring the tool's own real
- * precedence (`near` > `district` > `province` > `region`, CAM-587 BR-1). A
- * proximity marker has NO effect on this branch (EC-3 of this story) — the
- * tool's own `near` parameter description already tells the model never to
- * use `near` for a district/town, so a stray proximity word next to a
- * district name is simply ignored here, unlike its effect on a bare
- * province mention below. A province named in the SAME message is still
- * attached alongside the district (BR-2/AC-4) purely as a scoping hint for
- * the existing, unchanged `resolveExactInsideAdminAreaIds`.
+ * Every SURVIVING name is grouped by `nameTh` into the candidates above
+ * (never per-row) and sorted longest-`nameTh`-first, the same "longer/
+ * more-specific wins" idiom every other candidate list in this file uses.
+ */
+function buildSubDistrictCandidates(): readonly SubDistrictCandidate[] {
+  const byName = new Map<string, { districtNameTh: string; provinceNameTh: string }[]>();
+
+  for (const entry of SUBDISTRICT_SHORTLIST) {
+    const { nameTh } = entry;
+    if (nameTh.length < MIN_SUBDISTRICT_NAME_LENGTH) continue;
+    if (AMBIGUOUS_SUBDISTRICT_VOCAB_TH.has(nameTh)) continue;
+    if (isSubstringOfAnyProvince(nameTh)) continue;
+
+    const list = byName.get(nameTh) ?? [];
+    list.push({ districtNameTh: entry.districtNameTh, provinceNameTh: entry.provinceNameTh });
+    byName.set(nameTh, list);
+  }
+
+  return Array.from(byName.entries())
+    .map(([nameTh, entries]) => ({ nameTh, entries }))
+    .sort((a, b) => b.nameTh.length - a.nameTh.length);
+}
+
+const SUBDISTRICT_CANDIDATES_BY_LENGTH_DESC: readonly SubDistrictCandidate[] = buildSubDistrictCandidates();
+
+/**
+ * CAM-600 — resolves which SINGLE entry (if any) of an ambiguous (>1-entry)
+ * candidate the SAME message also scopes, so an ambiguity is never guessed:
+ * an entry counts as confirmed when its OWN `districtNameTh` (excluding the
+ * degenerate case where that district name is IDENTICAL to the candidate's
+ * own sub-district name — a real case, measured: shortlisted "บ้านแหลม" has
+ * an entry whose OWN district is ALSO named "บ้านแหลม", which would
+ * otherwise trivially "confirm itself" on every bare mention) or its OWN
+ * `provinceNameTh` appears anywhere in `text`. Returns the confirmed entry
+ * only when EXACTLY ONE of the candidate's entries is confirmed — zero or
+ * more than one means the message does not (or cannot) disambiguate, so the
+ * caller must not guess.
+ */
+function resolveAmbiguousSubDistrictEntry(
+  candidate: SubDistrictCandidate,
+  text: string
+): { districtNameTh: string; provinceNameTh: string } | undefined {
+  const confirmed = candidate.entries.filter((entry) => {
+    const districtConfirms = entry.districtNameTh !== candidate.nameTh && text.includes(entry.districtNameTh);
+    const provinceConfirms = text.includes(entry.provinceNameTh);
+    return districtConfirms || provinceConfirms;
+  });
+  return confirmed.length === 1 ? confirmed[0] : undefined;
+}
+
+/**
+ * CAM-600 — first (longest-`nameTh`-first) shortlisted candidate whose name
+ * appears in `text`: a single-entry (shortlist-globally-unique) candidate
+ * fires immediately; a multi-entry (colliding) candidate fires ONLY when
+ * `resolveAmbiguousSubDistrictEntry` confirms exactly one of its entries,
+ * otherwise this candidate is SKIPPED (not an immediate `undefined` return)
+ * so a different, resolvable candidate elsewhere in the text can still
+ * match — the same "skip and keep scanning" idiom `detectLandmark`/
+ * `detectDistrict` already use for their own guarded candidates.
+ * `undefined` = no shortlisted sub-district plausibly named (or named but
+ * unresolvably ambiguous — falls through to district/province/region below,
+ * never a guess).
+ */
+function detectSubDistrict(text: string): { subDistrict: string; district: string } | undefined {
+  for (const candidate of SUBDISTRICT_CANDIDATES_BY_LENGTH_DESC) {
+    if (!text.includes(candidate.nameTh)) continue;
+    if (candidate.entries.length === 1) {
+      return { subDistrict: candidate.nameTh, district: candidate.entries[0].districtNameTh };
+    }
+    const confirmed = resolveAmbiguousSubDistrictEntry(candidate, text);
+    if (confirmed) {
+      return { subDistrict: candidate.nameTh, district: confirmed.districtNameTh };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * CAM-599 — a real district name paired with its Thai "อำเภอ"/"อ." marker
+ * prefix, e.g. `{ matchText: "อำเภอปาย", canonical: "ปาย" }` and
+ * `{ matchText: "อ.ปาย", canonical: "ปาย" }`. Deliberately a NARROWER shape
+ * than `AdminAreaCandidate` above (no `requiresCampingContext` field): the
+ * marker itself is always sufficient context, so there is nothing to guard.
+ */
+interface ExplicitDistrictPrefixCandidate {
+  matchText: string;
+  canonical: string;
+}
+
+const EXPLICIT_DISTRICT_PREFIXES_TH = ['อำเภอ', 'อ.'] as const;
+
+/**
+ * CAM-599 — every real district name, paired with each of
+ * `EXPLICIT_DISTRICT_PREFIXES_TH` above, WITHOUT the three CAM-596
+ * ambiguity guards (`buildAdminAreaCandidates`'s guards #1/#2/#3 — the
+ * 4-char floor, `AMBIGUOUS_PROVINCE_NAMES_TH`, and "substring of any
+ * province"): those guards exist to protect a BARE district mention from
+ * colliding with ordinary Thai vocabulary or a province's own name: an
+ * explicit "อำเภอ"/"อ." marker removes exactly that ambiguity — it is the
+ * camper's own grammatical declaration "this is a district", the identical
+ * reasoning that already lets a landmark ALIAS (e.g. "อำเภอปาย" in
+ * `prisma/data/landmark-gazetteer.json`) skip `CONTEXT_GUARDED_LANDMARK_
+ * NAMES_TH`'s own bare-name camping-context guard.
+ *
+ * Guard #4 (a district literally named "เมือง" + its own province's name,
+ * e.g. "เมืองเชียงใหม่") IS kept here — that guard is about REDUNDANCY, not
+ * ambiguity: the plain province name is always co-present as a substring of
+ * that exact pattern, so the unchanged province detector already covers the
+ * camper's intent regardless of a marker in front of it.
+ *
+ * Deduplicated by `canonical` name (a district name can repeat across
+ * provinces) — mirrors `buildAdminAreaCandidates`'s own `Map` dedup, same
+ * precedent, no new risk. Sorted longest-`matchText`-first, the same
+ * "longer/more-specific wins" idiom every other candidate list in this file
+ * already uses.
+ */
+function buildExplicitDistrictPrefixCandidates(): readonly ExplicitDistrictPrefixCandidate[] {
+  const seen = new Set<string>();
+  const candidates: ExplicitDistrictPrefixCandidate[] = [];
+
+  for (const province of thailandLocations as ReadonlyArray<{
+    nameTh: string;
+    districts: ReadonlyArray<{ nameTh: string }>;
+  }>) {
+    for (const district of province.districts) {
+      const nameTh = district.nameTh;
+      if (seen.has(nameTh)) continue;
+      if (nameTh === `เมือง${province.nameTh}`) continue; // guard #4 — redundant with the unchanged province detector
+      seen.add(nameTh);
+      for (const prefix of EXPLICIT_DISTRICT_PREFIXES_TH) {
+        candidates.push({ matchText: `${prefix}${nameTh}`, canonical: nameTh });
+      }
+    }
+  }
+
+  return candidates.sort((a, b) => b.matchText.length - a.matchText.length);
+}
+
+const EXPLICIT_DISTRICT_PREFIX_CANDIDATES: readonly ExplicitDistrictPrefixCandidate[] =
+  buildExplicitDistrictPrefixCandidates();
+
+/**
+ * CAM-599 — first (longest-`matchText`-first) candidate whose
+ * "อำเภอ"/"อ."-prefixed form appears anywhere in `text`. No context guard —
+ * the marker itself is the required context (see the candidate-list
+ * docblock above). `undefined` = no explicit district marker present.
+ */
+function detectExplicitDistrictPrefix(text: string): string | undefined {
+  for (const candidate of EXPLICIT_DISTRICT_PREFIX_CANDIDATES) {
+    if (text.includes(candidate.matchText)) return candidate.canonical;
+  }
+  return undefined;
+}
+
+/**
+ * BR-1/BR-3 — the resolver itself.
+ *
+ * CAM-599 (owner decision 2026-07-28) — the ONE precedence rule this story
+ * adds, in full: an explicit "อำเภอ"/"อ." district marker (`detectExplicit
+ * DistrictPrefix`) is checked FIRST, ahead of even the landmark check —
+ * because the marker is the camper's own unambiguous declaration "this is a
+ * named district", it wins over a landmark gazetteer match on the exact
+ * same bare name (e.g. "อำเภอปาย" now resolves the ปาย DISTRICT, not the
+ * ปาย landmark radius). Everything below this new first step is otherwise
+ * BYTE-IDENTICAL to before this story — a BARE landmark mention (no
+ * "อำเภอ"/"อ." marker, e.g. a plain "ปาย" or "ใกล้ปาย") still resolves via
+ * the landmark check exactly as it did (CAM-503's own reasoning — a
+ * landmark can span multiple provinces, so `near` is the only honest
+ * answer — still holds for a bare mention).
+ *
+ * CAM-503 BR-2/EC-4 — a landmark match is checked next, ahead of the
+ * proximity/province/region checks below: a landmark name already implies
+ * area-intent on its own (no proximity marker required), and per EC-4 a
+ * landmark match takes precedence when the text names a specific landmark
+ * (the current gazetteer has no nameTh collision with a real province's
+ * full name, so this ordering never shadows a genuine province mention
+ * today). Below the landmark check, behavior is BYTE-IDENTICAL to before
+ * CAM-596/CAM-599: `near` (proximity) is checked next — a proximity marker
+ * + a province mention resolves to `near`, never `province` (EC-3, mutually
+ * exclusive). Absent a proximity marker, province wins over region when
+ * both are found (EC-3 from CAM-501); neither is set when neither is found
+ * (AC-4 — a bare terrain/facility word resolves to `{}`).
+ *
+ * CAM-596 BR-1 — a district check (no explicit marker required) is
+ * inserted here, AFTER the landmark + Bangkok-bare-mention checks above
+ * (both unchanged) and BEFORE the plain `province`/`region` checks below —
+ * mirroring the tool's own real precedence (`near` > `district` >
+ * `province` > `region`, CAM-587 BR-1). A proximity marker has NO effect on
+ * this branch (EC-3 of that story) — the tool's own `near` parameter
+ * description already tells the model never to use `near` for a
+ * district/town, so a stray proximity word next to a district name is
+ * simply ignored here, unlike its effect on a bare province mention below.
+ * A province named in the SAME message is still attached alongside the
+ * district (BR-2/AC-4) purely as a scoping hint for the existing,
+ * unchanged `resolveExactInsideAdminAreaIds`.
+ *
+ * CAM-600 — a shortlisted sub-district check (`detectSubDistrict`) is
+ * inserted between the landmark/Bangkok checks above and the plain,
+ * marker-less `district` check below — sub-district is MORE specific than
+ * district, so it must win whenever both could apply, but it must NOT win
+ * over an unmarked landmark mention. That ordering is a measured,
+ * necessary call, not an arbitrary one: the shortlist's own "เขาค้อ" entry
+ * (Phetchabun) is ALSO a curated, context-guarded landmark name — a bare
+ * "ที่พักเขาค้อ" (no "อำเภอ"/"อ." marker, no camping-context word) must keep
+ * resolving as the landmark's own area radius (CAM-503's original
+ * reasoning: a landmark can span multiple provinces), exactly as it did
+ * before this story — proven by re-running `cam-599`'s own pinned test for
+ * it unmodified. An EXPLICIT "อำเภอ"/"อ." marker (checked first, above)
+ * still always wins over both — the camper's own grammatical declaration of
+ * district-level intent is stronger than either an automatic landmark or
+ * sub-district match.
  */
 export function resolvePlace(text: string): ResolvedPlace {
   if (!text) return {};
+
+  const explicitDistrict = detectExplicitDistrictPrefix(text);
+  if (explicitDistrict) {
+    const coProvince = detectProvince(text);
+    return { district: explicitDistrict, ...(coProvince ? { province: coProvince } : {}) };
+  }
 
   const landmark = detectLandmark(text);
   if (landmark) return { near: landmark, nearIsLandmark: true };
@@ -589,6 +951,9 @@ export function resolvePlace(text: string): ResolvedPlace {
   if (isBareBangkokMention(text)) {
     return proximity ? { near: 'กรุงเทพ' } : { province: 'Bangkok' };
   }
+
+  const subDistrict = detectSubDistrict(text);
+  if (subDistrict) return subDistrict;
 
   const district = detectDistrict(text);
   if (district) {

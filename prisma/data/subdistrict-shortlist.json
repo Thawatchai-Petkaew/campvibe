@@ -1,0 +1,2112 @@
+[
+  {
+    "nameTh": "ศาลาด่าน",
+    "districtNameTh": "เกาะลันตา",
+    "provinceNameTh": "กระบี่"
+  },
+  {
+    "nameTh": "อ่าวนาง",
+    "districtNameTh": "เมืองกระบี่",
+    "provinceNameTh": "กระบี่"
+  },
+  {
+    "nameTh": "ด่านมะขามเตี้ย",
+    "districtNameTh": "ด่านมะขามเตี้ย",
+    "provinceNameTh": "กาญจนบุรี"
+  },
+  {
+    "nameTh": "เขาน้อย",
+    "districtNameTh": "ท่าม่วง",
+    "provinceNameTh": "กาญจนบุรี"
+  },
+  {
+    "nameTh": "ท่าม่วง",
+    "districtNameTh": "ท่าม่วง",
+    "provinceNameTh": "กาญจนบุรี"
+  },
+  {
+    "nameTh": "ปากแพรก",
+    "districtNameTh": "เมืองกาญจนบุรี",
+    "provinceNameTh": "กาญจนบุรี"
+  },
+  {
+    "nameTh": "ลาดหญ้า",
+    "districtNameTh": "เมืองกาญจนบุรี",
+    "provinceNameTh": "กาญจนบุรี"
+  },
+  {
+    "nameTh": "หนองบัว",
+    "districtNameTh": "เมืองกาญจนบุรี",
+    "provinceNameTh": "กาญจนบุรี"
+  },
+  {
+    "nameTh": "ธัญญา",
+    "districtNameTh": "กมลาไสย",
+    "provinceNameTh": "กาฬสินธุ์"
+  },
+  {
+    "nameTh": "โพนงาม",
+    "districtNameTh": "กมลาไสย",
+    "provinceNameTh": "กาฬสินธุ์"
+  },
+  {
+    "nameTh": "ขมิ้น",
+    "districtNameTh": "เมืองกาฬสินธุ์",
+    "provinceNameTh": "กาฬสินธุ์"
+  },
+  {
+    "nameTh": "บึงวิชัย",
+    "districtNameTh": "เมืองกาฬสินธุ์",
+    "provinceNameTh": "กาฬสินธุ์"
+  },
+  {
+    "nameTh": "หนองกุง",
+    "districtNameTh": "เมืองกาฬสินธุ์",
+    "provinceNameTh": "กาฬสินธุ์"
+  },
+  {
+    "nameTh": "เหนือ",
+    "districtNameTh": "เมืองกาฬสินธุ์",
+    "provinceNameTh": "กาฬสินธุ์"
+  },
+  {
+    "nameTh": "เพชรชมภู",
+    "districtNameTh": "โกสัมพีนคร",
+    "provinceNameTh": "กำแพงเพชร"
+  },
+  {
+    "nameTh": "ไตรตรึงษ์",
+    "districtNameTh": "เมืองกำแพงเพชร",
+    "provinceNameTh": "กำแพงเพชร"
+  },
+  {
+    "nameTh": "เทพนคร",
+    "districtNameTh": "เมืองกำแพงเพชร",
+    "provinceNameTh": "กำแพงเพชร"
+  },
+  {
+    "nameTh": "นครชุม",
+    "districtNameTh": "เมืองกำแพงเพชร",
+    "provinceNameTh": "กำแพงเพชร"
+  },
+  {
+    "nameTh": "ลานดอกไม้",
+    "districtNameTh": "เมืองกำแพงเพชร",
+    "provinceNameTh": "กำแพงเพชร"
+  },
+  {
+    "nameTh": "สระแก้ว",
+    "districtNameTh": "เมืองกำแพงเพชร",
+    "provinceNameTh": "กำแพงเพชร"
+  },
+  {
+    "nameTh": "หนองปลิง",
+    "districtNameTh": "เมืองกำแพงเพชร",
+    "provinceNameTh": "กำแพงเพชร"
+  },
+  {
+    "nameTh": "โคกสี",
+    "districtNameTh": "เมืองขอนแก่น",
+    "provinceNameTh": "ขอนแก่น"
+  },
+  {
+    "nameTh": "ดอนหัน",
+    "districtNameTh": "เมืองขอนแก่น",
+    "provinceNameTh": "ขอนแก่น"
+  },
+  {
+    "nameTh": "ในเมือง",
+    "districtNameTh": "เมืองขอนแก่น",
+    "provinceNameTh": "ขอนแก่น"
+  },
+  {
+    "nameTh": "บ้านหว้า",
+    "districtNameTh": "เมืองขอนแก่น",
+    "provinceNameTh": "ขอนแก่น"
+  },
+  {
+    "nameTh": "บึงเนียม",
+    "districtNameTh": "เมืองขอนแก่น",
+    "provinceNameTh": "ขอนแก่น"
+  },
+  {
+    "nameTh": "ศิลา",
+    "districtNameTh": "เมืองขอนแก่น",
+    "provinceNameTh": "ขอนแก่น"
+  },
+  {
+    "nameTh": "สำราญ",
+    "districtNameTh": "เมืองขอนแก่น",
+    "provinceNameTh": "ขอนแก่น"
+  },
+  {
+    "nameTh": "เขาวัว",
+    "districtNameTh": "ท่าใหม่",
+    "provinceNameTh": "จันทบุรี"
+  },
+  {
+    "nameTh": "ปัถวี",
+    "districtNameTh": "มะขาม",
+    "provinceNameTh": "จันทบุรี"
+  },
+  {
+    "nameTh": "บางกะจะ",
+    "districtNameTh": "เมืองจันทบุรี",
+    "provinceNameTh": "จันทบุรี"
+  },
+  {
+    "nameTh": "คลองน้ำเค็ม",
+    "districtNameTh": "แหลมสิงห์",
+    "provinceNameTh": "จันทบุรี"
+  },
+  {
+    "nameTh": "บางกะไชย",
+    "districtNameTh": "แหลมสิงห์",
+    "provinceNameTh": "จันทบุรี"
+  },
+  {
+    "nameTh": "ปากน้ำแหลมสิงห์",
+    "districtNameTh": "แหลมสิงห์",
+    "provinceNameTh": "จันทบุรี"
+  },
+  {
+    "nameTh": "ท่าทองหลาง",
+    "districtNameTh": "บางคล้า",
+    "provinceNameTh": "ฉะเชิงเทรา"
+  },
+  {
+    "nameTh": "เสม็ดใต้",
+    "districtNameTh": "บางคล้า",
+    "provinceNameTh": "ฉะเชิงเทรา"
+  },
+  {
+    "nameTh": "เสม็ดเหนือ",
+    "districtNameTh": "บางคล้า",
+    "provinceNameTh": "ฉะเชิงเทรา"
+  },
+  {
+    "nameTh": "หัวไทร",
+    "districtNameTh": "บางคล้า",
+    "provinceNameTh": "ฉะเชิงเทรา"
+  },
+  {
+    "nameTh": "แหลมประดู่",
+    "districtNameTh": "บ้านโพธิ์",
+    "provinceNameTh": "ฉะเชิงเทรา"
+  },
+  {
+    "nameTh": "บางแก้ว",
+    "districtNameTh": "เมืองฉะเชิงเทรา",
+    "provinceNameTh": "ฉะเชิงเทรา"
+  },
+  {
+    "nameTh": "หนองไผ่แก้ว",
+    "districtNameTh": "บ้านบึง",
+    "provinceNameTh": "ชลบุรี"
+  },
+  {
+    "nameTh": "บางนาง",
+    "districtNameTh": "พานทอง",
+    "provinceNameTh": "ชลบุรี"
+  },
+  {
+    "nameTh": "นาป่า",
+    "districtNameTh": "เมืองชลบุรี",
+    "provinceNameTh": "ชลบุรี"
+  },
+  {
+    "nameTh": "แสนสุข",
+    "districtNameTh": "เมืองชลบุรี",
+    "provinceNameTh": "ชลบุรี"
+  },
+  {
+    "nameTh": "เหมือง",
+    "districtNameTh": "เมืองชลบุรี",
+    "provinceNameTh": "ชลบุรี"
+  },
+  {
+    "nameTh": "บางพระ",
+    "districtNameTh": "ศรีราชา",
+    "provinceNameTh": "ชลบุรี"
+  },
+  {
+    "nameTh": "ท่าชัย",
+    "districtNameTh": "เมืองชัยนาท",
+    "provinceNameTh": "ชัยนาท"
+  },
+  {
+    "nameTh": "นางลือ",
+    "districtNameTh": "เมืองชัยนาท",
+    "provinceNameTh": "ชัยนาท"
+  },
+  {
+    "nameTh": "หนองขุ่น",
+    "districtNameTh": "วัดสิงห์",
+    "provinceNameTh": "ชัยนาท"
+  },
+  {
+    "nameTh": "หันคา",
+    "districtNameTh": "หันคา",
+    "provinceNameTh": "ชัยนาท"
+  },
+  {
+    "nameTh": "ห้วยไร่",
+    "districtNameTh": "คอนสวรรค์",
+    "provinceNameTh": "ชัยภูมิ"
+  },
+  {
+    "nameTh": "กะฮาด",
+    "districtNameTh": "เนินสง่า",
+    "provinceNameTh": "ชัยภูมิ"
+  },
+  {
+    "nameTh": "กุดตุ้ม",
+    "districtNameTh": "เมืองชัยภูมิ",
+    "provinceNameTh": "ชัยภูมิ"
+  },
+  {
+    "nameTh": "โนนสำราญ",
+    "districtNameTh": "เมืองชัยภูมิ",
+    "provinceNameTh": "ชัยภูมิ"
+  },
+  {
+    "nameTh": "ในเมือง",
+    "districtNameTh": "เมืองชัยภูมิ",
+    "provinceNameTh": "ชัยภูมิ"
+  },
+  {
+    "nameTh": "บุ่งคล้า",
+    "districtNameTh": "เมืองชัยภูมิ",
+    "provinceNameTh": "ชัยภูมิ"
+  },
+  {
+    "nameTh": "โพนทอง",
+    "districtNameTh": "เมืองชัยภูมิ",
+    "provinceNameTh": "ชัยภูมิ"
+  },
+  {
+    "nameTh": "หนองไผ่",
+    "districtNameTh": "เมืองชัยภูมิ",
+    "provinceNameTh": "ชัยภูมิ"
+  },
+  {
+    "nameTh": "บางสน",
+    "districtNameTh": "ปะทิว",
+    "provinceNameTh": "ชุมพร"
+  },
+  {
+    "nameTh": "สะพลี",
+    "districtNameTh": "ปะทิว",
+    "provinceNameTh": "ชุมพร"
+  },
+  {
+    "nameTh": "ขุนกระทิง",
+    "districtNameTh": "เมืองชุมพร",
+    "provinceNameTh": "ชุมพร"
+  },
+  {
+    "nameTh": "นาชะอัง",
+    "districtNameTh": "เมืองชุมพร",
+    "provinceNameTh": "ชุมพร"
+  },
+  {
+    "nameTh": "บางหมาก",
+    "districtNameTh": "เมืองชุมพร",
+    "provinceNameTh": "ชุมพร"
+  },
+  {
+    "nameTh": "หาดทรายรี",
+    "districtNameTh": "เมืองชุมพร",
+    "provinceNameTh": "ชุมพร"
+  },
+  {
+    "nameTh": "วิสัยใต้",
+    "districtNameTh": "สวี",
+    "provinceNameTh": "ชุมพร"
+  },
+  {
+    "nameTh": "ตับเต่า",
+    "districtNameTh": "เทิง",
+    "provinceNameTh": "เชียงราย"
+  },
+  {
+    "nameTh": "นางแล",
+    "districtNameTh": "เมืองเชียงราย",
+    "provinceNameTh": "เชียงราย"
+  },
+  {
+    "nameTh": "เวียง",
+    "districtNameTh": "เมืองเชียงราย",
+    "provinceNameTh": "เชียงราย"
+  },
+  {
+    "nameTh": "แม่ฟ้าหลวง",
+    "districtNameTh": "แม่ฟ้าหลวง",
+    "provinceNameTh": "เชียงราย"
+  },
+  {
+    "nameTh": "แม่สลองนอก",
+    "districtNameTh": "แม่ฟ้าหลวง",
+    "provinceNameTh": "เชียงราย"
+  },
+  {
+    "nameTh": "ปอ",
+    "districtNameTh": "เวียงแก่น",
+    "provinceNameTh": "เชียงราย"
+  },
+  {
+    "nameTh": "สุเทพ",
+    "districtNameTh": "เมืองเชียงใหม่",
+    "provinceNameTh": "เชียงใหม่"
+  },
+  {
+    "nameTh": "สบเปิง",
+    "districtNameTh": "แม่แตง",
+    "provinceNameTh": "เชียงใหม่"
+  },
+  {
+    "nameTh": "โป่งแยง",
+    "districtNameTh": "แม่ริม",
+    "provinceNameTh": "เชียงใหม่"
+  },
+  {
+    "nameTh": "ห้วยแก้ว",
+    "districtNameTh": "แม่ออน",
+    "provinceNameTh": "เชียงใหม่"
+  },
+  {
+    "nameTh": "สะเมิงใต้",
+    "districtNameTh": "สะเมิง",
+    "provinceNameTh": "เชียงใหม่"
+  },
+  {
+    "nameTh": "โคกยาง",
+    "districtNameTh": "กันตัง",
+    "provinceNameTh": "ตรัง"
+  },
+  {
+    "nameTh": "บางหมาก",
+    "districtNameTh": "กันตัง",
+    "provinceNameTh": "ตรัง"
+  },
+  {
+    "nameTh": "โคกสะบ้า",
+    "districtNameTh": "นาโยง",
+    "provinceNameTh": "ตรัง"
+  },
+  {
+    "nameTh": "ช่อง",
+    "districtNameTh": "นาโยง",
+    "provinceNameTh": "ตรัง"
+  },
+  {
+    "nameTh": "นาโต๊ะหมิง",
+    "districtNameTh": "เมืองตรัง",
+    "provinceNameTh": "ตรัง"
+  },
+  {
+    "nameTh": "นาท่ามเหนือ",
+    "districtNameTh": "เมืองตรัง",
+    "provinceNameTh": "ตรัง"
+  },
+  {
+    "nameTh": "บ้านโพธิ์",
+    "districtNameTh": "เมืองตรัง",
+    "provinceNameTh": "ตรัง"
+  },
+  {
+    "nameTh": "เกาะหมาก",
+    "districtNameTh": "เกาะกูด",
+    "provinceNameTh": "ตราด"
+  },
+  {
+    "nameTh": "เกาะช้าง",
+    "districtNameTh": "เกาะช้าง",
+    "provinceNameTh": "ตราด"
+  },
+  {
+    "nameTh": "หนองคันทรง",
+    "districtNameTh": "เมืองตราด",
+    "provinceNameTh": "ตราด"
+  },
+  {
+    "nameTh": "สมอโคน",
+    "districtNameTh": "บ้านตาก",
+    "provinceNameTh": "ตาก"
+  },
+  {
+    "nameTh": "โป่งแดง",
+    "districtNameTh": "เมืองตาก",
+    "provinceNameTh": "ตาก"
+  },
+  {
+    "nameTh": "แม่ท้อ",
+    "districtNameTh": "เมืองตาก",
+    "provinceNameTh": "ตาก"
+  },
+  {
+    "nameTh": "ไม้งาม",
+    "districtNameTh": "เมืองตาก",
+    "provinceNameTh": "ตาก"
+  },
+  {
+    "nameTh": "วังหิน",
+    "districtNameTh": "เมืองตาก",
+    "provinceNameTh": "ตาก"
+  },
+  {
+    "nameTh": "หนองบัวเหนือ",
+    "districtNameTh": "เมืองตาก",
+    "provinceNameTh": "ตาก"
+  },
+  {
+    "nameTh": "บางอ้อ",
+    "districtNameTh": "บ้านนา",
+    "provinceNameTh": "นครนายก"
+  },
+  {
+    "nameTh": "ป่าขะ",
+    "districtNameTh": "บ้านนา",
+    "provinceNameTh": "นครนายก"
+  },
+  {
+    "nameTh": "ท่าเรือ",
+    "districtNameTh": "ปากพลี",
+    "provinceNameTh": "นครนายก"
+  },
+  {
+    "nameTh": "หินตั้ง",
+    "districtNameTh": "เมืองนครนายก",
+    "provinceNameTh": "นครนายก"
+  },
+  {
+    "nameTh": "ทรายมูล",
+    "districtNameTh": "องครักษ์",
+    "provinceNameTh": "นครนายก"
+  },
+  {
+    "nameTh": "บางลูกเสือ",
+    "districtNameTh": "องครักษ์",
+    "provinceNameTh": "นครนายก"
+  },
+  {
+    "nameTh": "นครชัยศรี",
+    "districtNameTh": "นครชัยศรี",
+    "provinceNameTh": "นครปฐม"
+  },
+  {
+    "nameTh": "แหลมบัว",
+    "districtNameTh": "นครชัยศรี",
+    "provinceNameTh": "นครปฐม"
+  },
+  {
+    "nameTh": "นราภิรมย์",
+    "districtNameTh": "บางเลน",
+    "provinceNameTh": "นครปฐม"
+  },
+  {
+    "nameTh": "บางปลา",
+    "districtNameTh": "บางเลน",
+    "provinceNameTh": "นครปฐม"
+  },
+  {
+    "nameTh": "ถนนขาด",
+    "districtNameTh": "เมืองนครปฐม",
+    "provinceNameTh": "นครปฐม"
+  },
+  {
+    "nameTh": "บ้านยาง",
+    "districtNameTh": "เมืองนครปฐม",
+    "provinceNameTh": "นครปฐม"
+  },
+  {
+    "nameTh": "ลำพยา",
+    "districtNameTh": "เมืองนครปฐม",
+    "provinceNameTh": "นครปฐม"
+  },
+  {
+    "nameTh": "โพธิ์ตาก",
+    "districtNameTh": "เมืองนครพนม",
+    "provinceNameTh": "นครพนม"
+  },
+  {
+    "nameTh": "อาจสามารถ",
+    "districtNameTh": "เมืองนครพนม",
+    "provinceNameTh": "นครพนม"
+  },
+  {
+    "nameTh": "หมูสี",
+    "districtNameTh": "ปากช่อง",
+    "provinceNameTh": "นครราชสีมา"
+  },
+  {
+    "nameTh": "ในเมือง",
+    "districtNameTh": "เมืองนครราชสีมา",
+    "provinceNameTh": "นครราชสีมา"
+  },
+  {
+    "nameTh": "วังหมี",
+    "districtNameTh": "วังน้ำเขียว",
+    "provinceNameTh": "นครราชสีมา"
+  },
+  {
+    "nameTh": "โมคลาน",
+    "districtNameTh": "ท่าศาลา",
+    "provinceNameTh": "นครศรีธรรมราช"
+  },
+  {
+    "nameTh": "แหลมตะลุมพุก",
+    "districtNameTh": "ปากพนัง",
+    "provinceNameTh": "นครศรีธรรมราช"
+  },
+  {
+    "nameTh": "ทอนหงส์",
+    "districtNameTh": "พรหมคีรี",
+    "provinceNameTh": "นครศรีธรรมราช"
+  },
+  {
+    "nameTh": "บ้านเกาะ",
+    "districtNameTh": "พรหมคีรี",
+    "provinceNameTh": "นครศรีธรรมราช"
+  },
+  {
+    "nameTh": "ท่าเรือ",
+    "districtNameTh": "เมืองนครศรีธรรมราช",
+    "provinceNameTh": "นครศรีธรรมราช"
+  },
+  {
+    "nameTh": "ปากพูน",
+    "districtNameTh": "เมืองนครศรีธรรมราช",
+    "provinceNameTh": "นครศรีธรรมราช"
+  },
+  {
+    "nameTh": "เสาธง",
+    "districtNameTh": "ร่อนพิบูลย์",
+    "provinceNameTh": "นครศรีธรรมราช"
+  },
+  {
+    "nameTh": "นากลาง",
+    "districtNameTh": "โกรกพระ",
+    "provinceNameTh": "นครสวรรค์"
+  },
+  {
+    "nameTh": "บางประมุง",
+    "districtNameTh": "โกรกพระ",
+    "provinceNameTh": "นครสวรรค์"
+  },
+  {
+    "nameTh": "ทับกฤชใต้",
+    "districtNameTh": "ชุมแสง",
+    "provinceNameTh": "นครสวรรค์"
+  },
+  {
+    "nameTh": "บางเคียน",
+    "districtNameTh": "ชุมแสง",
+    "provinceNameTh": "นครสวรรค์"
+  },
+  {
+    "nameTh": "หนองกรด",
+    "districtNameTh": "เมืองนครสวรรค์",
+    "provinceNameTh": "นครสวรรค์"
+  },
+  {
+    "nameTh": "ละหาร",
+    "districtNameTh": "บางบัวทอง",
+    "provinceNameTh": "นนทบุรี"
+  },
+  {
+    "nameTh": "บางกระสอ",
+    "districtNameTh": "เมืองนนทบุรี",
+    "provinceNameTh": "นนทบุรี"
+  },
+  {
+    "nameTh": "ไพรวัน",
+    "districtNameTh": "ตากใบ",
+    "provinceNameTh": "นราธิวาส"
+  },
+  {
+    "nameTh": "บาเระใต้",
+    "districtNameTh": "บาเจาะ",
+    "provinceNameTh": "นราธิวาส"
+  },
+  {
+    "nameTh": "กะลุวอ",
+    "districtNameTh": "เมืองนราธิวาส",
+    "provinceNameTh": "นราธิวาส"
+  },
+  {
+    "nameTh": "กะลุวอเหนือ",
+    "districtNameTh": "เมืองนราธิวาส",
+    "provinceNameTh": "นราธิวาส"
+  },
+  {
+    "nameTh": "บางปอ",
+    "districtNameTh": "เมืองนราธิวาส",
+    "provinceNameTh": "นราธิวาส"
+  },
+  {
+    "nameTh": "ลุโบะบือซา",
+    "districtNameTh": "ยี่งอ",
+    "provinceNameTh": "นราธิวาส"
+  },
+  {
+    "nameTh": "บาโงสะโต",
+    "districtNameTh": "ระแงะ",
+    "provinceNameTh": "นราธิวาส"
+  },
+  {
+    "nameTh": "น้ำแก่น",
+    "districtNameTh": "ภูเพียง",
+    "provinceNameTh": "น่าน"
+  },
+  {
+    "nameTh": "ฝายแก้ว",
+    "districtNameTh": "ภูเพียง",
+    "provinceNameTh": "น่าน"
+  },
+  {
+    "nameTh": "บ่อ",
+    "districtNameTh": "เมืองน่าน",
+    "provinceNameTh": "น่าน"
+  },
+  {
+    "nameTh": "สวก",
+    "districtNameTh": "เมืองน่าน",
+    "provinceNameTh": "น่าน"
+  },
+  {
+    "nameTh": "ทุ่งศรีทอง",
+    "districtNameTh": "เวียงสา",
+    "provinceNameTh": "น่าน"
+  },
+  {
+    "nameTh": "นาเหลือง",
+    "districtNameTh": "เวียงสา",
+    "provinceNameTh": "น่าน"
+  },
+  {
+    "nameTh": "ดู่พงษ์",
+    "districtNameTh": "สันติสุข",
+    "provinceNameTh": "น่าน"
+  },
+  {
+    "nameTh": "ถ้ำเจริญ",
+    "districtNameTh": "โซ่พิสัย",
+    "provinceNameTh": "บึงกาฬ"
+  },
+  {
+    "nameTh": "ไคสี",
+    "districtNameTh": "เมืองบึงกาฬ",
+    "provinceNameTh": "บึงกาฬ"
+  },
+  {
+    "nameTh": "บึงกาฬ",
+    "districtNameTh": "เมืองบึงกาฬ",
+    "provinceNameTh": "บึงกาฬ"
+  },
+  {
+    "nameTh": "นาสิงห์",
+    "districtNameTh": "ศรีวิไล",
+    "provinceNameTh": "บึงกาฬ"
+  },
+  {
+    "nameTh": "พรสำราญ",
+    "districtNameTh": "คูเมือง",
+    "provinceNameTh": "บุรีรัมย์"
+  },
+  {
+    "nameTh": "วังเหนือ",
+    "districtNameTh": "บ้านด่าน",
+    "provinceNameTh": "บุรีรัมย์"
+  },
+  {
+    "nameTh": "บ้านยาง",
+    "districtNameTh": "เมืองบุรีรัมย์",
+    "provinceNameTh": "บุรีรัมย์"
+  },
+  {
+    "nameTh": "พระครู",
+    "districtNameTh": "เมืองบุรีรัมย์",
+    "provinceNameTh": "บุรีรัมย์"
+  },
+  {
+    "nameTh": "เสม็ด",
+    "districtNameTh": "เมืองบุรีรัมย์",
+    "provinceNameTh": "บุรีรัมย์"
+  },
+  {
+    "nameTh": "หลักเขต",
+    "districtNameTh": "เมืองบุรีรัมย์",
+    "provinceNameTh": "บุรีรัมย์"
+  },
+  {
+    "nameTh": "อิสาณ",
+    "districtNameTh": "เมืองบุรีรัมย์",
+    "provinceNameTh": "บุรีรัมย์"
+  },
+  {
+    "nameTh": "คลองหนึ่ง",
+    "districtNameTh": "คลองหลวง",
+    "provinceNameTh": "ปทุมธานี"
+  },
+  {
+    "nameTh": "บึงยี่โถ",
+    "districtNameTh": "ธัญบุรี",
+    "provinceNameTh": "ปทุมธานี"
+  },
+  {
+    "nameTh": "หน้าไม้",
+    "districtNameTh": "ลาดหลุมแก้ว",
+    "provinceNameTh": "ปทุมธานี"
+  },
+  {
+    "nameTh": "บ้านงิ้ว",
+    "districtNameTh": "สามโคก",
+    "provinceNameTh": "ปทุมธานี"
+  },
+  {
+    "nameTh": "ห้วยยาง",
+    "districtNameTh": "ทับสะแก",
+    "provinceNameTh": "ประจวบคีรีขันธ์"
+  },
+  {
+    "nameTh": "คลองวาฬ",
+    "districtNameTh": "เมืองประจวบคีรีขันธ์",
+    "provinceNameTh": "ประจวบคีรีขันธ์"
+  },
+  {
+    "nameTh": "ประจวบคีรีขันธ์",
+    "districtNameTh": "เมืองประจวบคีรีขันธ์",
+    "provinceNameTh": "ประจวบคีรีขันธ์"
+  },
+  {
+    "nameTh": "ห้วยทราย",
+    "districtNameTh": "เมืองประจวบคีรีขันธ์",
+    "provinceNameTh": "ประจวบคีรีขันธ์"
+  },
+  {
+    "nameTh": "อ่าวน้อย",
+    "districtNameTh": "เมืองประจวบคีรีขันธ์",
+    "provinceNameTh": "ประจวบคีรีขันธ์"
+  },
+  {
+    "nameTh": "คำโตนด",
+    "districtNameTh": "ประจันตคาม",
+    "provinceNameTh": "ปราจีนบุรี"
+  },
+  {
+    "nameTh": "เนินหอม",
+    "districtNameTh": "เมืองปราจีนบุรี",
+    "provinceNameTh": "ปราจีนบุรี"
+  },
+  {
+    "nameTh": "รอบเมือง",
+    "districtNameTh": "เมืองปราจีนบุรี",
+    "provinceNameTh": "ปราจีนบุรี"
+  },
+  {
+    "nameTh": "ถนน",
+    "districtNameTh": "มายอ",
+    "provinceNameTh": "ปัตตานี"
+  },
+  {
+    "nameTh": "ตะโละกาโปร์",
+    "districtNameTh": "ยะหริ่ง",
+    "provinceNameTh": "ปัตตานี"
+  },
+  {
+    "nameTh": "ยามู",
+    "districtNameTh": "ยะหริ่ง",
+    "provinceNameTh": "ปัตตานี"
+  },
+  {
+    "nameTh": "แหลมโพธิ์",
+    "districtNameTh": "ยะหริ่ง",
+    "provinceNameTh": "ปัตตานี"
+  },
+  {
+    "nameTh": "บ่อทอง",
+    "districtNameTh": "หนองจิก",
+    "provinceNameTh": "ปัตตานี"
+  },
+  {
+    "nameTh": "บางเขา",
+    "districtNameTh": "หนองจิก",
+    "provinceNameTh": "ปัตตานี"
+  },
+  {
+    "nameTh": "บางกระสั้น",
+    "districtNameTh": "บางปะอิน",
+    "provinceNameTh": "พระนครศรีอยุธยา"
+  },
+  {
+    "nameTh": "บางประแดง",
+    "districtNameTh": "บางปะอิน",
+    "provinceNameTh": "พระนครศรีอยุธยา"
+  },
+  {
+    "nameTh": "หัวรอ",
+    "districtNameTh": "พระนครศรีอยุธยา",
+    "provinceNameTh": "พระนครศรีอยุธยา"
+  },
+  {
+    "nameTh": "โคกม่วง",
+    "districtNameTh": "ภาชี",
+    "provinceNameTh": "พระนครศรีอยุธยา"
+  },
+  {
+    "nameTh": "ดงสุวรรณ",
+    "districtNameTh": "ดอกคำใต้",
+    "provinceNameTh": "พะเยา"
+  },
+  {
+    "nameTh": "บ้านถ้ำ",
+    "districtNameTh": "ดอกคำใต้",
+    "provinceNameTh": "พะเยา"
+  },
+  {
+    "nameTh": "ห้วยแก้ว",
+    "districtNameTh": "ภูกามยาว",
+    "provinceNameTh": "พะเยา"
+  },
+  {
+    "nameTh": "ท่าจำปี",
+    "districtNameTh": "เมืองพะเยา",
+    "provinceNameTh": "พะเยา"
+  },
+  {
+    "nameTh": "แม่กา",
+    "districtNameTh": "เมืองพะเยา",
+    "provinceNameTh": "พะเยา"
+  },
+  {
+    "nameTh": "กระโสม",
+    "districtNameTh": "ตะกั่วทุ่ง",
+    "provinceNameTh": "พังงา"
+  },
+  {
+    "nameTh": "กะไหล",
+    "districtNameTh": "ตะกั่วทุ่ง",
+    "provinceNameTh": "พังงา"
+  },
+  {
+    "nameTh": "ถ้ำ",
+    "districtNameTh": "ตะกั่วทุ่ง",
+    "provinceNameTh": "พังงา"
+  },
+  {
+    "nameTh": "กงหรา",
+    "districtNameTh": "กงหรา",
+    "provinceNameTh": "พัทลุง"
+  },
+  {
+    "nameTh": "โคกม่วง",
+    "districtNameTh": "เขาชัยสน",
+    "provinceNameTh": "พัทลุง"
+  },
+  {
+    "nameTh": "หานโพธิ์",
+    "districtNameTh": "เขาชัยสน",
+    "provinceNameTh": "พัทลุง"
+  },
+  {
+    "nameTh": "ดอนทราย",
+    "districtNameTh": "ควนขนุน",
+    "provinceNameTh": "พัทลุง"
+  },
+  {
+    "nameTh": "พนมวังก์",
+    "districtNameTh": "ควนขนุน",
+    "provinceNameTh": "พัทลุง"
+  },
+  {
+    "nameTh": "เขาเจียก",
+    "districtNameTh": "เมืองพัทลุง",
+    "provinceNameTh": "พัทลุง"
+  },
+  {
+    "nameTh": "ลำปำ",
+    "districtNameTh": "เมืองพัทลุง",
+    "provinceNameTh": "พัทลุง"
+  },
+  {
+    "nameTh": "วังหว้า",
+    "districtNameTh": "ตะพานหิน",
+    "provinceNameTh": "พิจิตร"
+  },
+  {
+    "nameTh": "วังจิก",
+    "districtNameTh": "โพธิ์ประทับช้าง",
+    "provinceNameTh": "พิจิตร"
+  },
+  {
+    "nameTh": "ป่ามะคาบ",
+    "districtNameTh": "เมืองพิจิตร",
+    "provinceNameTh": "พิจิตร"
+  },
+  {
+    "nameTh": "หนองพระ",
+    "districtNameTh": "วังทรายพูน",
+    "provinceNameTh": "พิจิตร"
+  },
+  {
+    "nameTh": "รังนก",
+    "districtNameTh": "สามง่าม",
+    "provinceNameTh": "พิจิตร"
+  },
+  {
+    "nameTh": "บางระกำ",
+    "districtNameTh": "บางระกำ",
+    "provinceNameTh": "พิษณุโลก"
+  },
+  {
+    "nameTh": "ท่าช้าง",
+    "districtNameTh": "พรหมพิราม",
+    "provinceNameTh": "พิษณุโลก"
+  },
+  {
+    "nameTh": "บ้านป่า",
+    "districtNameTh": "เมืองพิษณุโลก",
+    "provinceNameTh": "พิษณุโลก"
+  },
+  {
+    "nameTh": "วังน้ำคู้",
+    "districtNameTh": "เมืองพิษณุโลก",
+    "provinceNameTh": "พิษณุโลก"
+  },
+  {
+    "nameTh": "วังพิกุล",
+    "districtNameTh": "วังทอง",
+    "provinceNameTh": "พิษณุโลก"
+  },
+  {
+    "nameTh": "ท่างาม",
+    "districtNameTh": "วัดโบสถ์",
+    "provinceNameTh": "พิษณุโลก"
+  },
+  {
+    "nameTh": "บ้านยาง",
+    "districtNameTh": "วัดโบสถ์",
+    "provinceNameTh": "พิษณุโลก"
+  },
+  {
+    "nameTh": "สระพัง",
+    "districtNameTh": "เขาย้อย",
+    "provinceNameTh": "เพชรบุรี"
+  },
+  {
+    "nameTh": "ท่ายาง",
+    "districtNameTh": "ท่ายาง",
+    "provinceNameTh": "เพชรบุรี"
+  },
+  {
+    "nameTh": "ห้วยข้อง",
+    "districtNameTh": "บ้านลาด",
+    "provinceNameTh": "เพชรบุรี"
+  },
+  {
+    "nameTh": "ห้วยลึก",
+    "districtNameTh": "บ้านลาด",
+    "provinceNameTh": "เพชรบุรี"
+  },
+  {
+    "nameTh": "ท่าแร้งออก",
+    "districtNameTh": "บ้านแหลม",
+    "provinceNameTh": "เพชรบุรี"
+  },
+  {
+    "nameTh": "บางขุนไทร",
+    "districtNameTh": "บ้านแหลม",
+    "provinceNameTh": "เพชรบุรี"
+  },
+  {
+    "nameTh": "บ้านแหลม",
+    "districtNameTh": "บ้านแหลม",
+    "provinceNameTh": "เพชรบุรี"
+  },
+  {
+    "nameTh": "แหลมผักเบี้ย",
+    "districtNameTh": "บ้านแหลม",
+    "provinceNameTh": "เพชรบุรี"
+  },
+  {
+    "nameTh": "เขาค้อ",
+    "districtNameTh": "เขาค้อ",
+    "provinceNameTh": "เพชรบูรณ์"
+  },
+  {
+    "nameTh": "น้ำหนาว",
+    "districtNameTh": "น้ำหนาว",
+    "provinceNameTh": "เพชรบูรณ์"
+  },
+  {
+    "nameTh": "สะเดียง",
+    "districtNameTh": "เมืองเพชรบูรณ์",
+    "provinceNameTh": "เพชรบูรณ์"
+  },
+  {
+    "nameTh": "หินฮาว",
+    "districtNameTh": "หล่มเก่า",
+    "provinceNameTh": "เพชรบูรณ์"
+  },
+  {
+    "nameTh": "บุ่งน้ำเต้า",
+    "districtNameTh": "หล่มสัก",
+    "provinceNameTh": "เพชรบูรณ์"
+  },
+  {
+    "nameTh": "ปงป่าหวาย",
+    "districtNameTh": "เด่นชัย",
+    "provinceNameTh": "แพร่"
+  },
+  {
+    "nameTh": "กาญจนา",
+    "districtNameTh": "เมืองแพร่",
+    "provinceNameTh": "แพร่"
+  },
+  {
+    "nameTh": "ดอนมูล",
+    "districtNameTh": "สูงเม่น",
+    "provinceNameTh": "แพร่"
+  },
+  {
+    "nameTh": "บ้านกวาง",
+    "districtNameTh": "สูงเม่น",
+    "provinceNameTh": "แพร่"
+  },
+  {
+    "nameTh": "บ้านปง",
+    "districtNameTh": "สูงเม่น",
+    "provinceNameTh": "แพร่"
+  },
+  {
+    "nameTh": "บ้านเหล่า",
+    "districtNameTh": "สูงเม่น",
+    "provinceNameTh": "แพร่"
+  },
+  {
+    "nameTh": "ไม้ขาว",
+    "districtNameTh": "ถลาง",
+    "provinceNameTh": "ภูเก็ต"
+  },
+  {
+    "nameTh": "กะรน",
+    "districtNameTh": "เมืองภูเก็ต",
+    "provinceNameTh": "ภูเก็ต"
+  },
+  {
+    "nameTh": "ราไวย์",
+    "districtNameTh": "เมืองภูเก็ต",
+    "provinceNameTh": "ภูเก็ต"
+  },
+  {
+    "nameTh": "โคกพระ",
+    "districtNameTh": "กันทรวิชัย",
+    "provinceNameTh": "มหาสารคาม"
+  },
+  {
+    "nameTh": "มะค่า",
+    "districtNameTh": "กันทรวิชัย",
+    "provinceNameTh": "มหาสารคาม"
+  },
+  {
+    "nameTh": "ศรีสุข",
+    "districtNameTh": "กันทรวิชัย",
+    "provinceNameTh": "มหาสารคาม"
+  },
+  {
+    "nameTh": "หนองโก",
+    "districtNameTh": "บรบือ",
+    "provinceNameTh": "มหาสารคาม"
+  },
+  {
+    "nameTh": "แก่งเลิงจาน",
+    "districtNameTh": "เมืองมหาสารคาม",
+    "provinceNameTh": "มหาสารคาม"
+  },
+  {
+    "nameTh": "ตลาด",
+    "districtNameTh": "เมืองมหาสารคาม",
+    "provinceNameTh": "มหาสารคาม"
+  },
+  {
+    "nameTh": "ท่าตูม",
+    "districtNameTh": "เมืองมหาสารคาม",
+    "provinceNameTh": "มหาสารคาม"
+  },
+  {
+    "nameTh": "ลาดพัฒนา",
+    "districtNameTh": "เมืองมหาสารคาม",
+    "provinceNameTh": "มหาสารคาม"
+  },
+  {
+    "nameTh": "คำป่าหลาย",
+    "districtNameTh": "เมืองมุกดาหาร",
+    "provinceNameTh": "มุกดาหาร"
+  },
+  {
+    "nameTh": "คำอาฮวน",
+    "districtNameTh": "เมืองมุกดาหาร",
+    "provinceNameTh": "มุกดาหาร"
+  },
+  {
+    "nameTh": "บางทรายใหญ่",
+    "districtNameTh": "เมืองมุกดาหาร",
+    "provinceNameTh": "มุกดาหาร"
+  },
+  {
+    "nameTh": "บ้านโคก",
+    "districtNameTh": "เมืองมุกดาหาร",
+    "provinceNameTh": "มุกดาหาร"
+  },
+  {
+    "nameTh": "โพนทราย",
+    "districtNameTh": "เมืองมุกดาหาร",
+    "provinceNameTh": "มุกดาหาร"
+  },
+  {
+    "nameTh": "เมืองปอน",
+    "districtNameTh": "ขุนยวม",
+    "provinceNameTh": "แม่ฮ่องสอน"
+  },
+  {
+    "nameTh": "นาปู่ป้อม",
+    "districtNameTh": "ปางมะผ้า",
+    "provinceNameTh": "แม่ฮ่องสอน"
+  },
+  {
+    "nameTh": "แม่ฮี้",
+    "districtNameTh": "ปาย",
+    "provinceNameTh": "แม่ฮ่องสอน"
+  },
+  {
+    "nameTh": "หมอกจำแป่",
+    "districtNameTh": "เมืองแม่ฮ่องสอน",
+    "provinceNameTh": "แม่ฮ่องสอน"
+  },
+  {
+    "nameTh": "ห้วยผา",
+    "districtNameTh": "เมืองแม่ฮ่องสอน",
+    "provinceNameTh": "แม่ฮ่องสอน"
+  },
+  {
+    "nameTh": "นาโส่",
+    "districtNameTh": "กุดชุม",
+    "provinceNameTh": "ยโสธร"
+  },
+  {
+    "nameTh": "ดงมะไฟ",
+    "districtNameTh": "ทรายมูล",
+    "provinceNameTh": "ยโสธร"
+  },
+  {
+    "nameTh": "ในเมือง",
+    "districtNameTh": "เมืองยโสธร",
+    "provinceNameTh": "ยโสธร"
+  },
+  {
+    "nameTh": "หนองคู",
+    "districtNameTh": "เมืองยโสธร",
+    "provinceNameTh": "ยโสธร"
+  },
+  {
+    "nameTh": "ปุโรง",
+    "districtNameTh": "กรงปินัง",
+    "provinceNameTh": "ยะลา"
+  },
+  {
+    "nameTh": "สะเตง",
+    "districtNameTh": "เมืองยะลา",
+    "provinceNameTh": "ยะลา"
+  },
+  {
+    "nameTh": "ปะแต",
+    "districtNameTh": "ยะหา",
+    "provinceNameTh": "ยะลา"
+  },
+  {
+    "nameTh": "ยะหา",
+    "districtNameTh": "ยะหา",
+    "provinceNameTh": "ยะลา"
+  },
+  {
+    "nameTh": "โคกล่าม",
+    "districtNameTh": "จตุรพักตรพิมาน",
+    "provinceNameTh": "ร้อยเอ็ด"
+  },
+  {
+    "nameTh": "หัวช้าง",
+    "districtNameTh": "จตุรพักตรพิมาน",
+    "provinceNameTh": "ร้อยเอ็ด"
+  },
+  {
+    "nameTh": "สะอาด",
+    "districtNameTh": "โพธิ์ชัย",
+    "provinceNameTh": "ร้อยเอ็ด"
+  },
+  {
+    "nameTh": "ดงลาน",
+    "districtNameTh": "เมืองร้อยเอ็ด",
+    "provinceNameTh": "ร้อยเอ็ด"
+  },
+  {
+    "nameTh": "เหนือเมือง",
+    "districtNameTh": "เมืองร้อยเอ็ด",
+    "provinceNameTh": "ร้อยเอ็ด"
+  },
+  {
+    "nameTh": "ศรีสมเด็จ",
+    "districtNameTh": "ศรีสมเด็จ",
+    "provinceNameTh": "ร้อยเอ็ด"
+  },
+  {
+    "nameTh": "บ้านดู่",
+    "districtNameTh": "อาจสามารถ",
+    "provinceNameTh": "ร้อยเอ็ด"
+  },
+  {
+    "nameTh": "เขานิเวศน์",
+    "districtNameTh": "เมืองระนอง",
+    "provinceNameTh": "ระนอง"
+  },
+  {
+    "nameTh": "บางนอน",
+    "districtNameTh": "เมืองระนอง",
+    "provinceNameTh": "ระนอง"
+  },
+  {
+    "nameTh": "บางริ้น",
+    "districtNameTh": "เมืองระนอง",
+    "provinceNameTh": "ระนอง"
+  },
+  {
+    "nameTh": "หงาว",
+    "districtNameTh": "เมืองระนอง",
+    "provinceNameTh": "ระนอง"
+  },
+  {
+    "nameTh": "บางพระเหนือ",
+    "districtNameTh": "ละอุ่น",
+    "provinceNameTh": "ระนอง"
+  },
+  {
+    "nameTh": "ชากบก",
+    "districtNameTh": "บ้านค่าย",
+    "provinceNameTh": "ระยอง"
+  },
+  {
+    "nameTh": "ตะพง",
+    "districtNameTh": "เมืองระยอง",
+    "provinceNameTh": "ระยอง"
+  },
+  {
+    "nameTh": "เพ",
+    "districtNameTh": "เมืองระยอง",
+    "provinceNameTh": "ระยอง"
+  },
+  {
+    "nameTh": "มาบตาพุด",
+    "districtNameTh": "เมืองระยอง",
+    "provinceNameTh": "ระยอง"
+  },
+  {
+    "nameTh": "ห้วยโป่ง",
+    "districtNameTh": "เมืองระยอง",
+    "provinceNameTh": "ระยอง"
+  },
+  {
+    "nameTh": "จอมบึง",
+    "districtNameTh": "จอมบึง",
+    "provinceNameTh": "ราชบุรี"
+  },
+  {
+    "nameTh": "ท่านัด",
+    "districtNameTh": "ดำเนินสะดวก",
+    "provinceNameTh": "ราชบุรี"
+  },
+  {
+    "nameTh": "วัดแก้ว",
+    "districtNameTh": "บางแพ",
+    "provinceNameTh": "ราชบุรี"
+  },
+  {
+    "nameTh": "ดอนทราย",
+    "districtNameTh": "ปากท่อ",
+    "provinceNameTh": "ราชบุรี"
+  },
+  {
+    "nameTh": "ห้วยยางโทน",
+    "districtNameTh": "ปากท่อ",
+    "provinceNameTh": "ราชบุรี"
+  },
+  {
+    "nameTh": "อ่างหิน",
+    "districtNameTh": "ปากท่อ",
+    "provinceNameTh": "ราชบุรี"
+  },
+  {
+    "nameTh": "คลองข่อย",
+    "districtNameTh": "โพธาราม",
+    "provinceNameTh": "ราชบุรี"
+  },
+  {
+    "nameTh": "คูบัว",
+    "districtNameTh": "เมืองราชบุรี",
+    "provinceNameTh": "ราชบุรี"
+  },
+  {
+    "nameTh": "หินกอง",
+    "districtNameTh": "เมืองราชบุรี",
+    "provinceNameTh": "ราชบุรี"
+  },
+  {
+    "nameTh": "คลองเกตุ",
+    "districtNameTh": "โคกสำโรง",
+    "provinceNameTh": "ลพบุรี"
+  },
+  {
+    "nameTh": "เขาพระงาม",
+    "districtNameTh": "เมืองลพบุรี",
+    "provinceNameTh": "ลพบุรี"
+  },
+  {
+    "nameTh": "โคกตูม",
+    "districtNameTh": "เมืองลพบุรี",
+    "provinceNameTh": "ลพบุรี"
+  },
+  {
+    "nameTh": "พรหมมาสตร์",
+    "districtNameTh": "เมืองลพบุรี",
+    "provinceNameTh": "ลพบุรี"
+  },
+  {
+    "nameTh": "สี่คลอง",
+    "districtNameTh": "เมืองลพบุรี",
+    "provinceNameTh": "ลพบุรี"
+  },
+  {
+    "nameTh": "ต้นธงชัย",
+    "districtNameTh": "เมืองลำปาง",
+    "provinceNameTh": "ลำปาง"
+  },
+  {
+    "nameTh": "บ้านแลง",
+    "districtNameTh": "เมืองลำปาง",
+    "provinceNameTh": "ลำปาง"
+  },
+  {
+    "nameTh": "บ้านเสด็จ",
+    "districtNameTh": "เมืองลำปาง",
+    "provinceNameTh": "ลำปาง"
+  },
+  {
+    "nameTh": "น้ำโจ้",
+    "districtNameTh": "แม่ทะ",
+    "provinceNameTh": "ลำปาง"
+  },
+  {
+    "nameTh": "แม่ทะ",
+    "districtNameTh": "แม่ทะ",
+    "provinceNameTh": "ลำปาง"
+  },
+  {
+    "nameTh": "แม่เมาะ",
+    "districtNameTh": "แม่เมาะ",
+    "provinceNameTh": "ลำปาง"
+  },
+  {
+    "nameTh": "ห้างฉัตร",
+    "districtNameTh": "ห้างฉัตร",
+    "provinceNameTh": "ลำปาง"
+  },
+  {
+    "nameTh": "บ้านธิ",
+    "districtNameTh": "บ้านธิ",
+    "provinceNameTh": "ลำพูน"
+  },
+  {
+    "nameTh": "ในเมือง",
+    "districtNameTh": "เมืองลำพูน",
+    "provinceNameTh": "ลำพูน"
+  },
+  {
+    "nameTh": "มะเขือแจ้",
+    "districtNameTh": "เมืองลำพูน",
+    "provinceNameTh": "ลำพูน"
+  },
+  {
+    "nameTh": "เวียงยอง",
+    "districtNameTh": "เมืองลำพูน",
+    "provinceNameTh": "ลำพูน"
+  },
+  {
+    "nameTh": "ทากาศ",
+    "districtNameTh": "แม่ทา",
+    "provinceNameTh": "ลำพูน"
+  },
+  {
+    "nameTh": "ทาขุมเงิน",
+    "districtNameTh": "แม่ทา",
+    "provinceNameTh": "ลำพูน"
+  },
+  {
+    "nameTh": "เชียงคาน",
+    "districtNameTh": "เชียงคาน",
+    "provinceNameTh": "เลย"
+  },
+  {
+    "nameTh": "วังยาว",
+    "districtNameTh": "ด่านซ้าย",
+    "provinceNameTh": "เลย"
+  },
+  {
+    "nameTh": "แสงภา",
+    "districtNameTh": "นาแห้ว",
+    "provinceNameTh": "เลย"
+  },
+  {
+    "nameTh": "ศรีฐาน",
+    "districtNameTh": "ภูกระดึง",
+    "provinceNameTh": "เลย"
+  },
+  {
+    "nameTh": "ท่าศาลา",
+    "districtNameTh": "ภูเรือ",
+    "provinceNameTh": "เลย"
+  },
+  {
+    "nameTh": "หนองบัว",
+    "districtNameTh": "ภูเรือ",
+    "provinceNameTh": "เลย"
+  },
+  {
+    "nameTh": "ดู่",
+    "districtNameTh": "กันทรารมย์",
+    "provinceNameTh": "ศรีสะเกษ"
+  },
+  {
+    "nameTh": "อีปาด",
+    "districtNameTh": "กันทรารมย์",
+    "provinceNameTh": "ศรีสะเกษ"
+  },
+  {
+    "nameTh": "ตองปิด",
+    "districtNameTh": "น้ำเกลี้ยง",
+    "provinceNameTh": "ศรีสะเกษ"
+  },
+  {
+    "nameTh": "ซำ",
+    "districtNameTh": "เมืองศรีสะเกษ",
+    "provinceNameTh": "ศรีสะเกษ"
+  },
+  {
+    "nameTh": "บึงบอน",
+    "districtNameTh": "ยางชุมน้อย",
+    "provinceNameTh": "ศรีสะเกษ"
+  },
+  {
+    "nameTh": "ส้มป่อย",
+    "districtNameTh": "ราษีไศล",
+    "provinceNameTh": "ศรีสะเกษ"
+  },
+  {
+    "nameTh": "บ่อแก้ว",
+    "districtNameTh": "วังหิน",
+    "provinceNameTh": "ศรีสะเกษ"
+  },
+  {
+    "nameTh": "ขมิ้น",
+    "districtNameTh": "เมืองสกลนคร",
+    "provinceNameTh": "สกลนคร"
+  },
+  {
+    "nameTh": "งิ้วด่อน",
+    "districtNameTh": "เมืองสกลนคร",
+    "provinceNameTh": "สกลนคร"
+  },
+  {
+    "nameTh": "ดงมะไฟ",
+    "districtNameTh": "เมืองสกลนคร",
+    "provinceNameTh": "สกลนคร"
+  },
+  {
+    "nameTh": "โนนหอม",
+    "districtNameTh": "เมืองสกลนคร",
+    "provinceNameTh": "สกลนคร"
+  },
+  {
+    "nameTh": "ห้วยยาง",
+    "districtNameTh": "เมืองสกลนคร",
+    "provinceNameTh": "สกลนคร"
+  },
+  {
+    "nameTh": "เหล่าปอแดง",
+    "districtNameTh": "เมืองสกลนคร",
+    "provinceNameTh": "สกลนคร"
+  },
+  {
+    "nameTh": "นาทับ",
+    "districtNameTh": "จะนะ",
+    "provinceNameTh": "สงขลา"
+  },
+  {
+    "nameTh": "เกาะแต้ว",
+    "districtNameTh": "เมืองสงขลา",
+    "provinceNameTh": "สงขลา"
+  },
+  {
+    "nameTh": "เขารูปช้าง",
+    "districtNameTh": "เมืองสงขลา",
+    "provinceNameTh": "สงขลา"
+  },
+  {
+    "nameTh": "ชิงโค",
+    "districtNameTh": "สิงหนคร",
+    "provinceNameTh": "สงขลา"
+  },
+  {
+    "nameTh": "ป่าขาด",
+    "districtNameTh": "สิงหนคร",
+    "provinceNameTh": "สงขลา"
+  },
+  {
+    "nameTh": "คูเต่า",
+    "districtNameTh": "หาดใหญ่",
+    "provinceNameTh": "สงขลา"
+  },
+  {
+    "nameTh": "ควนโพธิ์",
+    "districtNameTh": "เมืองสตูล",
+    "provinceNameTh": "สตูล"
+  },
+  {
+    "nameTh": "ตันหยงโป",
+    "districtNameTh": "เมืองสตูล",
+    "provinceNameTh": "สตูล"
+  },
+  {
+    "nameTh": "ปูยู",
+    "districtNameTh": "เมืองสตูล",
+    "provinceNameTh": "สตูล"
+  },
+  {
+    "nameTh": "พิมาน",
+    "districtNameTh": "เมืองสตูล",
+    "provinceNameTh": "สตูล"
+  },
+  {
+    "nameTh": "บางปลา",
+    "districtNameTh": "บางพลี",
+    "provinceNameTh": "สมุทรปราการ"
+  },
+  {
+    "nameTh": "แหลมฟ้าผ่า",
+    "districtNameTh": "พระสมุทรเจดีย์",
+    "provinceNameTh": "สมุทรปราการ"
+  },
+  {
+    "nameTh": "บางปู",
+    "districtNameTh": "เมืองสมุทรปราการ",
+    "provinceNameTh": "สมุทรปราการ"
+  },
+  {
+    "nameTh": "ปากน้ำ",
+    "districtNameTh": "เมืองสมุทรปราการ",
+    "provinceNameTh": "สมุทรปราการ"
+  },
+  {
+    "nameTh": "คลองโคน",
+    "districtNameTh": "เมืองสมุทรสงคราม",
+    "provinceNameTh": "สมุทรสงคราม"
+  },
+  {
+    "nameTh": "บางขันแตก",
+    "districtNameTh": "เมืองสมุทรสงคราม",
+    "provinceNameTh": "สมุทรสงคราม"
+  },
+  {
+    "nameTh": "ลาดใหญ่",
+    "districtNameTh": "เมืองสมุทรสงคราม",
+    "provinceNameTh": "สมุทรสงคราม"
+  },
+  {
+    "nameTh": "ยี่สาร",
+    "districtNameTh": "อัมพวา",
+    "provinceNameTh": "สมุทรสงคราม"
+  },
+  {
+    "nameTh": "โคกขาม",
+    "districtNameTh": "เมืองสมุทรสาคร",
+    "provinceNameTh": "สมุทรสาคร"
+  },
+  {
+    "nameTh": "บางกระเจ้า",
+    "districtNameTh": "เมืองสมุทรสาคร",
+    "provinceNameTh": "สมุทรสาคร"
+  },
+  {
+    "nameTh": "บางหญ้าแพรก",
+    "districtNameTh": "เมืองสมุทรสาคร",
+    "provinceNameTh": "สมุทรสาคร"
+  },
+  {
+    "nameTh": "พันท้ายนรสิงห์",
+    "districtNameTh": "เมืองสมุทรสาคร",
+    "provinceNameTh": "สมุทรสาคร"
+  },
+  {
+    "nameTh": "มหาชัย",
+    "districtNameTh": "เมืองสมุทรสาคร",
+    "provinceNameTh": "สมุทรสาคร"
+  },
+  {
+    "nameTh": "ท่าเกษม",
+    "districtNameTh": "เมืองสระแก้ว",
+    "provinceNameTh": "สระแก้ว"
+  },
+  {
+    "nameTh": "สระแก้ว",
+    "districtNameTh": "เมืองสระแก้ว",
+    "provinceNameTh": "สระแก้ว"
+  },
+  {
+    "nameTh": "สระขวัญ",
+    "districtNameTh": "เมืองสระแก้ว",
+    "provinceNameTh": "สระแก้ว"
+  },
+  {
+    "nameTh": "หนองบอน",
+    "districtNameTh": "เมืองสระแก้ว",
+    "provinceNameTh": "สระแก้ว"
+  },
+  {
+    "nameTh": "โนนหมากเค็ง",
+    "districtNameTh": "วัฒนานคร",
+    "provinceNameTh": "สระแก้ว"
+  },
+  {
+    "nameTh": "หนองตะเคียนบอน",
+    "districtNameTh": "วัฒนานคร",
+    "provinceNameTh": "สระแก้ว"
+  },
+  {
+    "nameTh": "ชะอม",
+    "districtNameTh": "แก่งคอย",
+    "provinceNameTh": "สระบุรี"
+  },
+  {
+    "nameTh": "พุกร่าง",
+    "districtNameTh": "พระพุทธบาท",
+    "provinceNameTh": "สระบุรี"
+  },
+  {
+    "nameTh": "กุดนกเปล้า",
+    "districtNameTh": "เมืองสระบุรี",
+    "provinceNameTh": "สระบุรี"
+  },
+  {
+    "nameTh": "บ้านยาง",
+    "districtNameTh": "เสาไห้",
+    "provinceNameTh": "สระบุรี"
+  },
+  {
+    "nameTh": "เสาไห้",
+    "districtNameTh": "เสาไห้",
+    "provinceNameTh": "สระบุรี"
+  },
+  {
+    "nameTh": "หัวปลวก",
+    "districtNameTh": "เสาไห้",
+    "provinceNameTh": "สระบุรี"
+  },
+  {
+    "nameTh": "โพทะเล",
+    "districtNameTh": "ค่ายบางระจัน",
+    "provinceNameTh": "สิงห์บุรี"
+  },
+  {
+    "nameTh": "โพสังโฆ",
+    "districtNameTh": "ค่ายบางระจัน",
+    "provinceNameTh": "สิงห์บุรี"
+  },
+  {
+    "nameTh": "แม่ลา",
+    "districtNameTh": "บางระจัน",
+    "provinceNameTh": "สิงห์บุรี"
+  },
+  {
+    "nameTh": "หัวไผ่",
+    "districtNameTh": "เมืองสิงห์บุรี",
+    "provinceNameTh": "สิงห์บุรี"
+  },
+  {
+    "nameTh": "ประศุก",
+    "districtNameTh": "อินทร์บุรี",
+    "provinceNameTh": "สิงห์บุรี"
+  },
+  {
+    "nameTh": "กง",
+    "districtNameTh": "กงไกรลาศ",
+    "provinceNameTh": "สุโขทัย"
+  },
+  {
+    "nameTh": "ไกรใน",
+    "districtNameTh": "กงไกรลาศ",
+    "provinceNameTh": "สุโขทัย"
+  },
+  {
+    "nameTh": "ป่าแฝก",
+    "districtNameTh": "กงไกรลาศ",
+    "provinceNameTh": "สุโขทัย"
+  },
+  {
+    "nameTh": "บ้านป้อม",
+    "districtNameTh": "คีรีมาศ",
+    "provinceNameTh": "สุโขทัย"
+  },
+  {
+    "nameTh": "บ้านสวน",
+    "districtNameTh": "เมืองสุโขทัย",
+    "provinceNameTh": "สุโขทัย"
+  },
+  {
+    "nameTh": "เมืองเก่า",
+    "districtNameTh": "เมืองสุโขทัย",
+    "provinceNameTh": "สุโขทัย"
+  },
+  {
+    "nameTh": "วังทองแดง",
+    "districtNameTh": "เมืองสุโขทัย",
+    "provinceNameTh": "สุโขทัย"
+  },
+  {
+    "nameTh": "วังใหญ่",
+    "districtNameTh": "ศรีสำโรง",
+    "provinceNameTh": "สุโขทัย"
+  },
+  {
+    "nameTh": "โคกคราม",
+    "districtNameTh": "บางปลาม้า",
+    "provinceNameTh": "สุพรรณบุรี"
+  },
+  {
+    "nameTh": "บ้านแหลม",
+    "districtNameTh": "บางปลาม้า",
+    "provinceNameTh": "สุพรรณบุรี"
+  },
+  {
+    "nameTh": "สนามคลี",
+    "districtNameTh": "เมืองสุพรรณบุรี",
+    "provinceNameTh": "สุพรรณบุรี"
+  },
+  {
+    "nameTh": "สนามชัย",
+    "districtNameTh": "เมืองสุพรรณบุรี",
+    "provinceNameTh": "สุพรรณบุรี"
+  },
+  {
+    "nameTh": "สระแก้ว",
+    "districtNameTh": "เมืองสุพรรณบุรี",
+    "provinceNameTh": "สุพรรณบุรี"
+  },
+  {
+    "nameTh": "วังยาง",
+    "districtNameTh": "ศรีประจันต์",
+    "provinceNameTh": "สุพรรณบุรี"
+  },
+  {
+    "nameTh": "เกาะเต่า",
+    "districtNameTh": "เกาะพะงัน",
+    "provinceNameTh": "สุราษฎร์ธานี"
+  },
+  {
+    "nameTh": "เกาะพะงัน",
+    "districtNameTh": "เกาะพะงัน",
+    "provinceNameTh": "สุราษฎร์ธานี"
+  },
+  {
+    "nameTh": "บ่อผุด",
+    "districtNameTh": "เกาะสมุย",
+    "provinceNameTh": "สุราษฎร์ธานี"
+  },
+  {
+    "nameTh": "เขาพัง",
+    "districtNameTh": "บ้านตาขุน",
+    "provinceNameTh": "สุราษฎร์ธานี"
+  },
+  {
+    "nameTh": "คลองศก",
+    "districtNameTh": "พนม",
+    "provinceNameTh": "สุราษฎร์ธานี"
+  },
+  {
+    "nameTh": "บ้านแร่",
+    "districtNameTh": "เขวาสินรินทร์",
+    "provinceNameTh": "สุรินทร์"
+  },
+  {
+    "nameTh": "ทมอ",
+    "districtNameTh": "ปราสาท",
+    "provinceNameTh": "สุรินทร์"
+  },
+  {
+    "nameTh": "คอโค",
+    "districtNameTh": "เมืองสุรินทร์",
+    "provinceNameTh": "สุรินทร์"
+  },
+  {
+    "nameTh": "เฉนียง",
+    "districtNameTh": "เมืองสุรินทร์",
+    "provinceNameTh": "สุรินทร์"
+  },
+  {
+    "nameTh": "ท่าสว่าง",
+    "districtNameTh": "เมืองสุรินทร์",
+    "provinceNameTh": "สุรินทร์"
+  },
+  {
+    "nameTh": "สลักได",
+    "districtNameTh": "เมืองสุรินทร์",
+    "provinceNameTh": "สุรินทร์"
+  },
+  {
+    "nameTh": "สวาย",
+    "districtNameTh": "เมืองสุรินทร์",
+    "provinceNameTh": "สุรินทร์"
+  },
+  {
+    "nameTh": "หนองอียอ",
+    "districtNameTh": "สนม",
+    "provinceNameTh": "สุรินทร์"
+  },
+  {
+    "nameTh": "ค่ายบกหวาน",
+    "districtNameTh": "เมืองหนองคาย",
+    "provinceNameTh": "หนองคาย"
+  },
+  {
+    "nameTh": "โพธิ์ชัย",
+    "districtNameTh": "เมืองหนองคาย",
+    "provinceNameTh": "หนองคาย"
+  },
+  {
+    "nameTh": "หินโงม",
+    "districtNameTh": "เมืองหนองคาย",
+    "provinceNameTh": "หนองคาย"
+  },
+  {
+    "nameTh": "นาคำไฮ",
+    "districtNameTh": "เมืองหนองบัวลำภู",
+    "provinceNameTh": "หนองบัวลำภู"
+  },
+  {
+    "nameTh": "โพธิ์ชัย",
+    "districtNameTh": "เมืองหนองบัวลำภู",
+    "provinceNameTh": "หนองบัวลำภู"
+  },
+  {
+    "nameTh": "หนองบัว",
+    "districtNameTh": "เมืองหนองบัวลำภู",
+    "provinceNameTh": "หนองบัวลำภู"
+  },
+  {
+    "nameTh": "หัวนา",
+    "districtNameTh": "เมืองหนองบัวลำภู",
+    "provinceNameTh": "หนองบัวลำภู"
+  },
+  {
+    "nameTh": "โนนม่วง",
+    "districtNameTh": "ศรีบุญเรือง",
+    "provinceNameTh": "หนองบัวลำภู"
+  },
+  {
+    "nameTh": "ไชยภูมิ",
+    "districtNameTh": "ไชโย",
+    "provinceNameTh": "อ่างทอง"
+  },
+  {
+    "nameTh": "เอกราช",
+    "districtNameTh": "ป่าโมก",
+    "provinceNameTh": "อ่างทอง"
+  },
+  {
+    "nameTh": "หนองแม่ไก่",
+    "districtNameTh": "โพธิ์ทอง",
+    "provinceNameTh": "อ่างทอง"
+  },
+  {
+    "nameTh": "ม่วงเตี้ย",
+    "districtNameTh": "วิเศษชัยชาญ",
+    "provinceNameTh": "อ่างทอง"
+  },
+  {
+    "nameTh": "ไก่คำ",
+    "districtNameTh": "เมืองอำนาจเจริญ",
+    "provinceNameTh": "อำนาจเจริญ"
+  },
+  {
+    "nameTh": "โนนหนามแท่ง",
+    "districtNameTh": "เมืองอำนาจเจริญ",
+    "provinceNameTh": "อำนาจเจริญ"
+  },
+  {
+    "nameTh": "บุ่ง",
+    "districtNameTh": "เมืองอำนาจเจริญ",
+    "provinceNameTh": "อำนาจเจริญ"
+  },
+  {
+    "nameTh": "สร้างนกทา",
+    "districtNameTh": "เมืองอำนาจเจริญ",
+    "provinceNameTh": "อำนาจเจริญ"
+  },
+  {
+    "nameTh": "เหล่าพรวน",
+    "districtNameTh": "เมืองอำนาจเจริญ",
+    "provinceNameTh": "อำนาจเจริญ"
+  },
+  {
+    "nameTh": "โคกกลาง",
+    "districtNameTh": "ลืออำนาจ",
+    "provinceNameTh": "อำนาจเจริญ"
+  },
+  {
+    "nameTh": "คำพระ",
+    "districtNameTh": "หัวตะพาน",
+    "provinceNameTh": "อำนาจเจริญ"
+  },
+  {
+    "nameTh": "เชียงเพ็ง",
+    "districtNameTh": "กุดจับ",
+    "provinceNameTh": "อุดรธานี"
+  },
+  {
+    "nameTh": "เขือน้ำ",
+    "districtNameTh": "บ้านผือ",
+    "provinceNameTh": "อุดรธานี"
+  },
+  {
+    "nameTh": "เชียงหวาง",
+    "districtNameTh": "เพ็ญ",
+    "provinceNameTh": "อุดรธานี"
+  },
+  {
+    "nameTh": "สร้างแป้น",
+    "districtNameTh": "เพ็ญ",
+    "provinceNameTh": "อุดรธานี"
+  },
+  {
+    "nameTh": "เชียงยืน",
+    "districtNameTh": "เมืองอุดรธานี",
+    "provinceNameTh": "อุดรธานี"
+  },
+  {
+    "nameTh": "บ้านขาว",
+    "districtNameTh": "เมืองอุดรธานี",
+    "provinceNameTh": "อุดรธานี"
+  },
+  {
+    "nameTh": "สามพร้าว",
+    "districtNameTh": "เมืองอุดรธานี",
+    "provinceNameTh": "อุดรธานี"
+  },
+  {
+    "nameTh": "หนองบัวบาน",
+    "districtNameTh": "หนองวัวซอ",
+    "provinceNameTh": "อุดรธานี"
+  },
+  {
+    "nameTh": "หมากหญ้า",
+    "districtNameTh": "หนองวัวซอ",
+    "provinceNameTh": "อุดรธานี"
+  },
+  {
+    "nameTh": "ขุนฝาง",
+    "districtNameTh": "เมืองอุตรดิตถ์",
+    "provinceNameTh": "อุตรดิตถ์"
+  },
+  {
+    "nameTh": "ท่าอิฐ",
+    "districtNameTh": "เมืองอุตรดิตถ์",
+    "provinceNameTh": "อุตรดิตถ์"
+  },
+  {
+    "nameTh": "บ้านด่านนาขาม",
+    "districtNameTh": "เมืองอุตรดิตถ์",
+    "provinceNameTh": "อุตรดิตถ์"
+  },
+  {
+    "nameTh": "ป่าเซ่า",
+    "districtNameTh": "เมืองอุตรดิตถ์",
+    "provinceNameTh": "อุตรดิตถ์"
+  },
+  {
+    "nameTh": "วังกะพี้",
+    "districtNameTh": "เมืองอุตรดิตถ์",
+    "provinceNameTh": "อุตรดิตถ์"
+  },
+  {
+    "nameTh": "ทุ่งยั้ง",
+    "districtNameTh": "ลับแล",
+    "provinceNameTh": "อุตรดิตถ์"
+  },
+  {
+    "nameTh": "โคกหม้อ",
+    "districtNameTh": "ทัพทัน",
+    "provinceNameTh": "อุทัยธานี"
+  },
+  {
+    "nameTh": "คอกควาย",
+    "districtNameTh": "บ้านไร่",
+    "provinceNameTh": "อุทัยธานี"
+  },
+  {
+    "nameTh": "สะแกกรัง",
+    "districtNameTh": "เมืองอุทัยธานี",
+    "provinceNameTh": "อุทัยธานี"
+  },
+  {
+    "nameTh": "หนองขาหย่าง",
+    "districtNameTh": "หนองขาหย่าง",
+    "provinceNameTh": "อุทัยธานี"
+  },
+  {
+    "nameTh": "หนองฉาง",
+    "districtNameTh": "หนองฉาง",
+    "provinceNameTh": "อุทัยธานี"
+  },
+  {
+    "nameTh": "หนองนางนวล",
+    "districtNameTh": "หนองฉาง",
+    "provinceNameTh": "อุทัยธานี"
+  },
+  {
+    "nameTh": "ชีทวน",
+    "districtNameTh": "เขื่องใน",
+    "provinceNameTh": "อุบลราชธานี"
+  },
+  {
+    "nameTh": "กระโสบ",
+    "districtNameTh": "เมืองอุบลราชธานี",
+    "provinceNameTh": "อุบลราชธานี"
+  },
+  {
+    "nameTh": "แจระแม",
+    "districtNameTh": "เมืองอุบลราชธานี",
+    "provinceNameTh": "อุบลราชธานี"
+  },
+  {
+    "nameTh": "ท่าลาด",
+    "districtNameTh": "วารินชำราบ",
+    "provinceNameTh": "อุบลราชธานี"
+  },
+  {
+    "nameTh": "บุ่งไหม",
+    "districtNameTh": "วารินชำราบ",
+    "provinceNameTh": "อุบลราชธานี"
+  },
+  {
+    "nameTh": "หนองบก",
+    "districtNameTh": "เหล่าเสือโก้ก",
+    "provinceNameTh": "อุบลราชธานี"
+  }
+]

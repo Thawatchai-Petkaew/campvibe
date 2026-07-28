@@ -706,11 +706,16 @@ const jsonSchema = {
       type: 'string',
       description:
         'A Thai ตำบล (sub-district) name (Thai or English) — the MOST specific place filter, for when the camper names a sub-district explicitly (rare in casual chat, but exact when given). Optionally combine with `district`/`province` to disambiguate a sub-district name that repeats across districts. ' +
-        // CAM-596 — same reconciliation as `district` above; unlike
-        // `district`, no server-side pre-pass hint exists yet for a
-        // sub-district (see CAM-596 story.md "Out of scope") — so this
-        // guidance applies to every turn, not only your own initiative.
-        'Only set this when the camper actually named a sub-district you are confident is real — do NOT guess one; a value that fails to resolve returns zero results rather than falling back to `district`/`province`.',
+        // CAM-600 — same reconciliation CAM-596 gave `district` above: a
+        // deterministic server-side pre-pass now exists for a CURATED,
+        // camp-holding shortlist of sub-districts (place-resolver.ts's
+        // `detectSubDistrict`) and pairs it with a MANDATORY `district`
+        // hint — the first sentence below governs that instructed turn; the
+        // second (CAM-596's original wording, unchanged) still governs a
+        // sub-district name you decide to set on your OWN initiative, with
+        // no such instruction present.
+        'If this turn\'s own instructions already tell you to set `subDistrict` (and `district`) to specific values, that is a confirmed match and you MUST follow both. ' +
+        'On your OWN initiative (no instruction telling you to set this), only set this when the camper actually named a sub-district you are confident is real — do NOT guess one; a value that fails to resolve returns zero results rather than falling back to `district`/`province`.',
     },
     type: {
       type: 'string',
