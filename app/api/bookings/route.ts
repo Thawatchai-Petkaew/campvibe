@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { bookingSchema, type BookingInput } from '@/lib/validations/booking';
 import { requireAuth } from '@/lib/auth-utils';
 import { apiError, apiSuccess, calculateNights } from '@/lib/api-utils';
-import { checkDateAvailabilityInTx } from '@/lib/campsite-availability';
+import { checkDateAvailabilityInTx, isSpotBookedForStay } from '@/lib/campsite-availability';
 import { serializeDecimals } from '@/lib/serialize';
 import { buildBookingPriceArgs, computeBookingPrice } from '@/lib/booking-pricing';
 import { checkRateLimit } from '@/lib/rate-limit';
@@ -55,18 +55,20 @@ async function withBookingTransaction(
     return await prisma.$transaction(
       async (tx) => {
         // --- Check 1: Spot overlap (only if spotId provided) ---
+        // CAM-665 (ADR-012 §4 — no forked capacity path): this used to run its
+        // own inline query here, independent of the capacity module every
+        // other reader (GET /api/campsites/[id]/availability?spotId=) now
+        // shares. Delegated to isSpotBookedForStay so the write gate and the
+        // read-side can never silently disagree (the CAM-190/CAM-267/CAM-400
+        // failure class) — same predicate, moved verbatim, not rewritten.
         if (data.spotId) {
-          const overlap = await tx.booking.findFirst({
-            where: {
-              campSiteId: data.campSiteId,
-              spotId: data.spotId,
-              status: { not: 'CANCELLED' },
-              AND: [
-                { checkInDate: { lt: checkOut } },
-                { checkOutDate: { gt: checkIn } },
-              ],
-            },
-          });
+          const overlap = await isSpotBookedForStay(
+            tx,
+            data.campSiteId,
+            data.spotId,
+            checkIn,
+            checkOut
+          );
           if (overlap) {
             return {
               type: 'conflict' as const,
