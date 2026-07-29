@@ -255,7 +255,34 @@ describe("buildCampSiteWhere — guest capacity filter (CAM-77 DEFECT-01)", () =
     });
 
     it("capacity filter combines with price range filter", () => {
+      // CAM-655 (ADR-014 §6) — guests=8 is a KNOWN party size (>1), so the
+      // price band is now translated per pricing unit instead of landing on
+      // a bare where.priceLow (see __tests__/cam-655-price-filter-per-unit.test.ts
+      // for the full per-unit behavior). The capacity clause still coexists
+      // in where.AND alongside the price-band clause — that non-interference
+      // is what this test guards; it does not assert byte-identical to
+      // pre-CAM-655 (guests=1/absent already covers that case).
       const where = buildCampSiteWhere({ guests: "8", min: "500", max: "2000" });
+      const capacityClause = findCapacityOrClause(where);
+      expect(capacityClause).toBeDefined();
+      expect(where.priceLow).toBeUndefined();
+
+      const andArray = Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : [];
+      const priceClause = andArray.find(
+        (c) =>
+          typeof c === "object" &&
+          c !== null &&
+          "OR" in c &&
+          JSON.stringify(c).includes("priceUnit")
+      );
+      expect(priceClause).toBeDefined();
+    });
+
+    it("capacity filter combines with price range filter — guests=1 keeps the price band byte-identical (bare where.priceLow), even though the capacity clause still applies", () => {
+      // guests=1 satisfies the CAPACITY filter's own guard (guestsNum > 0) but
+      // NOT the price-band's party-size guard (guestsNum > 1, division by 1
+      // is a no-op) — the two guards are intentionally different thresholds.
+      const where = buildCampSiteWhere({ guests: "1", min: "500", max: "2000" });
       const capacityClause = findCapacityOrClause(where);
       expect(capacityClause).toBeDefined();
       expect(where.priceLow).toMatchObject({ gte: 500, lte: 2000 });

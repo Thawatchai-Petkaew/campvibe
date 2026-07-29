@@ -78,6 +78,22 @@ export type CampSiteFilterParams = TaxonomyFilterFields & {
   excludeIds?: string[];
 };
 
+/**
+ * CAM-655 — parse a query-string price bound into a Prisma.Decimal without
+ * ever throwing on garbage client input (`min`/`max` are unvalidated strings
+ * at the zod boundary, see lib/validations/catalog-cursor.ts). An empty/
+ * unparseable value resolves to `undefined` ("no bound"), never a thrown
+ * DecimalError and never a NaN threshold reaching Prisma.
+ */
+function toDecimalOrUndefined(value: string | undefined): Prisma.Decimal | undefined {
+  if (!value) return undefined;
+  try {
+    return new Prisma.Decimal(value);
+  } catch {
+    return undefined;
+  }
+}
+
 // Shared helper to build Prisma where-clause for camp site listing & counts
 export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSiteWhereInput {
   // NOTE: startDate/endDate are still part of CampSiteFilterParams (the shared
@@ -160,11 +176,56 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
     if (district) where.location.district = district;
   }
 
-  // 4. Price Filter
+  // Shared party-size parse (CAM-655 price band + the pre-existing guest-capacity
+  // filter below both need it). Guard: only a positive integer counts; 0 / NaN /
+  // missing / garbage all resolve to "no party size known" for both consumers.
+  const guestsNum = guests !== undefined ? parseInt(guests, 10) : NaN;
+  const hasPartySize = !isNaN(guestsNum) && guestsNum > 1;
+
+  // 4. Price Filter — CAM-655 (ADR-014 §6): the camper's threshold means
+  // "what I'd pay for MY TRIP", not "the number on the card". A camp billed
+  // PER_PERSON must have its stored priceLow compared against the threshold
+  // DIVIDED by party size (predicting the per-trip total), while a PER_SITE
+  // camp compares the threshold directly — so the band is translated PER
+  // PRICING UNIT rather than translating the camp's stored price.
+  //
+  // When `guests` is absent, 0, 1, or garbage (`hasPartySize` false) this is
+  // BYTE-IDENTICAL to before this story: `where.priceLow = {gte,lte}` directly
+  // (pinned by __tests__/cam-463-qa-partition-audit-and-boundary.test.ts and
+  // __tests__/campsite-capacity-filter.test.ts — both assert this exact shape
+  // with no `guests` supplied). Only when we actually know the party size
+  // (guestsNum > 1) does the OR-per-unit translation below engage.
   if (min || max) {
-    where.priceLow = {};
-    if (min) where.priceLow.gte = parseFloat(min);
-    if (max) where.priceLow.lte = parseFloat(max);
+    if (hasPartySize) {
+      const partySize = new Prisma.Decimal(guestsNum);
+      const minDec = toDecimalOrUndefined(min);
+      const maxDec = toDecimalOrUndefined(max);
+
+      const perSitePrice: { gte?: Prisma.Decimal; lte?: Prisma.Decimal } = {};
+      const perPersonPrice: { gte?: Prisma.Decimal; lte?: Prisma.Decimal } = {};
+      if (minDec) {
+        perSitePrice.gte = minDec;
+        perPersonPrice.gte = minDec.div(partySize); // Decimal arithmetic (ADR-002) — never JS float
+      }
+      if (maxDec) {
+        perSitePrice.lte = maxDec;
+        perPersonPrice.lte = maxDec.div(partySize);
+      }
+
+      if (!where.AND) where.AND = [];
+      const priceAndArray = Array.isArray(where.AND) ? where.AND : [where.AND];
+      priceAndArray.push({
+        OR: [
+          { priceUnit: 'PER_SITE', priceLow: perSitePrice },
+          { priceUnit: 'PER_PERSON', priceLow: perPersonPrice },
+        ],
+      } as Prisma.CampSiteWhereInput);
+      where.AND = priceAndArray;
+    } else {
+      where.priceLow = {};
+      if (min) where.priceLow.gte = parseFloat(min);
+      if (max) where.priceLow.lte = parseFloat(max);
+    }
   }
 
   // 5. Guest-capacity filter — only include camps that can host at least N guests.
@@ -175,7 +236,6 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
   //
   // SQL emitted: WHERE (maxGuestsPerDay >= N OR maxGuestsPerDay IS NULL)
   // We push into where.AND so we never clobber where.OR (used by keyword search, step 2).
-  const guestsNum = guests !== undefined ? parseInt(guests, 10) : NaN;
   if (!isNaN(guestsNum) && guestsNum > 0) {
     if (!where.AND) where.AND = [];
     const andArray = Array.isArray(where.AND) ? where.AND : [where.AND];
