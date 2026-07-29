@@ -191,6 +191,19 @@ export const FACILITY_ICON_MAP: Record<string, LucideIcon> = {
   // above — no new import. (CAM-538 dropped the sibling HCMP member
   // entirely — no icon entry needed.)
   TSIT: Tent,
+  // CAM-664 (S2) — `Spot.viewType`, a real Prisma ENUM (not a MasterData
+  // row, so it never appeared in prisma/seed.ts's masterData array or the
+  // CAM-525 coverage sweep). Keyed by the enum's own literal values
+  // (GENERAL/RIVER/MOUNTAIN/LAKE/FOREST/BEACH) — a DIFFERENT key space from
+  // the 4-letter Terrain MasterData codes above (RIVE/FORE/BEAC/MTNS), so
+  // there is no collision except LAKE, which already exists above (the
+  // Terrain code IS the full word) and is intentionally left as-is. All 4
+  // new icons below reuse an already-imported glyph — no new import.
+  GENERAL: Eye,
+  RIVER: Waves,
+  MOUNTAIN: Mountain,
+  FOREST: Trees,
+  BEACH: Waves,
 };
 
 /** Falls back to `ShieldCheck` for any code not in the map (a generic "amenity" glyph). */

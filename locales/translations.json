@@ -169,6 +169,8 @@
             "noImageAlt": "No camp photo available",
             "spotsHeading": "Camping spots at this camp",
             "spotCapacityLabel": "Fits {N} campers",
+            "spotStripLabel": "Choose a camping spot",
+            "spotMoreFacilitiesAriaLabel": "{N} more facilities",
             "cancellationPolicy": {
                 "title": "Cancellation Policy",
                 "notSet": "Cancellation policy not specified",
@@ -1322,6 +1324,8 @@
             "noImageAlt": "ไม่มีรูปภาพแคมป์",
             "spotsHeading": "จุดกางเต็นท์ในแคมป์นี้",
             "spotCapacityLabel": "รองรับได้ {N} คน",
+            "spotStripLabel": "เลือกจุดกางเต็นท์",
+            "spotMoreFacilitiesAriaLabel": "อีก {N} สิ่งอำนวยความสะดวก",
             "cancellationPolicy": {
                 "title": "นโยบายการยกเลิก",
                 "notSet": "ยังไม่ระบุนโยบายการยกเลิก",

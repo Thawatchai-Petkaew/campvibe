@@ -74,35 +74,44 @@ describe('BR-3 dynamic-import boundary — PanoramaViewer is lazy, never eager (
 });
 
 // ---------------------------------------------------------------------------
-// BR-1 — kind branch on the CAM-353 spot gallery thumbnail.
+// BR-1 — kind branch, now on the CAM-664 spot viewport's single display image
+// (was per-photo thumbnails in a `<ul>`; CAM-664 replaced that DOM with one
+// fixed-height viewport — components/spot-viewer/SpotViewport.tsx +
+// SpotViewer.tsx). Updated to the new canonical structure per the
+// CAM-224/226/229 precedent (.claude/rules/qa.md): a legitimate refactor
+// updates the pinned assertion, it is not left red.
 // ---------------------------------------------------------------------------
-describe('BR-1 kind branch — PANORAMA opens the pan viewer, PHOTO keeps the flat lightbox (CAM-354)', () => {
-  it('[AC-1, EC-1] a PANORAMA thumbnail click calls openPanorama with the image url + alt + trigger element', () => {
-    expect(detailSrc).toContain('if (img.kind === "PANORAMA") {');
-    expect(detailSrc).toContain('openPanorama(img.url, img.alt || t.panorama.title, e.currentTarget);');
+describe('BR-1 kind branch — PANORAMA opens the pan viewer, PHOTO keeps the flat lightbox (CAM-354, updated CAM-664)', () => {
+  const spotViewerSrc = src('components/spot-viewer/SpotViewer.tsx');
+  const spotViewportSrc = src('components/spot-viewer/SpotViewport.tsx');
+
+  it('[AC-1, EC-1] a PANORAMA display image click calls openPanorama with the image url + alt + trigger element', () => {
+    expect(spotViewerSrc).toContain('if (displayImage.kind === "PANORAMA") {');
+    expect(spotViewerSrc).toContain('onOpenPanorama(displayImage.url, displayImage.alt || t.panorama.title, e.currentTarget);');
   });
 
-  it('[AC-2, EC-2 regression] a non-PANORAMA (PHOTO/default) thumbnail still calls openSpotGallery unchanged', () => {
-    expect(detailSrc).toMatch(/\}\s*else\s*\{\s*openSpotGallery\(spotImages, i\);\s*\}/);
+  it('[AC-2, EC-2 regression] a non-PANORAMA (PHOTO/default) display image still calls openSpotGallery (via the onOpenGallery prop) unchanged', () => {
+    expect(spotViewerSrc).toContain('onOpenGallery(urls, index);');
+    // CampgroundDetailClient still hands its own unchanged openSpotGallery down as this prop.
+    expect(detailSrc).toContain('onOpenGallery={openSpotGallery}');
   });
 
-  it('[AC-3] a PANORAMA thumbnail carries the pan aria-label, not the generic "view photo n" label', () => {
-    expect(detailSrc).toContain('? t.panorama.openLabel');
-    expect(detailSrc).toContain(': t.gallery.viewImage.replace("{n}", String(i + 1))');
+  it('[AC-3] a PANORAMA viewport carries the pan aria-label, not the generic gallery-open label', () => {
+    expect(spotViewportSrc).toContain('displayImage?.kind === "PANORAMA" ? t.panorama.openLabel : t.gallery.openGallery');
   });
 
   it('[AC-3] the badge + a lucide pan icon (MoveHorizontal) render together, never color alone', () => {
-    const startIdx = detailSrc.lastIndexOf('img.kind === "PANORAMA" && (');
+    const startIdx = spotViewportSrc.indexOf('displayImage?.kind === "PANORAMA" && (');
     expect(startIdx).toBeGreaterThan(-1);
-    const block = detailSrc.slice(startIdx, startIdx + 900);
+    const block = spotViewportSrc.slice(startIdx, startIdx + 400);
     expect(block).toContain('<MoveHorizontal aria-hidden="true" />');
     expect(block).toContain('{t.spotManagement.panoramaBadge}');
-    expect(block).toMatch(/<Badge\s+variant="overlay"/);
+    expect(block).toMatch(/<Badge\s*\n?\s*variant="overlay"/);
   });
 
   it('[import] MoveHorizontal is imported from lucide-react (never an emoji)', () => {
-    expect(detailSrc).toMatch(/from "lucide-react"/);
-    const iconImportLine = detailSrc.split('\n').find((l) => l.includes('MoveHorizontal') && l.includes('lucide-react'));
+    expect(spotViewportSrc).toMatch(/from "lucide-react"/);
+    const iconImportLine = spotViewportSrc.split('\n').find((l) => l.includes('MoveHorizontal') && l.includes('lucide-react'));
     expect(iconImportLine).toBeDefined();
   });
 

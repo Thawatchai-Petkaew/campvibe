@@ -143,9 +143,22 @@ describe('BR-1 render gate — useSpotView AND >=1 live spot (AC-1, AC-5, EC-2, 
 // ---------------------------------------------------------------------------
 // components/CampgroundDetailClient.tsx — source-inspection
 // (mirrors f2/f3-*-surface.test.ts + cam-268's precedent for this exact file)
+//
+// CAM-664 (S2) restructured the spot section's DOM: the `<ul>` of
+// full-width per-spot cards is gone, replaced by one fixed-height viewport
+// + a selectable strip (components/spot-viewer/*). These assertions were
+// updated to the NEW canonical structure (still asserting the same ACs)
+// per the CAM-224/226/229 precedent: a legitimate refactor that moves
+// pinned markup means the source-inspection test is updated to the new
+// shape, not left red (.claude/rules/qa.md).
 // ---------------------------------------------------------------------------
-describe('CampgroundDetailClient.tsx — spot section source-inspection (CAM-353)', () => {
+describe('CampgroundDetailClient.tsx — spot section source-inspection (CAM-353, updated CAM-664)', () => {
   const detailSrc = src('components/CampgroundDetailClient.tsx');
+  const spotStripSrc = src('components/spot-viewer/SpotStrip.tsx');
+  const spotDetailLineSrc = src('components/spot-viewer/SpotDetailLine.tsx');
+  const spotViewportSrc = src('components/spot-viewer/SpotViewport.tsx');
+  const spotViewerSrc = src('components/spot-viewer/SpotViewer.tsx');
+  const spotDisplayImageSrc = src('lib/spot-display-image.ts');
 
   it('[AC-1] renders the section heading key + a testid on the section', () => {
     expect(detailSrc).toContain('{t.campground.spotsHeading}');
@@ -158,59 +171,57 @@ describe('CampgroundDetailClient.tsx — spot section source-inspection (CAM-353
     expect(detailSrc).not.toMatch(/showSpotSection\s*\?\s*[\s\S]{0,40}:\s*</);
   });
 
-  it('[AC-2] each spot row reads name, zone, and price from the spot itself', () => {
-    expect(detailSrc).toContain('{spot.name}');
-    expect(detailSrc).toContain('{spot.zone}');
-    expect(detailSrc).toMatch(/formatCurrency\(Number\(spot\.pricePerNight\)\)/);
+  it('[AC-2] the strip card reads name, zone, and price from the spot itself', () => {
+    expect(spotStripSrc).toContain('{spot.name}');
+    expect(spotStripSrc).toContain('{spot.zone}');
+    expect(spotStripSrc).toMatch(/formatCurrency\(Number\(spot\.pricePerNight\)\)/);
   });
 
-  it('[AC-2, EC-4] capacity line renders only when maxCampers is a number >= 1', () => {
-    expect(detailSrc).toContain("const hasCapacity = typeof spot.maxCampers === 'number' && spot.maxCampers >= 1;");
-    expect(detailSrc).toContain('{hasCapacity && (');
-    expect(detailSrc).toContain('t.campground.spotCapacityLabel.replace("{N}", String(spot.maxCampers))');
+  it('[AC-2, EC-4] capacity renders only when maxCampers is a number >= 1 (strip + detail line)', () => {
+    expect(spotStripSrc).toContain('const hasCapacity = typeof spot.maxCampers === "number" && spot.maxCampers >= 1;');
+    expect(spotStripSrc).toContain('{hasCapacity && (');
+    expect(spotDetailLineSrc).toContain('t.campground.spotCapacityLabel.replace("{N}", String(spot.maxCampers))');
   });
 
   it('[EC-6] pricePerNight === 0 shows the free copy, not formatCurrency(0)', () => {
-    expect(detailSrc).toContain('const isFree = Number(spot.pricePerNight) === 0;');
-    expect(detailSrc).toContain('{isFree ? t.common.free : formatCurrency(Number(spot.pricePerNight))}');
+    expect(spotStripSrc).toContain('const isFree = Number(spot.pricePerNight) === 0;');
+    expect(spotStripSrc).toContain('{isFree ? t.common.free : formatCurrency(Number(spot.pricePerNight))}');
   });
 
-  it('[AC-4, EC-5] a PANORAMA-kind photo shows the reused panorama badge; PHOTO shows none', () => {
-    expect(detailSrc).toContain('img.kind === "PANORAMA"');
-    expect(detailSrc).toContain('{t.spotManagement.panoramaBadge}');
+  it('[AC-4, EC-5] a PANORAMA-kind display image shows the reused panorama badge; PHOTO shows none', () => {
+    expect(spotViewportSrc).toContain('displayImage?.kind === "PANORAMA"');
+    expect(spotViewportSrc).toContain('{t.spotManagement.panoramaBadge}');
     // Reuses the existing Badge primitive, not a hand-rolled pill.
-    expect(detailSrc).toMatch(/<Badge\s+variant="overlay"/);
+    expect(spotViewportSrc).toMatch(/<Badge\s*\n?\s*variant="overlay"/);
   });
 
-  it('[AC-6, EC-1] a photo-less spot renders no gallery block (gated on spotImages.length > 0)', () => {
-    expect(detailSrc).toContain('{spotImages.length > 0 && (');
+  it('[AC-6, EC-1] a photo-less spot renders no expand control — ImageWithFallback carries the empty state instead', () => {
+    // No display image -> the whole `<button>` (the expand control) is
+    // omitted, not a disabled control (DESIGN.md "Empty image slot").
+    expect(spotViewportSrc).toContain('{displayImage && (');
+    expect(spotViewportSrc).toContain('<ImageWithFallback');
   });
 
-  it('[BR-6] spot photos are lazy with explicit fixed dimensions (no CLS) and never priority', () => {
-    // Slice by index rather than a non-greedy regex: the button's own
-    // aria-label attribute contains a `)}` sequence that would otherwise
-    // terminate a non-greedy match far too early. Window widened to 3200
-    // (was 2000) to still cover height={80} after CAM-354's kind-branch
-    // onClick/aria-label grew this block; still short of any unrelated
-    // `priority` usage elsewhere in the file (e.g. the hero image).
-    const startIdx = detailSrc.indexOf('{spotImages.length > 0 && (');
-    expect(startIdx).toBeGreaterThan(-1);
-    const galleryBlock = detailSrc.slice(startIdx, startIdx + 3200);
-    expect(galleryBlock).toContain('loading="lazy"');
-    expect(galleryBlock).toContain('width={80}');
-    expect(galleryBlock).toContain('height={80}');
-    expect(galleryBlock).not.toContain('priority');
+  it('[BR-6/CLS] the viewport reserves its aspect ratio in CSS (no width/height race) and is never priority', () => {
+    // CAM-664: a fixed-aspect box (not per-photo width/height props) is what
+    // makes switching pitches CLS=0 — the box exists before any image loads.
+    expect(spotViewportSrc).toContain('aspect-[3/2] md:aspect-[16/9]');
+    expect(spotViewportSrc).not.toContain('priority');
   });
 
-  it('[AC-3] photos render in sortOrder order (mapped straight off the payload, no re-sort/shuffle)', () => {
-    // CAM-354 added `alt?: string | null` to the inline image type (the pan
-    // viewer's accessible name falls back to the host-set Image.alt).
-    expect(detailSrc).toContain('spot.images.map((img: { url: string; kind?: string; alt?: string | null }, i: number) => (');
+  it('[AC-3] the display image is picked without ever re-sorting the images array (no re-sort/shuffle)', () => {
+    // pickSpotDisplayImage only .find()s/indexes the array Prisma already
+    // returned in sortOrder order (BR-2 above) — it never re-sorts it.
+    expect(spotDisplayImageSrc).not.toContain('.sort(');
   });
 
   it('[AC-3] reuses the existing shared photo viewer (ImageGallery) — no new viewer component', () => {
-    expect(detailSrc).toContain('openSpotGallery(spotImages, i)');
+    // CampgroundDetailClient still defines + owns openSpotGallery/openPanorama
+    // unchanged, now handed to SpotViewer as props instead of called inline.
     expect(detailSrc).toContain('const openSpotGallery = (spotImages: string[], index: number = 0) => {');
+    expect(detailSrc).toContain('onOpenGallery={openSpotGallery}');
+    expect(detailSrc).toContain('onOpenPanorama={openPanorama}');
+    expect(spotViewerSrc).toContain('onOpenGallery(urls, index)');
     // Only one <ImageGallery ...> mount in the whole file (shared instance).
     const galleryMounts = (detailSrc.match(/<ImageGallery/g) || []).length;
     expect(galleryMounts).toBe(1);

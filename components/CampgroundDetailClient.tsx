@@ -10,19 +10,20 @@ import { ImageGallery } from "@/components/ImageGallery";
 import { AmenitiesModal } from "@/components/AmenitiesModal";
 import { LoginModal } from "@/components/LoginModal";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { wishlistAPI } from "@/lib/api-client";
 import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, HelpCircle, Users, Smartphone, Plug, Loader2, LayoutGrid, MoveHorizontal, PawPrint, AlertCircle, RotateCcw } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, HelpCircle, Users, Smartphone, Plug, Loader2, LayoutGrid, PawPrint, AlertCircle, RotateCcw } from "lucide-react";
 import { getFacilityIcon } from "@/lib/facility-icon-map";
 import { OptionGroupSection } from "@/components/ui/option-group-section";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { SpotViewer } from "@/components/spot-viewer/SpotViewer";
+import { StickyActionBar } from "@/components/ui/sticky-action-bar";
 import { format, parseISO, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { buildBookingPriceArgs, computeBookingPrice, type PricingUnit } from "@/lib/booking-pricing";
@@ -652,7 +653,10 @@ export default function CampgroundDetailClient({
 
     return (
         <>
-            <div className="container mx-auto px-6 pt-6">
+            {/* CAM-664 (S2): pb-24 clears the fixed mobile StickyActionBar below
+                (md:hidden) so it never covers the map section's last content;
+                desktop keeps its original pb-0 (the bar itself is hidden there). */}
+            <div className="container mx-auto px-6 pt-6 pb-24 md:pb-0">
                 {/* Header - Title & Actions */}
                 <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4 md:gap-0">
                     <div>
@@ -982,101 +986,21 @@ export default function CampgroundDetailClient({
                             </p>
                         </div>
 
-                        {/* CAM-353: per-spot gallery section — PER-SPOT camps with >=1 live
-                            spot only (BR-1); absent entirely otherwise (AC-5, EC-2, EC-7). */}
+                        {/* CAM-664 (S2): the per-spot gallery `<ul>` (~200px/pitch, ~3,200px
+                            for a 16-pitch camp) is replaced by one fixed-height viewport +
+                            a selectable strip — see components/spot-viewer/SpotViewer.tsx.
+                            Same gating as before: PER-SPOT camps with >=1 live spot only
+                            (BR-1); absent entirely otherwise (AC-5, EC-2, EC-7). */}
                         {showSpotSection && (
                             <div className="pb-8 border-b border-border/60" data-testid="section--campground-spots">
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">
                                     {t.campground.spotsHeading}
                                 </h2>
-                                <ul className="space-y-4" data-testid="list--campground-spots">
-                                    {spots.map((spot: any) => {
-                                        const spotImages: string[] = (spot.images || []).map((img: { url: string }) => img.url);
-                                        const hasCapacity = typeof spot.maxCampers === 'number' && spot.maxCampers >= 1;
-                                        const isFree = Number(spot.pricePerNight) === 0;
-
-                                        return (
-                                            <li
-                                                key={spot.id}
-                                                className="rounded-2xl border border-border p-4 md:p-6"
-                                                data-testid={`item--campground-spot-${spot.id}`}
-                                            >
-                                                <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                                                    <div>
-                                                        <h3 className="text-lg font-bold text-foreground">{spot.name}</h3>
-                                                        {spot.zone && (
-                                                            <p className="text-sm text-muted-foreground">{spot.zone}</p>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-right shrink-0">
-                                                        <span className="font-semibold text-foreground">
-                                                            {isFree ? t.common.free : formatCurrency(Number(spot.pricePerNight))}
-                                                        </span>{" "}
-                                                        {/* CAM-653 (ADR-014): THIS spot's own unit, never the camp's
-                                                            (a per-spot camp can show both on one screen —
-                                                            `resolveUnitPrice`'s "never re-pair a row's price with
-                                                            another row's unit" contract, lib/booking-pricing.ts). */}
-                                                        <span className="text-muted-foreground">{priceUnitWord(t, spot.priceUnit as PricingUnit | null | undefined)}</span>
-                                                    </div>
-                                                </div>
-
-                                                {hasCapacity && (
-                                                    <p className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                                                        <Users className="w-4 h-4" aria-hidden="true" />
-                                                        {t.campground.spotCapacityLabel.replace("{N}", String(spot.maxCampers))}
-                                                    </p>
-                                                )}
-
-                                                {spotImages.length > 0 && (
-                                                    <div className="flex gap-2 overflow-x-auto">
-                                                        {spot.images.map((img: { url: string; kind?: string; alt?: string | null }, i: number) => (
-                                                            <button
-                                                                key={`${spot.id}-${i}`}
-                                                                type="button"
-                                                                className="relative flex-shrink-0 w-20 h-20 rounded-2xl overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                                                aria-label={
-                                                                    img.kind === "PANORAMA"
-                                                                        ? t.panorama.openLabel
-                                                                        : t.gallery.viewImage.replace("{n}", String(i + 1))
-                                                                }
-                                                                onClick={(e) => {
-                                                                    // CAM-354 BR-1: kind branch — PANORAMA opens the
-                                                                    // pan-strip viewer; PHOTO keeps the flat lightbox
-                                                                    // path byte-for-byte (AC-1, AC-2, EC-1, EC-2).
-                                                                    if (img.kind === "PANORAMA") {
-                                                                        openPanorama(img.url, img.alt || t.panorama.title, e.currentTarget);
-                                                                    } else {
-                                                                        openSpotGallery(spotImages, i);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <ImageWithFallback
-                                                                    src={img.url}
-                                                                    alt=""
-                                                                    width={80}
-                                                                    height={80}
-                                                                    loading="lazy"
-                                                                    className="w-full h-full"
-                                                                    imgClassName="object-cover"
-                                                                />
-                                                                {img.kind === "PANORAMA" && (
-                                                                    <Badge
-                                                                        variant="overlay"
-                                                                        className="absolute bottom-0.5 left-0.5 gap-1"
-                                                                        data-testid={`badge--campground-spot-panorama-${spot.id}`}
-                                                                    >
-                                                                        <MoveHorizontal aria-hidden="true" />
-                                                                        {t.spotManagement.panoramaBadge}
-                                                                    </Badge>
-                                                                )}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
+                                <SpotViewer
+                                    spots={spots}
+                                    onOpenGallery={openSpotGallery}
+                                    onOpenPanorama={openPanorama}
+                                />
                             </div>
                         )}
 
@@ -1727,6 +1651,24 @@ export default function CampgroundDetailClient({
                 isOpen={loginOpen}
                 onClose={() => setLoginOpen(false)}
                 subtitle={t.wishlist.loginPromptGuest}
+            />
+
+            {/* CAM-664 (S2): mobile-only — the desktop booking widget above is
+                already visible (single-column flow), this just removes the need
+                to scroll past everything to reach it. Reuses the SAME
+                handleReserve the desktop Reserve button calls (its own
+                missing-dates/fully-booked/login guards apply unchanged) — this
+                story never touches price, totals, or the reserve POST itself
+                (CAM-666 scope). */}
+            <StickyActionBar
+                primaryLabel={isHeadlinePriceFree ? t.common.free : formatCurrency(Number(campground.priceLow))}
+                secondaryLabel={!isHeadlinePriceFree ? priceUnitWord(t, bookingPricingUnit) : undefined}
+                actionLabel={t.common.reserve}
+                loadingLabel={t.newCampground.reserving}
+                onAction={handleReserve}
+                disabled={isFullyBooked}
+                loading={isReserving}
+                data-testid="section--mobile-booking-bar"
             />
         </>
     );
