@@ -75,7 +75,10 @@ function CommandInput({
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(
-            "w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+            // CAM-662 — the wrapping InputGroup keeps its own bg-input/50
+            // regardless of this input's disabled state, so disabled here
+            // only needs to dim TEXT (never opacity).
+            "w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:text-disabled-foreground!",
             className
           )}
           {...props}
@@ -155,7 +158,9 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-xl px-3 py-2 text-sm font-normal outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-accent/15 data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-foreground",
+        // CAM-662 — a command item has no fill of its own at rest, so
+        // disabled dims TEXT/ICON only (never opacity); `!` beats `data-selected:text-foreground`.
+        "group/command-item relative flex cursor-default items-center gap-2 rounded-xl px-3 py-2 text-sm font-normal outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:text-disabled-foreground! data-selected:bg-accent/15 data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-foreground",
         className
       )}
       {...props}

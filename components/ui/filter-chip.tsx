@@ -57,7 +57,11 @@ export function FilterChip({
           selected
             ? "border-primary bg-primary text-primary-foreground hover:bg-primary/85"
             : "border-border bg-card text-foreground hover:border-foreground",
-          disabled && "opacity-50 pointer-events-none"
+          // CAM-662 — disabled is a flat solid fill (never opacity): the
+          // --disabled/--disabled-foreground pair overrides the
+          // selected/unselected classes above (this is the LAST cn() arg,
+          // so tailwind-merge lets it win).
+          disabled && "border-transparent bg-disabled text-disabled-foreground pointer-events-none"
         )}
       >
         {Icon && <Icon className="size-4 shrink-0" aria-hidden="true" />}
@@ -84,19 +88,30 @@ export function FilterChip({
           selected
             ? "border-primary bg-primary/5"
             : "border-border bg-card hover:border-foreground/40",
-          disabled && "opacity-50 pointer-events-none"
+          // CAM-662 — flat solid fill, never opacity (see the pill variant above).
+          disabled && "border-transparent bg-disabled text-disabled-foreground pointer-events-none"
         )}
       >
         {Icon && (
           <Icon
             className={cn(
               "size-8",
-              selected ? "text-primary" : "text-muted-foreground"
+              selected ? "text-primary" : "text-muted-foreground",
+              // CAM-662 — the icon sets its own colour, so the wrapper's
+              // disabled text colour must be repeated here to actually reach it.
+              disabled && "text-disabled-foreground"
             )}
             aria-hidden="true"
           />
         )}
-        <span className="type-body font-bold text-foreground">{label}</span>
+        <span
+          className={cn(
+            "type-body font-bold text-foreground",
+            disabled && "text-disabled-foreground"
+          )}
+        >
+          {label}
+        </span>
       </button>
     );
   }
@@ -118,7 +133,10 @@ export function FilterChip({
         selected
           ? "border-primary bg-primary/5 font-semibold text-primary-ink"
           : "border-border text-muted-foreground hover:border-foreground/40",
-        disabled && "opacity-50 pointer-events-none"
+        // CAM-662 — flat solid fill, never opacity (see the pill variant
+        // above); the icon and label inherit this wrapper's text colour
+        // (no explicit colour of their own in this variant).
+        disabled && "border-transparent bg-disabled text-disabled-foreground pointer-events-none"
       )}
     >
       {Icon && <Icon className="size-6" aria-hidden="true" />}

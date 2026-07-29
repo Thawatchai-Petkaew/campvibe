@@ -17,6 +17,12 @@
  *   - large text (>=18.66px BOLD or >=24px) ... 3:1    (SC 1.4.3 exception)
  *   - a fill that identifies a STATE, and the
  *     boundary that identifies a control ...... 3:1    (SC 1.4.11 Non-text Contrast)
+ *   - a DISABLED/inactive control's fill+text .. no floor is owed at all — SC
+ *     1.4.3 and SC 1.4.11 BOTH explicitly exempt inactive components. The
+ *     `--disabled`/`--disabled-foreground` rows (CAM-662) still carry a floor
+ *     of 3 in this registry as a SELF-IMPOSED practical minimum (legibility),
+ *     not a WCAG requirement — `kind` says so on those rows so this never
+ *     reads as "the standard demands it".
  * A fill is never judged at the text floor, and body copy is never judged at the
  * non-text floor. Every pair below therefore declares its own `floor` + `kind`.
  *
@@ -29,7 +35,7 @@
  * Usage:  node scripts/check-contrast.mjs [--verbose]
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -276,6 +282,23 @@ export const ENFORCED_PAIRS = [
   { fg: "--warning-foreground", bg: "--warning", floor: 4.5, kind: "text", context: "label on the warning fill" },
   { fg: "--success-foreground", bg: "--success", floor: 4.5, kind: "text", context: "label on the success fill" },
   { fg: "--info-foreground", bg: "--info", floor: 4.5, kind: "text", context: "label on the info fill" },
+
+  // --- CAM-662: disabled controls, flat colour instead of opacity ----------
+  // WCAG 2.1 SC 1.4.3 (Contrast Minimum) and SC 1.4.11 (Non-Text Contrast)
+  // BOTH explicitly exempt "inactive"/"disabled" user-interface components
+  // from any required floor — so, unlike every other row above, nothing here
+  // is legally owed. These two rows are a SELF-IMPOSED floor (this file's
+  // existing 3:1 non-text/state floor, reused on purpose rather than
+  // inventing a fourth category) because a disabled control still has to be
+  // legible, per the owner's ruling. `--disabled-foreground` on `--disabled`
+  // is the worst case (a disabled BUTTON/INPUT/SELECT/TEXTAREA/CHECKBOX/
+  // FILTER-CHIP's own flat fill); `--disabled-foreground` on `--popover` is
+  // the representative text-only case (a disabled menu/select/command item,
+  // which keeps the popover's own background rather than gaining a fill).
+  { fg: "--disabled-foreground", bg: "--disabled", floor: 3, kind: "non-text (exempt, self-imposed)",
+    context: "disabled control fill + label/icon (button/input/select/textarea/checkbox/filter-chip)" },
+  { fg: "--disabled-foreground", bg: "--popover", floor: 3, kind: "non-text (exempt, self-imposed)",
+    context: "disabled menu/select/command item label on the popover surface" },
 ];
 
 export const DEFERRED_PAIRS = [
@@ -352,6 +375,92 @@ export function measureAll(css) {
   };
 }
 
+/* ── CAM-662 report-mode scan: opacity-for-de-emphasis + alpha-on-text ──────
+   A NUMERIC guard (the rest of this file) cannot see a Tailwind CLASS STRING
+   in a .tsx file — that is check-palette.mjs's job (lexical, over source
+   files). This scan borrows that shape for exactly the two patterns the
+   owner's CAM-662 ruling named:
+     1. opacity used to DE-EMPHASIZE a disabled/inactive control
+        (`disabled:opacity-50`, a JS `disabled && "opacity-50 …"` conditional,
+        etc.) — components/ui/* is 0 by construction (this same story fixed
+        every one); the ~10 known call sites OUTSIDE components/ui are
+        exactly why this ships in REPORT MODE ONLY (`.claude/rules/ops.md`:
+        never ship a blocking guard with a non-zero backlog).
+     2. alpha directly on TEXT (`text-foreground/70`) and hairline/tint alpha
+        on a fill (`border-border/60`, `bg-primary/10`) — both named
+        explicitly as CAM-662 phase-2, out of this story's scope.
+   This never blocks and never judges a hit good/bad — some are ALREADY
+   reviewed/sanctioned (CAM-541's fgAlpha rows above; DESIGN.md's approved
+   `bg-(primary|success|warning|info|destructive)/10` icon-chip fill). A
+   lexical count cannot tell "sanctioned" from "backlog"; it can only make the
+   total visible so it is never silently forgotten (report-mode -> clear the
+   backlog to 0 -> only THEN consider blocking, per CAM-221). */
+
+const TOKEN_COLOR_NAMES =
+  "foreground|background|card-foreground|popover-foreground|primary(?:-ink|-foreground)?|secondary-foreground|muted-foreground|accent-foreground|destructive|success(?:-foreground)?|warning-foreground|info(?:-foreground)?|sidebar-foreground|ai-price|disabled-foreground";
+const TOKEN_FILL_NAMES =
+  "border|input|primary|secondary|accent|destructive|success|warning|info|muted|card|popover|foreground|ring|ai-tint|ai-surface|disabled";
+
+/** A Tailwind utility whose variant chain names "disabled" and ends `:opacity-NN`. */
+export const DISABLED_OPACITY_RE = /[^\s"'`]*disabled[^\s"'`]*:opacity-\d{1,3}\b/gi;
+/** The JS-conditional shape (`disabled && "opacity-50 …"`). */
+export const DISABLED_JS_OPACITY_RE = /\bdisabled\s*&&\s*["'`][^"'`]*opacity-\d{1,3}/g;
+/** Alpha directly on a text-color token (CAM-662 phase-2). */
+export const ALPHA_ON_TEXT_RE = new RegExp(`\\btext-(?:${TOKEN_COLOR_NAMES})\\/\\d{1,3}\\b`, "g");
+/** Hairline/tint alpha on a border/background/ring fill (CAM-662 phase-2). */
+export const HAIRLINE_TINT_ALPHA_RE = new RegExp(`\\b(?:border|bg|ring)-(?:${TOKEN_FILL_NAMES})\\/\\d{1,3}\\b`, "g");
+
+const SCAN_DIRS = ["app", "components"];
+const SCAN_EXTS = [".tsx", ".ts"];
+const SCAN_EXCLUDE = new Set(["node_modules", ".next", "scripts", "__tests__"]);
+
+/** Recursively list source files under `dir`, skipping the excluded folders. */
+export function walkForScan(dir, results = []) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return results;
+  }
+  for (const entry of entries) {
+    if (SCAN_EXCLUDE.has(entry)) continue;
+    const abs = path.join(dir, entry);
+    let stat;
+    try {
+      stat = statSync(abs);
+    } catch {
+      continue;
+    }
+    if (stat.isDirectory()) walkForScan(abs, results);
+    else if (SCAN_EXTS.some((e) => abs.endsWith(e))) results.push(abs);
+  }
+  return results;
+}
+
+/** Scan `app/` + `components/` under `rootDir` for the three CAM-662 patterns. */
+export function scanDeEmphasis(rootDir) {
+  const files = SCAN_DIRS.flatMap((d) => walkForScan(path.join(rootDir, d)));
+  const hits = { disabledOpacity: [], alphaOnText: [], hairlineTintAlpha: [] };
+  for (const abs of files) {
+    const rel = path.relative(rootDir, abs);
+    const lines = readFileSync(abs, "utf8").split("\n");
+    lines.forEach((line, i) => {
+      for (const re of [DISABLED_OPACITY_RE, DISABLED_JS_OPACITY_RE]) {
+        for (const m of line.matchAll(re)) {
+          hits.disabledOpacity.push({ file: rel, line: i + 1, match: m[0] });
+        }
+      }
+      for (const m of line.matchAll(ALPHA_ON_TEXT_RE)) {
+        hits.alphaOnText.push({ file: rel, line: i + 1, match: m[0] });
+      }
+      for (const m of line.matchAll(HAIRLINE_TINT_ALPHA_RE)) {
+        hits.hairlineTintAlpha.push({ file: rel, line: i + 1, match: m[0] });
+      }
+    });
+  }
+  return hits;
+}
+
 /* ── CLI ──────────────────────────────────────────────────────────────────── */
 
 function formatRow(r) {
@@ -393,6 +502,23 @@ function main() {
     process.exit(1);
   }
   console.log(`\n✓ every enforced pair clears its floor in both themes.\n`);
+
+  // CAM-662 — REPORT MODE ONLY, never affects the exit code above. The
+  // backlog is non-zero on purpose (opacity-for-de-emphasis outside
+  // components/ui, plus all of phase-2) — printed loudly so it stays visible
+  // rather than blocking a guard the backlog cannot yet clear (ops.md: never
+  // ship blocking with a non-zero backlog).
+  const hits = scanDeEmphasis(ROOT);
+  const total = hits.disabledOpacity.length + hits.alphaOnText.length + hits.hairlineTintAlpha.length;
+  console.log(`CAM-662 de-emphasis scan (report-only, never blocks): ${total} candidate(s) across app/ + components/`);
+  console.log(`  opacity-for-de-emphasis (disabled-state): ${hits.disabledOpacity.length}`);
+  console.log(`  alpha-on-text: ${hits.alphaOnText.length}`);
+  console.log(`  hairline/tint alpha: ${hits.hairlineTintAlpha.length}`);
+  if (verbose) {
+    for (const [label, list] of Object.entries(hits)) {
+      for (const h of list) console.log(`    [${label}] ${h.file}:${h.line}  ${h.match}`);
+    }
+  }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

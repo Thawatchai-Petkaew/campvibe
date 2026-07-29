@@ -79,6 +79,12 @@ h6 {
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
+    /* CAM-662 — a disabled control's fill/text, replacing `opacity-50`.
+       Registered so `bg-disabled`/`text-disabled-foreground`/`border-disabled`
+       are real Tailwind utilities, the same way every other semantic color
+       above is wired. */
+    --color-disabled: var(--disabled);
+    --color-disabled-foreground: var(--disabled-foreground);
     /* CAM-661 — registers the modal/sheet/alert-dialog scrim as its own
        utility (`bg-overlay`). See the `--overlay` declaration in `:root`
        below for why this is NOT `var(--foreground)`. */
@@ -150,6 +156,31 @@ h6 {
     --input: oklch(0.925 0.005 214.3);
     --ring: oklch(0.723 0.014 214.4);
     /* same as primary teal */
+    /* CAM-662 — owner ruling: "ห้ามใช้ opacity ในการลด ไม่ว่าจะแบบใดก็ตาม ...
+       ควรใช้สีที่ drop ลง" (opacity may never de-emphasize anything; use a
+       dropped solid colour instead). `disabled:opacity-50` composited a
+       control's own fill/text/border against whatever backdrop sat behind
+       it, so its real contrast was unmeasurable and drifted per surface
+       (exactly what `scripts/check-contrast.mjs`'s `compositeOver` exists to
+       catch). These two tokens are FLAT — no alpha channel — so a disabled
+       control's contrast is one fixed, measured number everywhere.
+       `--disabled` is the flat fill a disabled BUTTON/INPUT/SELECT/TEXTAREA/
+       CHECKBOX/FILTER-CHIP renders instead of a faded variant colour (one
+       look regardless of variant — a disabled control doesn't need to keep
+       its own chrome identity). `--disabled-foreground` is the flat
+       text/icon colour for that fill AND for text-only disabled treatments
+       that keep their surface's own background (menu/select/command items,
+       tabs, labels, the calendar's disabled day, input-group addon text).
+       WCAG 2.1 SC 1.4.3 and SC 1.4.11 both explicitly EXEMPT inactive/disabled
+       components from any required contrast floor — so no floor is legally
+       owed here. Both tokens are still tuned to clear a self-imposed 3:1
+       floor (this file's non-text/state floor) in EVERY surface a disabled
+       control renders on, measured with check-contrast.mjs's own maths:
+       light foreground-on-fill 4.79:1, dark 4.09:1; foreground-on-background/
+       card/popover/muted ranges 4.08:1-7.09:1 across both themes. See
+       __tests__/cam-662-*.test.ts for the full measured table. */
+    --disabled: oklch(0.870 0.004 214);
+    --disabled-foreground: oklch(0.460 0.014 214);
     --chart-1: oklch(0.879 0.169 91.605);
     --chart-2: oklch(0.769 0.188 70.08);
     --chart-3: oklch(0.666 0.179 58.318);
@@ -266,6 +297,14 @@ h6 {
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.56 0.021 213.5);
+    /* CAM-662 — dark half of the flat disabled fill/text pair (see :root for
+       the full rationale). Measured: foreground-on-fill 4.09:1,
+       foreground-on-background 5.44:1, on-card/popover 4.80:1, on-muted
+       4.08:1 — every surface clears the self-imposed 3:1 floor (WCAG SC
+       1.4.3/1.4.11 exempt disabled/inactive components from any required
+       floor). */
+    --disabled: oklch(0.320 0.008 220);
+    --disabled-foreground: oklch(0.660 0.014 214);
     --chart-1: oklch(0.879 0.169 91.605);
     --chart-2: oklch(0.769 0.188 70.08);
     --chart-3: oklch(0.666 0.179 58.318);
