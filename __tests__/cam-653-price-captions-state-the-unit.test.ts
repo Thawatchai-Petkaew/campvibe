@@ -41,6 +41,10 @@ const componentSources = {
   detailClient: read("components/CampgroundDetailClient.tsx"),
   aiCampCard: read("components/ai-chat/AiChatCampCard.tsx"),
   aiDetailCard: read("components/ai-chat/AiChatDetailCard.tsx"),
+  // CAM-664 (S2) moved the per-spot price/unit expression (byte-identical,
+  // per story.md) out of CampgroundDetailClient.tsx and into the new spot
+  // strip card — see components/spot-viewer/SpotStrip.tsx.
+  spotStrip: read("components/spot-viewer/SpotStrip.tsx"),
 };
 
 // ---------------------------------------------------------------------------
@@ -138,7 +142,7 @@ describe("[the safety property] every caption is byte-identical to before this s
   it("[structural] every listed call site reads through the shared helper, not a hardcoded literal", () => {
     expect(componentSources.campgroundCard).toContain("priceUnitSuffix(t, campground.priceUnit)");
     expect(componentSources.detailClient).toContain("priceUnitWord(t, bookingPricingUnit)");
-    expect(componentSources.detailClient).toContain("priceUnitWord(t, spot.priceUnit");
+    expect(componentSources.spotStrip).toContain("priceUnitWord(t, spot.priceUnit");
     expect(componentSources.aiCampCard).toContain("priceUnitSuffix(t, card.priceUnit)");
     // AiChatDetailCard: 3 price sites (stat tile label, body price, sticky CTA)
     const detailUses = componentSources.aiDetailCard.match(/priceUnitSuffix\(t, card\.priceUnit\)/g) ?? [];
@@ -152,12 +156,12 @@ describe("[the safety property] every caption is byte-identical to before this s
 describe("[boundary] per-spot caption follows the spot's OWN unit, never the camp's — the two can genuinely diverge on one screen", () => {
   it("[structural] the headline reads the camp-level resolved unit (bookingPricingUnit), the per-spot row reads spot.priceUnit — two different sources", () => {
     const headlineIdx = componentSources.detailClient.indexOf("priceUnitWord(t, bookingPricingUnit)");
-    const perSpotIdx = componentSources.detailClient.indexOf("priceUnitWord(t, spot.priceUnit");
+    const perSpotIdx = componentSources.spotStrip.indexOf("priceUnitWord(t, spot.priceUnit");
     expect(headlineIdx).toBeGreaterThan(-1);
     expect(perSpotIdx).toBeGreaterThan(-1);
     // never the same expression (a copy-paste that repointed both at one source would collapse this)
     expect(componentSources.detailClient.slice(headlineIdx, headlineIdx + 40)).not.toContain("spot.priceUnit");
-    expect(componentSources.detailClient.slice(perSpotIdx, perSpotIdx + 40)).not.toContain("bookingPricingUnit");
+    expect(componentSources.spotStrip.slice(perSpotIdx, perSpotIdx + 40)).not.toContain("bookingPricingUnit");
   });
 
   it("[normal] a camp whose CampSite.priceUnit is PER_SITE but a spot's own priceUnit is PER_PERSON renders two DIFFERENT captions on the same screen", () => {
