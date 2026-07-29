@@ -32,7 +32,10 @@ import {
   priceUnitForIndex,
   capacityForIndex,
   neededPhotoCount,
-  DEMO_NAME_PREFIX,
+  DEMO_SPOT_CREATED_AT,
+  LETTER_POOL,
+  extractUsedLetterBlocks,
+  pickUnusedLetterBlock,
   nameForRole,
   priceForRole,
   LONG_NAME,
@@ -75,14 +78,15 @@ type FakeBlockedDate = { id: string; spotId: string; campSiteId: string; startDa
 type FakeSpot = {
   id: string; campSiteId: string; name: string; priceUnit: string; maxCampers: number | null;
   maxTents: number | null; pricePerNight: number; zoneId: string | null;
-  viewType: string | null; environment: string | null; nearFacilities: string | null; deletedAt: null;
+  viewType: string | null; environment: string | null; nearFacilities: string | null;
+  createdAt: Date; deletedAt: null;
 };
 type FakeUser = { id: string; role: string; deletedAt: null };
 
-function matchesNameFilter(name: string, filter: any): boolean {
+function matchesCreatedAtFilter(createdAt: Date, filter: any): boolean {
   if (filter === undefined) return true;
-  if (filter.startsWith !== undefined) return name.startsWith(filter.startsWith);
-  if (filter.not?.startsWith !== undefined) return !name.startsWith(filter.not.startsWith);
+  if (filter instanceof Date) return createdAt.getTime() === filter.getTime();
+  if (filter.not instanceof Date) return createdAt.getTime() !== filter.not.getTime();
   return true;
 }
 
@@ -140,16 +144,16 @@ function makeFakePrisma(fixture: {
       },
     },
     spot: {
-      // Serves 3 distinct call shapes: buildPlan's sibling lookup (name.not.startsWith),
-      // buildPlan/undoPlan's demo-pitch lookup (name.startsWith), and the REAL
-      // calculateSpotCapacity's plain campSiteId+deletedAt lookup (no name filter).
+      // Serves 3 distinct call shapes: buildPlan's sibling lookup (createdAt.not),
+      // buildPlan/undoPlan's demo-pitch lookup (createdAt exact), and the REAL
+      // calculateSpotCapacity's plain campSiteId+deletedAt lookup (no createdAt filter).
       findMany: async ({ where }: any) => {
         return spots
           .filter(
             (s) =>
               s.campSiteId === where.campSiteId &&
               s.deletedAt === where.deletedAt &&
-              matchesNameFilter(s.name, where.name)
+              matchesCreatedAtFilter(s.createdAt, where.createdAt)
           )
           .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
           .map((s) => ({
@@ -164,7 +168,7 @@ function makeFakePrisma(fixture: {
           id: nextId('spot'), campSiteId: data.campSiteId, name: data.name, priceUnit: data.priceUnit,
           maxCampers: data.maxCampers ?? null, maxTents: null, pricePerNight: data.pricePerNight,
           zoneId: data.zoneId ?? null, viewType: data.viewType ?? null, environment: data.environment ?? null,
-          nearFacilities: data.nearFacilities ?? null, deletedAt: null,
+          nearFacilities: data.nearFacilities ?? null, createdAt: data.createdAt ?? new Date(), deletedAt: null,
         };
         spots.push(row);
         return { ...row };
@@ -284,9 +288,10 @@ function makeFreshFixture({ spotCount = 12, zoneCount = 3, campImages = 25 } = {
     id: `zone-${i + 1}`, campSiteId: campId, name: `โซน ${i + 1}`, sortOrder: i, deletedAt: null,
   }));
   const spots: FakeSpot[] = Array.from({ length: spotCount }, (_, i) => ({
-    id: `spot-${String(i + 1).padStart(2, '0')}`, campSiteId: campId, name: `จุดกางเต็นท์ ${i + 1}`,
-    priceUnit: 'PER_SITE', maxCampers: 4, maxTents: 2, pricePerNight: 500 + i * 10, zoneId: zones[0].id,
-    viewType: 'MOUNTAIN', environment: 'GRASS', nearFacilities: 'SHOW,WIFI', deletedAt: null,
+    id: `spot-${String(i + 1).padStart(2, '0')}`, campSiteId: campId, name: `จุด ${i + 1}`,
+    priceUnit: 'PER_SITE', maxCampers: 4, maxTents: 2, pricePerNight: 600 + i * 10, zoneId: zones[0].id,
+    viewType: 'MOUNTAIN', environment: 'GRASS', nearFacilities: 'SHOW,WIFI',
+    createdAt: new Date('2026-01-01T00:00:00.000Z'), deletedAt: null,
   }));
   return {
     camps, zones, spots, images: [] as FakeImage[], bookings: [] as FakeBooking[], blockedDates: [] as FakeBlockedDate[],
@@ -398,7 +403,8 @@ describe('CAM-663 (c) — pickCamp: rule-based selection + --camp override', () 
     fixture.spots.push(
       ...Array.from({ length: 10 }, (_, i) => ({
         id: `s2-${i}`, campSiteId: 'camp-2', name: `s${i}`, priceUnit: 'PER_SITE', maxCampers: 4, maxTents: 2,
-        pricePerNight: 300, zoneId: `z2-0`, viewType: null, environment: null, nearFacilities: null, deletedAt: null,
+        pricePerNight: 300, zoneId: `z2-0`, viewType: null, environment: null, nearFacilities: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'), deletedAt: null,
       }))
     );
     fixture.campImageCounts['camp-2'] = 25;
@@ -466,10 +472,42 @@ describe('CAM-663 (d) — role/content logic: deterministic, covers every variet
     expect(neededPhotoCount('one-photo-1', 3)).toBe(0);
   });
 
-  it('[normal] every role has a unique name under DEMO_NAME_PREFIX (the undo identity marker)', () => {
-    const names = ROLE_ORDER.map((r) => nameForRole(r));
+  it('[normal, Critical] every role has a unique, realistic "จุด <letter><n>" name — no internal jargon, no CAM-### id', () => {
+    const names = ROLE_ORDER.map((r) => nameForRole(r, 'Z'));
     expect(new Set(names).size).toBe(names.length);
-    for (const n of names) expect(n.startsWith(DEMO_NAME_PREFIX)).toBe(true);
+    for (const n of names) {
+      expect(n).not.toMatch(/CAM-\d+/i);
+      expect(n).not.toMatch(/demo/i);
+    }
+    // every role except the one deliberately-long name follows the letter+number pattern
+    for (const role of ROLE_ORDER.filter((r) => r !== 'no-image-1')) {
+      expect(nameForRole(role, 'Z')).toMatch(/^จุด Z\d$/);
+    }
+  });
+
+  it('[boundary] extractUsedLetterBlocks finds "A1", "จุด B2", "Zone C12" — case-insensitive, anywhere in the name', () => {
+    const used = extractUsedLetterBlocks(['จุด A1', 'Zone B12', 'จุด c3', 'ลานกางเต็นท์ริมน้ำ']);
+    expect(used).toEqual(new Set(['A', 'B', 'C']));
+  });
+
+  it('[null/empty] extractUsedLetterBlocks tolerates null/empty names', () => {
+    expect(extractUsedLetterBlocks([])).toEqual(new Set());
+    expect(extractUsedLetterBlocks([null as unknown as string, undefined as unknown as string, ''])).toEqual(new Set());
+  });
+
+  it('[normal] pickUnusedLetterBlock picks Z when no real sibling uses any letter block', () => {
+    expect(pickUnusedLetterBlock(['จุด 1', 'จุด 2', 'ลานริมน้ำ'])).toBe('Z');
+  });
+
+  it('[error/validation, Critical, teeth] pickUnusedLetterBlock avoids a letter the camp already uses (no collision)', () => {
+    const letter = pickUnusedLetterBlock(['จุด Z1', 'จุด Z2', 'จุด Z3']);
+    expect(letter).not.toBe('Z');
+    expect(LETTER_POOL).toContain(letter);
+  });
+
+  it('[boundary] pickUnusedLetterBlock throws only if literally every letter A-Z is already used', () => {
+    const allUsed = LETTER_POOL.map((l) => `จุด ${l}1`);
+    expect(() => pickUnusedLetterBlock(allUsed)).toThrow(/every letter block/);
   });
 
   it('[normal] priceForRole: only no-image-2 is free (0); every other role is a positive price', () => {
@@ -493,9 +531,15 @@ describe('CAM-663 (d) — role/content logic: deterministic, covers every variet
     }
   });
 
-  it('[normal] LONG_NAME is long enough to exercise truncation', () => {
+  it('[normal] LONG_NAME is long enough to exercise truncation and carries no jargon', () => {
     expect(LONG_NAME.length).toBeGreaterThan(80);
-    expect(nameForRole('no-image-1')).toContain(LONG_NAME);
+    expect(nameForRole('no-image-1', 'Z')).toBe(LONG_NAME);
+    expect(LONG_NAME).not.toMatch(/CAM-\d+/i);
+  });
+
+  it('[boundary] DEMO_SPOT_CREATED_AT is a fixed, real Date — the undo identity marker', () => {
+    expect(DEMO_SPOT_CREATED_AT).toBeInstanceOf(Date);
+    expect(Number.isNaN(DEMO_SPOT_CREATED_AT.getTime())).toBe(false);
   });
 });
 
@@ -572,6 +616,22 @@ describe('CAM-663 (e) — buildPlan: produces every branch of the variety list, 
     // the sibling rows themselves are untouched (buildPlan is read-only)
     expect(fixture.spots[0].viewType).toBe('LAKE');
   });
+
+  it('[error/validation, Critical, teeth] when the camp already uses letter block Z (จุด Z1..Z12), buildPlan picks a DIFFERENT block — zero name collisions', async () => {
+    const fixture = makeFreshFixture({ spotCount: 12 });
+    fixture.spots.forEach((s, i) => {
+      s.name = `จุด Z${i + 1}`; // the camp's own real naming already uses Z
+    });
+    const prisma = makeFakePrisma(fixture);
+    const camp = await pickCamp(prisma as any, {});
+    const plan = await buildPlan(prisma as any, camp);
+
+    expect(plan.letter).not.toBe('Z');
+    const realNames = new Set(fixture.spots.map((s) => s.name));
+    for (const row of plan.rows) {
+      expect(realNames.has(row.name)).toBe(false);
+    }
+  });
 });
 
 // ===========================================================================
@@ -595,10 +655,15 @@ describe('CAM-663 (f) — applyPlan: creates pitches (never updates), idempotent
     const updatedCamp = prisma._store.camps.find((c) => c.id === camp.id)!;
     expect(updatedCamp.useSpotView).toBe(true);
 
-    const freeSpot = prisma._store.spots.find((s) => s.name === nameForRole('no-image-2'))!;
+    const freeSpotName = plan.rows.find((r: any) => r.role === 'no-image-2')!.name;
+    const freeSpot = prisma._store.spots.find((s) => s.name === freeSpotName)!;
     expect(Number(freeSpot.pricePerNight)).toBe(0);
-    const longNameSpot = prisma._store.spots.find((s) => s.name === nameForRole('no-image-1'))!;
-    expect(longNameSpot.name).toContain(LONG_NAME);
+    const longNameSpot = prisma._store.spots.find((s) => s.name === LONG_NAME)!;
+    expect(longNameSpot.name).toBe(LONG_NAME);
+    // and every non-long-name demo pitch reads like the camp's own inventory, not a ticket id
+    for (const s of prisma._store.spots.filter((sp) => sp.createdAt.getTime() === DEMO_SPOT_CREATED_AT.getTime())) {
+      expect(s.name).not.toMatch(/CAM-\d+/i);
+    }
 
     // the 12 real siblings are byte-for-byte untouched
     for (const original of fixture.spots) {
@@ -659,7 +724,7 @@ describe('CAM-663 (g) — undoPlan: removes exactly what this script created', (
     expect(removed.bookings).toBe(1);
     expect(removed.blockedDates).toBe(1);
 
-    expect(prisma._store.spots.filter((s) => s.name.startsWith(DEMO_NAME_PREFIX))).toHaveLength(0);
+    expect(prisma._store.spots.filter((s) => s.createdAt.getTime() === DEMO_SPOT_CREATED_AT.getTime())).toHaveLength(0);
     expect(prisma._store.bookings).toHaveLength(0);
     expect(prisma._store.blockedDates).toHaveLength(0);
     expect(prisma._store.images).toHaveLength(0);
