@@ -143,11 +143,12 @@ test("[row--spot-strip-price-unit-independent] PER_SITE and PER_PERSON pitches k
 // shared host storageState) — deliberately. The shared `regression` project
 // session is signed in as `hoster@campvibe.com`, who is ALSO this seeded
 // camp's operator, so testing under that shared session would silently
-// exercise the HOST view — which carries an UNRELATED, PRE-EXISTING defect
-// (CAM-671, already filed: components/CampgroundDetailClient.tsx's
-// owner-only header action row has no flex-wrap and overflows 360px by 48px
-// whenever `isOwner` is true — nothing to do with the spot viewer). The
-// camper-facing persona this AC actually describes never sees that row.
+// exercise the HOST view instead of the camper-facing persona this AC
+// actually describes. CAM-671 (components/CampgroundDetailClient.tsx's
+// owner-only header action row) has since shipped its fix, but the
+// guest/host split stays: this test proves the spot viewer's OWN AC-4 for
+// the persona it targets; the host-view case has its own dedicated
+// regression guard below (`[section--cam671-host-header-row-overflow]`).
 // ---------------------------------------------------------------------------
 test("[tablist--spot-strip-360-tap-floor] at 360px the strip scrolls horizontally, controls clear the 44px tap floor, and the body never scrolls sideways (camper/guest view)", async ({ browser }) => {
   // `browser.newContext()` inherits this PROJECT's configured
@@ -201,21 +202,26 @@ test("[tablist--spot-strip-360-tap-floor] at 360px the strip scrolls horizontall
   await guestContext.close();
 });
 
-// Prove-It guard for CAM-671 (a real, ALREADY-FILED defect — a sub-ticket in
-// the ticket DB, `state=Backlog role=frontend-engineer`, not this story's
-// scope; the spot viewer itself is innocent here — the offending row is
-// CampgroundDetailClient's pre-existing owner-only header action row).
-// `test.fail()` marks this EXPECTED-RED today: it reports as a passing
-// expectation while red, and flags loudly ("unexpected pass") the day
-// CAM-671 ships, as a reminder to delete this annotation.
-test.fail("[section--cam671-host-header-row-overflow] CAM-671 — a host viewing their OWN camp must not get a sideways-scrolling page at 360px", async ({ page }) => {
+// Provenance: this test was born as a Prove-It `test.fail()` red guard for
+// CAM-671 (a real, then-open defect — components/CampgroundDetailClient.tsx's
+// owner-only header action row had no flex-wrap and overflowed 360px by
+// 48px whenever a host viewed their OWN camp; the spot viewer itself was
+// always innocent here, confirmed by the guest-view AC-4 test above passing
+// cleanly the whole time). CAM-671 shipped (`fix(cam-671)`, merged to dev):
+// the header row now stacks below `md:` instead of overflowing, so
+// scrollWidth == clientWidth for the host view too. Flipped from
+// `test.fail()` to a normal assertion — a `test.fail()` that starts passing
+// reports as an "expected to fail but passed" FAILURE, not a green guard.
+// Kept as a permanent regression lock (this repo's standing convention:
+// never delete a Prove-It test once its bug is fixed).
+test("[section--cam671-host-header-row-overflow] CAM-671 — a host viewing their OWN camp does not get a sideways-scrolling page at 360px", async ({ page }) => {
   const metrics = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
   }));
   expect(
     metrics.scrollWidth,
-    `CAM-671: host view scrollWidth=${metrics.scrollWidth} vs clientWidth=${metrics.clientWidth} at 360px (pre-existing header-action-row overflow, unrelated to CAM-664's spot viewer)`
+    `CAM-671: host view scrollWidth=${metrics.scrollWidth} vs clientWidth=${metrics.clientWidth} at 360px (regression guard — the header action row must stack below md:, never overflow)`
   ).toBeLessThanOrEqual(metrics.clientWidth);
 });
 
