@@ -38,6 +38,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import path from 'path';
+import { Prisma } from '@prisma/client';
 import { buildCampSiteWhere } from '@/lib/campsite-filters';
 
 const root = process.cwd();
@@ -51,6 +52,11 @@ function src(rel: string): string {
 
 describe('buildCampSiteWhere — representative multi-param query shape (regression pin, CAM-523)', () => {
   it('[unit] emits the exact Prisma where-shape for a query touching every catalog param', () => {
+    // CAM-655 (ADR-014 §6) — guests='4' is a KNOWN party size (>1), so the
+    // price band below is now translated per pricing unit instead of a bare
+    // where.priceLow (see __tests__/cam-655-price-filter-per-unit.test.ts for
+    // the full guests-absent/guests=1 byte-identical case). This pin is
+    // updated to the new, intentional shape — not weakened.
     const where = buildCampSiteWhere({
       type: 'CAGD',
       keyword: 'ริมธาร',
@@ -81,8 +87,22 @@ describe('buildCampSiteWhere — representative multi-param query shape (regress
         { operator: { name: { contains: 'ริมธาร' } } },
       ],
       location: { province: 'เชียงใหม่', district: 'แม่ริม' },
-      priceLow: { gte: 300, lte: 2000 },
       AND: [
+        {
+          OR: [
+            {
+              priceUnit: 'PER_SITE',
+              priceLow: { gte: new Prisma.Decimal(300), lte: new Prisma.Decimal(2000) },
+            },
+            {
+              priceUnit: 'PER_PERSON',
+              priceLow: {
+                gte: new Prisma.Decimal(300).div(4),
+                lte: new Prisma.Decimal(2000).div(4),
+              },
+            },
+          ],
+        },
         { OR: [{ maxGuestsPerDay: { gte: 4 } }, { maxGuestsPerDay: null }] },
         { options: { some: { code: 'DRIV' } } },
         { options: { some: { code: 'WALK' } } },
