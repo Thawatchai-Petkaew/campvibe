@@ -12,7 +12,11 @@
  * REAL fields only (CAM-427 `AiChatCardResponse`, lib/api-client.ts):
  *   - price: `priceLow` null/0 -> `ฟรี` (same "no price = free" convention
  *     the catalog card already uses; priceLow is null precisely when the
- *     schema's `isFree` is true, per lib/catalog-cursor.ts).
+ *     schema's `isFree` is true, per lib/catalog-cursor.ts). CAM-653: the
+ *     suffix is unit-aware (`priceUnitSuffix`, lib/price-unit-display.ts) —
+ *     `card.priceUnit` is undefined until `lib/ai/**` threads the real
+ *     column through (CAM-656, out of this story's surface), so it defaults
+ *     to PER_SITE and renders byte-identically to before this story.
  *   - tag: `matchedTag` (CAM-564 — see below), NOT `options[0]`.
  *   - rating: `hasReviews` (G7 canonical signal) falls back to
  *     `reviewCount > 0 && avgRating != null` for an older/unaware payload.
@@ -59,6 +63,7 @@ import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { AiChatCardResponse } from "@/lib/api-client";
 import { buildLocationText } from "@/components/ai-chat/location-text";
+import { priceUnitSuffix } from "@/lib/price-unit-display";
 
 /** Hoisted once — a fresh Intl formatter per render is unnecessary allocation. */
 const THB_FORMAT = new Intl.NumberFormat("th-TH");
@@ -131,7 +136,7 @@ export function AiChatCampCard({ card, onSelect }: AiChatCampCardProps) {
           {card.priceLow && card.priceLow > 0 ? (
             <>
               <span className="text-lg font-semibold text-ai-price">฿{THB_FORMAT.format(card.priceLow)}</span>
-              <span className="text-xs font-normal text-muted-foreground">{t.aiChat.card.perNight}</span>
+              <span className="text-xs font-normal text-muted-foreground">{priceUnitSuffix(t, card.priceUnit)}</span>
             </>
           ) : (
             <span className="text-lg font-semibold text-ai-price">{t.aiChat.card.free}</span>

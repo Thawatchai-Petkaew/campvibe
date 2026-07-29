@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { useTheme } from "next-themes";
 import type { CampAvailabilityStatus } from "@/lib/campsite-availability";
+import type { PricingUnit } from "@/lib/booking-pricing";
+import { priceUnitSuffix } from "@/lib/price-unit-display";
 
 /**
  * The exact fields CampgroundCard reads, independent of the caller's full
@@ -33,6 +35,14 @@ export interface CampgroundCardData {
     priceLow: number | null;
     /** CAM-545: optional — an older/narrower caller without a real range still satisfies this structurally. */
     priceHigh?: number | null;
+    /**
+     * CAM-653 (ADR-014): what `priceLow` is charged per. Optional — an
+     * older/narrower caller (e.g. a stale cached payload) that omits it
+     * defaults to `PER_SITE` at render time (`priceUnitSuffix`), matching
+     * the column default and today's math (every real camp is PER_SITE
+     * until CAM-654 ships the host-facing picker).
+     */
+    priceUnit?: PricingUnit;
     createdAt: string;
     location: {
         province: string;
@@ -418,7 +428,7 @@ export function CampgroundCard({
                         ) : (
                             <>
                                 <span className="font-semibold">{priceDisplay.amountText}</span>
-                                <span className="text-muted-foreground">{t.common.perNight}</span>
+                                <span className="text-muted-foreground">{priceUnitSuffix(t, campground.priceUnit)}</span>
                             </>
                         )}
                     </div>

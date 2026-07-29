@@ -64,8 +64,9 @@ describe("AC-2/AC-3 — price renders as its own hero line, before the province 
     expect(priceBlock).toContain('<span className="text-lg font-semibold text-ai-price">{t.aiChat.card.free}</span>');
   });
 
-  it("[unit] the /คืน (perNight) suffix is small + muted, not hero weight", () => {
-    expect(cardSrc).toContain('<span className="text-xs font-normal text-muted-foreground">{t.aiChat.card.perNight}</span>');
+  it("[unit] the /คืน (unit-aware suffix) is small + muted, not hero weight", () => {
+    // CAM-653: reads the shared priceUnitSuffix helper, not a private key.
+    expect(cardSrc).toContain('<span className="text-xs font-normal text-muted-foreground">{priceUnitSuffix(t, card.priceUnit)}</span>');
   });
 
   it("[structural] price hero line appears BEFORE the province row in source order (reading order: name -> price -> province)", () => {
