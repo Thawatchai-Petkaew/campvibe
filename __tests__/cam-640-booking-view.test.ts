@@ -45,6 +45,7 @@ const CAMP: BookingCampContext = {
   weekendAvailability: WEEKEND,
   maxGuestsPerDay: 10,
   unitPrice: 500,
+  priceUnit: "PER_SITE",
   priceIsFree: false,
 };
 
@@ -209,5 +210,14 @@ describe("buildSummaryView", () => {
     expect(view.handoffHref).toBe(
       `/campgrounds/${CAMP.slug}?checkIn=2026-08-01&checkOut=2026-08-02&guests=2&from=chat`
     );
+  });
+
+  // CAM-652 (ADR-014): proves buildSummaryView is really routed through
+  // buildBookingPriceArgs (not a hardcoded PER_SITE literal) — a PER_PERSON
+  // camp's total multiplies by the party size the camper picked in this flow.
+  it("[normal] a PER_PERSON camp — total multiplies unitPrice x guests x 1 night", () => {
+    const perPersonCamp: BookingCampContext = { ...CAMP, priceUnit: "PER_PERSON" };
+    const view = buildSummaryView({ slots, camp: perPersonCamp, t, language: "th", today: "2026-07-22" });
+    expect(view.totalValue).toBe("฿1,000"); // 500 * 2 guests * 1 night
   });
 });

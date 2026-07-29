@@ -44,6 +44,7 @@ export default async function WishlistPage() {
                             images: true,
                             priceLow: true,
                             priceHigh: true,
+                            priceUnit: true, // CAM-653 (ADR-014): what priceLow is charged per
                             isVerified: true,
                             isPublished: true,
                             latitude: true,
@@ -100,6 +101,7 @@ export default async function WishlistPage() {
                     images: campSite.images,
                     priceLow: campSite.priceLow === null ? null : Number(campSite.priceLow),
                     priceHigh: campSite.priceHigh === null ? null : Number(campSite.priceHigh),
+                    priceUnit: campSite.priceUnit, // CAM-653 (ADR-014)
                     isVerified: campSite.isVerified,
                     isPublished: campSite.isPublished,
                     latitude: campSite.latitude,

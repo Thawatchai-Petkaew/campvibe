@@ -145,6 +145,7 @@ const FIELD_LABEL_RESOLVERS: Record<string, (t: TranslationType) => string> = {
     checkOutTime: (t) => t.newCampground.checkOut,
     priceLow: (t) => t.newCampground.minPrice,
     priceHigh: (t) => t.newCampground.maxPrice,
+    priceUnit: (t) => t.newCampground.priceUnitLabel,
     locationId: (t) => t.newCampground.location,
     address: (t) => t.newCampground.address,
     directions: (t) => t.newCampground.directions,
@@ -209,7 +210,7 @@ const FIELD_SECTION_ID: Record<string, string> = {
     petFriendly: "amenities",
     campSiteType: "campground-type",
     ownershipType: "ownership",
-    priceLow: "price", priceHigh: "price", isFree: "price",
+    priceLow: "price", priceHigh: "price", isFree: "price", priceUnit: "price",
     extraFeeAmount: "extra-fee", extraFeeLabel: "extra-fee",
     cancellationPolicy: "cancellation-policy",
     maxGuestsPerDay: "zones", maxTentsPerDay: "zones", groundType: "zones", useSpotView: "zones",
@@ -299,6 +300,16 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         bookingMethod: "ONLI",
         priceLow: 500 as number | string,
         priceHigh: 1200 as number | string,
+        // CAM-654 (ADR-014 §2): the FORM default for a brand-new camp is
+        // PER_PERSON, deliberately different from the DB column default
+        // PER_SITE (@default(PER_SITE) on CampSite.priceUnit, CAM-650) — the
+        // column default asserts nothing about existing rows (today's math
+        // IS per-site, so it moves no money), while a NEW host typing ฿250
+        // most likely means per person (ADR-014 Context: the owner's own
+        // prototype + the AI research corpus both assume per-person). This
+        // state initializer is overwritten by the real stored value on edit
+        // (see the initialData effect below); it only takes effect on create.
+        priceUnit: "PER_PERSON" as string,
 
         // Extra fee + cancellation policy (CAM-341). New listing defaults to no fee
         // and no policy (AC-7) — never pre-filled/implied.
@@ -423,6 +434,12 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 bookingMethod: initialData.bookingMethod || "ONLI",
                 priceLow: initialData.priceLow ?? 0,
                 priceHigh: initialData.priceHigh ?? 0,
+                // CAM-654: an EXISTING camp keeps its real stored value
+                // (round-trip — never re-defaulted to the create-only
+                // PER_PERSON above). Fallback to PER_SITE (the DB column
+                // default, CAM-650), not PER_PERSON, matches what an
+                // already-saved row with no explicit host choice actually is.
+                priceUnit: initialData.priceUnit ?? "PER_SITE",
 
                 // Extra fee + cancellation policy (CAM-341): the Decimal arrives
                 // serialized over JSON — coerce with Number() (mirrors priceLow).
@@ -1524,6 +1541,71 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 {/* Pricing (only show when not free) */}
                                 {!formData.isFree && (
                                     <div className="space-y-4 pt-2">
+                                        {/* CAM-654 (ADR-014): the host picks whether priceLow/priceHigh
+                                            below are charged per person or per site. Two-option toggle,
+                                            radio-style (matches the Ownership Type picker further down
+                                            this form) — the filled/unfilled dot SHAPE carries the
+                                            selected state, not colour alone (a11y). */}
+                                        <div className="space-y-2">
+                                            <TruncatedLabel className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4" as="label">
+                                                {t.newCampground.priceUnitLabel}
+                                            </TruncatedLabel>
+                                            {zErr('priceUnit') && (
+                                                <p className="text-sm px-4 text-destructive">{zErr('priceUnit')}</p>
+                                            )}
+                                            <div className="space-y-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, priceUnit: "PER_PERSON" })}
+                                                    aria-pressed={formData.priceUnit === "PER_PERSON"}
+                                                    className={cn(
+                                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                                                        formData.priceUnit === "PER_PERSON"
+                                                            ? "bg-primary/10 border-primary"
+                                                            : "bg-card border-border hover:border-primary/50"
+                                                    )}
+                                                    data-testid="btn--campground-price-unit-per-person"
+                                                >
+                                                    <TruncatedLabel className="text-base font-semibold text-foreground flex-1 min-w-0" as="div">
+                                                        {t.newCampground.priceUnitPerPerson}
+                                                    </TruncatedLabel>
+                                                    <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ml-3",
+                                                        formData.priceUnit === "PER_PERSON"
+                                                            ? "bg-primary border-primary"
+                                                            : "bg-transparent border-border"
+                                                    )}>
+                                                        {formData.priceUnit === "PER_PERSON" && (
+                                                            <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                                                        )}
+                                                    </div>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, priceUnit: "PER_SITE" })}
+                                                    aria-pressed={formData.priceUnit === "PER_SITE"}
+                                                    className={cn(
+                                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                                                        formData.priceUnit === "PER_SITE"
+                                                            ? "bg-primary/10 border-primary"
+                                                            : "bg-card border-border hover:border-primary/50"
+                                                    )}
+                                                    data-testid="btn--campground-price-unit-per-site"
+                                                >
+                                                    <TruncatedLabel className="text-base font-semibold text-foreground flex-1 min-w-0" as="div">
+                                                        {t.newCampground.priceUnitPerSite}
+                                                    </TruncatedLabel>
+                                                    <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ml-3",
+                                                        formData.priceUnit === "PER_SITE"
+                                                            ? "bg-primary border-primary"
+                                                            : "bg-transparent border-border"
+                                                    )}>
+                                                        {formData.priceUnit === "PER_SITE" && (
+                                                            <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        </div>
                                         <InputField
                                             label={t.newCampground.minPrice}
                                             type="number"

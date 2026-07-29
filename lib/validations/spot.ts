@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { imageInputSchema } from './image';
+// CAM-654 (epic CAM-648, ADR-014): the shared PER_PERSON/PER_SITE boundary
+// enum — defined once in campsite.ts so the camp form and this spot form can
+// never expose a different set of choices from one another.
+import { PriceUnitEnum } from './campsite';
 
 export const ViewTypeEnum = z.enum([
   "GENERAL", // ทั่วไป
@@ -31,6 +35,13 @@ export const spotSchema = z.object({
   environment: z.string().optional().nullable(),
   pricePerNight: z.number().min(0),
   pricePerSite: z.number().min(0).optional().nullable(),
+  // CAM-654: the Prisma column is NOT NULL with @default(PER_SITE) (CAM-650) —
+  // same "no clear path, `.optional()` only" reasoning as
+  // campSiteSchema.priceUnit (lib/validations/campsite.ts). Inert until spot
+  // selection ships (ADR-014 §1 — no client sends `spotId` to
+  // POST /api/bookings today), wired here now so it never needs its own
+  // separate migration later.
+  priceUnit: PriceUnitEnum.optional(),
   nearFacilities: z.array(z.string()).optional(), // Internal Facility codes (CSV — see file header)
   campSiteId: z.string().uuid(),
 });

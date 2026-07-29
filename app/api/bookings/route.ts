@@ -6,7 +6,7 @@ import { requireAuth } from '@/lib/auth-utils';
 import { apiError, apiSuccess, calculateNights } from '@/lib/api-utils';
 import { checkDateAvailabilityInTx } from '@/lib/campsite-availability';
 import { serializeDecimals } from '@/lib/serialize';
-import { resolveUnitPrice, computeBookingPrice } from '@/lib/booking-pricing';
+import { buildBookingPriceArgs, computeBookingPrice } from '@/lib/booking-pricing';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 // RISK-12: cap the list query so it never does a full-table scan as data grows.
@@ -126,15 +126,11 @@ async function withBookingTransaction(
           return { type: 'not_found' as const };
         }
 
-        // --- Price computation (unchanged logic from existing handler) ---
+        // --- Price computation (CAM-651: routed through buildBookingPriceArgs) ---
         // Money is Decimal in the DB (ADR-002); compute in number for this simple THB total.
         // CAM-58: price computation centralised in lib/booking-pricing.ts — shared with the UI
         // so displayed total always equals recorded total.
         const bookedSpot = data.spotId ? campSite.spots.find((s) => s.id === data.spotId) : undefined;
-        const unitPrice = resolveUnitPrice({
-          campSitePriceLow: campSite.priceLow !== null ? Number(campSite.priceLow) : null,
-          spotPricePerNight: bookedSpot?.pricePerNight ? Number(bookedSpot.pricePerNight) : null,
-        });
 
         const nights = calculateNights(checkIn, checkOut);
         const currency = campSite.priceCurrency ?? 'THB';
@@ -142,12 +138,47 @@ async function withBookingTransaction(
         const country = campSite.location?.countryRel;
         const vatRate = country ? Number(country.vatRate) : 0;
         const timezone = country?.timezone ?? 'Asia/Bangkok';
-        // CAM-268 (PREP-2): the camp's atomic one-time fee — same single source
-        // (computeBookingPrice) the detail-page preview uses, so the recorded total
-        // never diverges from what was shown before the guest reserved.
-        const extraFeeAmount = campSite.extraFeeAmount !== null ? Number(campSite.extraFeeAmount) : 0;
 
-        const pricing = computeBookingPrice({ unitPrice, nights, vatRate, extraFeeAmount });
+        // CAM-652 (ADR-014): the real CampSite.priceUnit / Spot.priceUnit columns
+        // now travel through buildBookingPriceArgs, and `party.guests` is the
+        // camper's actual real request value — this is what makes a PER_PERSON
+        // camp charge unitPrice x guests x nights instead of unitPrice x nights.
+        // A camp/spot still stuck at the PER_SITE column default (every camp,
+        // until a host opts in via CAM-654) keeps charging exactly as before —
+        // resolveQuantity ignores `guests` for PER_SITE (lib/booking-pricing.ts).
+        const priceArgs = buildBookingPriceArgs({
+          campSite: {
+            priceLow: campSite.priceLow !== null ? Number(campSite.priceLow) : null,
+            priceUnit: campSite.priceUnit ?? null,
+            // CAM-268 (PREP-2): the camp's atomic one-time fee — same single source
+            // (computeBookingPrice) the detail-page preview uses, so the recorded total
+            // never diverges from what was shown before the guest reserved.
+            extraFeeAmount: campSite.extraFeeAmount !== null ? Number(campSite.extraFeeAmount) : null,
+          },
+          spot: bookedSpot
+            ? {
+                pricePerNight: bookedSpot.pricePerNight ? Number(bookedSpot.pricePerNight) : null,
+                priceUnit: bookedSpot.priceUnit ?? null,
+              }
+            : null,
+          party: { guests: data.guests },
+          nights,
+          vatRate,
+        });
+        // `ok:false` (TENT_COUNT_UNAVAILABLE) is unreachable today — no host
+        // form writes CampSite.priceUnit / Spot.priceUnit yet (CAM-654, the
+        // unit picker, is a separate story), so every row still carries the
+        // column default PER_SITE (ADR-014 §2) — but the discriminated union
+        // still forces this check rather than a silent guessed price if that
+        // ever changes.
+        if (!priceArgs.ok) {
+          return {
+            type: 'error' as const,
+            cause: new Error(`booking-pricing: ${priceArgs.reason}`),
+          };
+        }
+
+        const pricing = computeBookingPrice(priceArgs.input);
         const { subtotalAmount, taxAmount, vatInclusive, totalAmount } = pricing;
         const totalPrice = totalAmount;
 
@@ -170,8 +201,13 @@ async function withBookingTransaction(
             snapshotCampName: campSite.nameTh,
             snapshotCampNameEn: campSite.nameEn,
             snapshotSpotName: bookedSpot?.name ?? null,
-            snapshotUnitAmount: unitPrice,
+            snapshotUnitAmount: pricing.unitAmount,
             snapshotSubtotalAmount: subtotalAmount,
+            // CAM-652 (ADR-014 §4): freeze the unit + multiplier that actually
+            // priced this stay, alongside the amounts — a later host unit
+            // change must never reinterpret an existing booking's total.
+            snapshotPricingUnit: priceArgs.input.unit,
+            snapshotQuantity: priceArgs.input.quantity,
             snapshotExtraFeeAmount: pricing.extraFeeAmount, // CAM-268: frozen fee at booking time
             snapshotTaxRate: vatRate, // S5: regional VAT from the camp's Country.vatRate
             snapshotTaxAmount: taxAmount,

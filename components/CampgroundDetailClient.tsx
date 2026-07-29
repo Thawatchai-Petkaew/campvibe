@@ -25,7 +25,8 @@ import type { ReviewListItem } from "@/lib/review-summary";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, parseISO, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
-import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
+import { buildBookingPriceArgs, computeBookingPrice, type PricingUnit } from "@/lib/booking-pricing";
+import { priceUnitWord } from "@/lib/price-unit-display";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
 import { computeGuestCeiling, buildGuestOptions, clampGuestsToInitialCeiling } from "@/lib/guest-capacity";
 import type { BookingPrefill } from "@/lib/booking-prefill";
@@ -229,20 +230,36 @@ export default function CampgroundDetailClient({
     const isHeadlinePriceFree = campground.priceLow == null || Number(campground.priceLow) <= 0;
     // CAM-58: use the shared pricing module so displayed total matches what the API records.
     // No spot-selection state in this component — spotPricePerNight is null (uses priceLow).
-    const unitPrice = resolveUnitPrice({
-        campSitePriceLow: campground.priceLow != null ? Number(campground.priceLow) : null,
-        spotPricePerNight: null,
-    });
     // CAM-268 (PREP-2, AC-1): the camp's atomic one-time fee, via the same single
     // pricing source the real booking-creation API uses — so this preview's total
     // always equals what actually gets recorded.
     const campExtraFeeAmount = campground.extraFeeAmount != null ? Number(campground.extraFeeAmount) : 0;
-    const { totalAmount, subtotalAmount, extraFeeAmount } = computeBookingPrice({
-        unitPrice,
+    // CAM-652 (ADR-014): reads the camp's real `priceUnit` column and the
+    // camper's own `guests` state through the SAME buildBookingPriceArgs the
+    // server uses — a preview showing a different total than what the server
+    // records (a divergent quantity) is exactly the failure CAM-58 exists to
+    // prevent. `nights`/`vatRate` stay as today (server-authoritative VAT is
+    // 0 client-side; harmless because VAT is inclusive, unchanged by this story).
+    const priceArgs = buildBookingPriceArgs({
+        campSite: {
+            priceLow: campground.priceLow != null ? Number(campground.priceLow) : null,
+            priceUnit: (campground.priceUnit ?? null) as PricingUnit | null,
+            extraFeeAmount: campground.extraFeeAmount != null ? campExtraFeeAmount : null,
+        },
+        spot: null,
+        party: { guests },
         nights: displayNights || 1,
         vatRate: 0,
-        extraFeeAmount: campExtraFeeAmount,
     });
+    // `ok:false` (TENT_COUNT_UNAVAILABLE) is unreachable today — no host form
+    // writes CampSite.priceUnit yet (CAM-654 is a separate story), so every
+    // camp still carries the column default PER_SITE (ADR-014 §2) — the
+    // fallback below only satisfies the discriminated-union return type.
+    const { unitAmount: unitPrice, totalAmount, subtotalAmount, extraFeeAmount } = priceArgs.ok
+        ? computeBookingPrice(priceArgs.input)
+        : { unitAmount: 0, totalAmount: 0, subtotalAmount: 0, extraFeeAmount: 0 };
+    const bookingPricingUnit: PricingUnit = priceArgs.ok ? priceArgs.input.unit : "PER_SITE";
+    const bookingQuantity = priceArgs.ok ? priceArgs.input.quantity : 1;
 
     // Fetch availability data — CAM-616: lifted to a stable useCallback (not
     // an effect-local function) so the retry banner below can re-issue the
@@ -995,7 +1012,11 @@ export default function CampgroundDetailClient({
                                                         <span className="font-semibold text-foreground">
                                                             {isFree ? t.common.free : formatCurrency(Number(spot.pricePerNight))}
                                                         </span>{" "}
-                                                        <span className="text-muted-foreground">{t.common.night}</span>
+                                                        {/* CAM-653 (ADR-014): THIS spot's own unit, never the camp's
+                                                            (a per-spot camp can show both on one screen —
+                                                            `resolveUnitPrice`'s "never re-pair a row's price with
+                                                            another row's unit" contract, lib/booking-pricing.ts). */}
+                                                        <span className="text-muted-foreground">{priceUnitWord(t, spot.priceUnit as PricingUnit | null | undefined)}</span>
                                                     </div>
                                                 </div>
 
@@ -1335,7 +1356,14 @@ export default function CampgroundDetailClient({
                                     ) : (
                                         <>
                                             <span className="text-2xl font-bold text-foreground">{formatCurrency(Number(campground.priceLow))} </span>
-                                            <span className="text-muted-foreground">{t.common.night}</span>
+                                            {/* CAM-653 (ADR-014): unit-aware — reuses `bookingPricingUnit`,
+                                                the SAME camp-level unit already resolved above for the
+                                                booking-preview total (never a second resolution). PER_SITE
+                                                keeps the exact pre-existing `common.night` word (zero visual
+                                                diff — every camp is still PER_SITE until CAM-654 ships the
+                                                host picker); another unit reads the shared `common.priceUnitLabel`
+                                                phrase instead (`priceUnitWord`, lib/price-unit-display.ts). */}
+                                            <span className="text-muted-foreground">{priceUnitWord(t, bookingPricingUnit)}</span>
                                         </>
                                     )}
                                 </div>
@@ -1525,7 +1553,16 @@ export default function CampgroundDetailClient({
 
                             <div className="space-y-3 text-sm text-muted-foreground">
                                 <div className="flex justify-between" data-testid="row--booking-room-subtotal">
-                                    <span className="underline">{formatCurrency(unitPrice)} x {displayNights} {t.booking.nights}</span>
+                                    {/* CAM-652 (ADR-014): PER_PERSON adds the quantity term (x N guests) so the
+                                        breakdown's own math reads as `unit x guests x nights`, matching the
+                                        totalAmount the server records — never just `unit x nights` when a
+                                        party-size multiplier is actually being applied. */}
+                                    <span className="underline">
+                                        {formatCurrency(unitPrice)}
+                                        {bookingPricingUnit === "PER_PERSON" &&
+                                            ` x ${t.booking.guestsCount.replace("{count}", String(bookingQuantity))}`}
+                                        {` x ${displayNights} ${t.booking.nights}`}
+                                    </span>
                                     <span>{formatCurrency(subtotalAmount)}</span>
                                 </div>
                                 {/* CAM-268 (PREP-2, AC-1): itemized breakdown — only rendered when the

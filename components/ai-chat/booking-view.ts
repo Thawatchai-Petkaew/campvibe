@@ -34,7 +34,7 @@ import type {
   BookingQuestionView,
   BookingSummaryView,
 } from '@/components/ai-chat/AiChatBookingStep';
-import { computeBookingPrice } from '@/lib/booking-pricing';
+import { buildBookingPriceArgs, computeBookingPrice, type PricingUnit } from '@/lib/booking-pricing';
 import { buildBookingPrefillQuery, type BookingPrefill } from '@/lib/booking-prefill';
 import type { WeekendAvailabilityEntry } from '@/lib/ai/tools/get-camp-detail';
 import type { Language, TranslationType } from '@/locales/translations';
@@ -52,6 +52,16 @@ export interface BookingCampContext {
   maxGuestsPerDay: number | null;
   /** Resolved via `resolveUnitPrice` by the caller (design brief §3: the SAME module the camp page uses). Ignored when `priceIsFree`. */
   unitPrice: number;
+  /**
+   * The unit `unitPrice` is charged per (CAM-652, ADR-014) — the SAME
+   * `resolveUnitPrice().unit` result `unitPrice` came from, so a price is
+   * never paired with a different row's unit. `get-camp-detail` (lib/ai/**)
+   * does not select CampSite.priceUnit yet, so this is always `PER_SITE`
+   * today (ADR-014 §2's "no unit recorded" default) — carried as a real
+   * field (not hardcoded at the call site) so `buildSummaryView` routes
+   * through `buildBookingPriceArgs` like every other pricing call site.
+   */
+  priceUnit: PricingUnit;
   priceIsFree: boolean;
 }
 
@@ -224,11 +234,25 @@ export function buildSummaryView({ slots, camp, t, language, today }: SummaryPar
   const checkOut = slots.checkOut!;
   const guests = slots.guests!;
   const dateLabel = formatBookingDate(checkIn, language);
+  // CAM-652: routed through buildBookingPriceArgs (the ONE place every
+  // pricing call site assembles a ComputeBookingPriceInput) instead of this
+  // module building its own — `guests` is the party size the camper already
+  // picked in this flow (`slots.guests`), so a PER_PERSON camp's total
+  // multiplies here exactly as the server would, once `camp.priceUnit` ever
+  // carries a real value (see BookingCampContext's doc comment).
+  const priceArgs = buildBookingPriceArgs({
+    campSite: { priceLow: camp.unitPrice, priceUnit: camp.priceUnit, extraFeeAmount: null },
+    spot: null,
+    party: { guests },
+    nights: 1,
+    vatRate: 0,
+  });
+  // `ok:false` (TENT_COUNT_UNAVAILABLE) is unreachable — `camp.priceUnit` is
+  // always PER_SITE today (see BookingCampContext's doc comment); the
+  // fallback only satisfies the discriminated-union return type.
   const totalValue = camp.priceIsFree
     ? t.aiChat.card.free
-    : `฿${THB_FORMAT.format(
-        computeBookingPrice({ unitPrice: camp.unitPrice, nights: 1, vatRate: 0 }).totalAmount
-      )}`;
+    : `฿${THB_FORMAT.format(priceArgs.ok ? computeBookingPrice(priceArgs.input).totalAmount : 0)}`;
   const prefill: BookingPrefill = { checkIn, checkOut, guests, from: 'chat' };
   const query = buildBookingPrefillQuery(prefill, { today });
 

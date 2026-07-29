@@ -90,6 +90,7 @@ import { buildLocationText } from "@/components/ai-chat/location-text";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
 import { getFacilityIcon } from "@/lib/facility-icon-map";
 import { resolveUnitPrice } from "@/lib/booking-pricing";
+import { priceUnitSuffix } from "@/lib/price-unit-display";
 import type { BookingCampContext } from "@/components/ai-chat/booking-view";
 import { cn } from "@/lib/utils";
 import type {
@@ -269,13 +270,27 @@ export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: Ai
   // assertion.
   function handleStartBooking() {
     if (!detail) return;
+    // CAM-652: `get-camp-detail` (lib/ai/**) does not select CampSite.priceUnit
+    // yet — this surface cannot read a host's real unit choice today. `unit`
+    // below is the SAME `resolveUnitPrice` call this caller already made
+    // (campSitePriceUnit: null normalizes to PER_SITE, ADR-014 §2's documented
+    // "no unit recorded" default) — carried through so booking-view.ts routes
+    // the chat total through buildBookingPriceArgs like every other caller,
+    // instead of assembling its own ComputeBookingPriceInput.
+    const resolved = resolveUnitPrice({
+      campSitePriceLow: detail.price.low,
+      campSitePriceUnit: null,
+      spotPricePerNight: null,
+      spotPriceUnit: null,
+    });
     onStartBooking({
       campId: card.id,
       slug,
       name,
       weekendAvailability: detail.weekendAvailability,
       maxGuestsPerDay: detail.capacity.maxGuestsPerDay,
-      unitPrice: resolveUnitPrice({ campSitePriceLow: detail.price.low, spotPricePerNight: null }),
+      unitPrice: resolved.unitPrice,
+      priceUnit: resolved.unit,
       priceIsFree: detail.price.isFree,
     });
   }
@@ -348,14 +363,13 @@ export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: Ai
     statTiles.push({
       icon: Banknote,
       value: priceStatValue,
-      // CAM-643: reuse the same per-night suffix every other price surface
-      // uses (card carousel + this drawer's own CTA price below) — the old
-      // dedicated key here quoted a per-guest unit while pricing is
-      // strictly per-night (no guest multiplier anywhere in
-      // lib/booking-pricing.ts); a private key duplicating this string was
-      // exactly how the two drifted apart, so this call site now points at
-      // the one shared key instead of holding its own copy.
-      label: t.aiChat.card.perNight,
+      // CAM-653 (supersedes CAM-643's private `aiChat.card.perNight` key):
+      // every price caption on this card reads the ONE shared, unit-keyed
+      // group (`common.priceUnitSuffix`, lib/price-unit-display.ts).
+      // `card.priceUnit` is undefined until `lib/ai/**` threads the real
+      // column through (CAM-656, out of this story's surface) — defaults to
+      // PER_SITE, so this renders byte-identically to before this story.
+      label: priceUnitSuffix(t, card.priceUnit),
       testId: "text--ai-chat-detail-price",
     });
   }
@@ -559,7 +573,7 @@ export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: Ai
                             <span className="text-lg font-semibold tabular-nums text-ai-price">
                               ฿{THB_FORMAT.format(detail.price.low)}
                             </span>
-                            <span className="text-xs text-foreground/70">{t.aiChat.card.perNight}</span>
+                            <span className="text-xs text-foreground/70">{priceUnitSuffix(t, card.priceUnit)}</span>
                           </>
                         )
                       )}
@@ -735,7 +749,7 @@ export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: Ai
           {card.priceLow && card.priceLow > 0 ? (
             <>
               <span className="text-lg font-semibold text-ai-price">฿{THB_FORMAT.format(card.priceLow)}</span>
-              <span className="text-xs text-foreground/70">{t.aiChat.card.perNight}</span>
+              <span className="text-xs text-foreground/70">{priceUnitSuffix(t, card.priceUnit)}</span>
             </>
           ) : (
             <span className="text-lg font-semibold text-ai-price">{t.aiChat.card.free}</span>

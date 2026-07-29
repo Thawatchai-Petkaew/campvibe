@@ -220,8 +220,10 @@ describe("buildCardPriceDisplay — AC-3/AC-4/AC-5 (BR-5/BR-6, EC-2/EC-3)", () =
 });
 
 describe("components/CampgroundCard.tsx — the /คืน separator + free path (BR-6/BR-7)", () => {
-  it("[structural] the price block uses the perNight locale key, not a bare 'night' word", () => {
-    expect(cardSrc).toContain("t.common.perNight");
+  it("[structural] the price block uses the shared unit-aware suffix, not a bare 'night' word", () => {
+    // CAM-653: reads the shared priceUnitSuffix helper (defaults to
+    // common.perNight's PER_SITE value — see cam-653-price-captions-state-the-unit.test.ts).
+    expect(cardSrc).toContain("priceUnitSuffix(t, campground.priceUnit)");
   });
 
   it("[structural] the free branch renders ONLY t.common.free — no perNight suffix alongside it (EC-3)", () => {

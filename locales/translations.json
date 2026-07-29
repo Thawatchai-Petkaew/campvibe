@@ -83,6 +83,16 @@
             "reviews": "reviews",
             "night": "night",
             "perNight": "/night",
+            "priceUnitSuffix": {
+                "PER_PERSON": "/guest/night",
+                "PER_TENT": "/tent/night",
+                "PER_SITE": "/night"
+            },
+            "priceUnitLabel": {
+                "PER_PERSON": "per guest / night",
+                "PER_TENT": "per tent / night",
+                "PER_SITE": "per night"
+            },
             "reserve": "Reserve",
             "close": "Close",
             "showAll": "Show all",
@@ -173,6 +183,7 @@
             "checkOut": "Check-out",
             "guests": "Guests",
             "guest": "guest",
+            "guestsCount": "{count} guests",
             "addDate": "Add date",
             "notChargedYet": "You won't be charged yet",
             "cleaningFee": "Cleaning fee",
@@ -307,6 +318,9 @@
             "nationalParkDesc": "National park campground",
             "isFree": "Free Campground",
             "isFreeDesc": "This campground is free of charge",
+            "priceUnitLabel": "How is this price charged?",
+            "priceUnitPerPerson": "Per person (multiplied by the number of guests)",
+            "priceUnitPerSite": "Per site (one price, no matter how many people)",
             "minPrice": "Min Price / Night",
             "maxPrice": "Max Price / Night",
             "minPriceError": "Min price cannot be greater than max price",
@@ -1053,7 +1067,6 @@
             "retentionNotice": "Your conversations are kept for up to 180 days and are deleted automatically after that. You can delete any conversation yourself at any time.",
             "newChat": "Start new chat",
             "card": {
-                "perNight": "/night",
                 "free": "Free",
                 "noReviews": "No reviews yet",
                 "reviews": "{count} reviews",
@@ -1222,6 +1235,16 @@
             "reviews": "รีวิว",
             "night": "คืน",
             "perNight": "/คืน",
+            "priceUnitSuffix": {
+                "PER_PERSON": "/คน/คืน",
+                "PER_TENT": "/หลัง/คืน",
+                "PER_SITE": "/คืน"
+            },
+            "priceUnitLabel": {
+                "PER_PERSON": "ต่อคน/คืน",
+                "PER_TENT": "ต่อหลัง/คืน",
+                "PER_SITE": "ต่อคืน"
+            },
             "reserve": "จอง",
             "close": "ปิด",
             "showAll": "แสดงทั้งหมด",
@@ -1312,6 +1335,7 @@
             "checkOut": "เช็คเอาท์",
             "guests": "ผู้เข้าพัก",
             "guest": "ผู้เข้าพัก",
+            "guestsCount": "{count} คน",
             "addDate": "เพิ่มวันที่",
             "notChargedYet": "คุณจะยังไม่ถูกเรียกเก็บเงิน",
             "cleaningFee": "ค่าทำความสะอาด",
@@ -1446,6 +1470,9 @@
             "nationalParkDesc": "ลานกางเต็นท์ในอุทยานแห่งชาติ",
             "isFree": "ลานฟรีค่าใช้จ่าย",
             "isFreeDesc": "ลานนี้ไม่เสียค่าใช้จ่าย",
+            "priceUnitLabel": "ราคานี้คิดแบบไหน",
+            "priceUnitPerPerson": "คิดต่อคน (คูณจำนวนผู้เข้าพัก)",
+            "priceUnitPerSite": "คิดต่อจุด (ราคาเดียว ไม่ว่าจะมากี่คน)",
             "minPrice": "ราคาต่ำสุด / คืน",
             "maxPrice": "ราคาสูงสุด / คืน",
             "minPriceError": "ราคาต่ำสุดไม่สามารถมากกว่าราคาสูงสุดได้",
@@ -2193,7 +2220,6 @@
             "retentionNotice": "บทสนทนาของคุณจะถูกเก็บไว้ไม่เกิน 180 วัน แล้วจะถูกลบออกโดยอัตโนมัติ คุณสามารถลบบทสนทนาด้วยตัวเองได้ทุกเมื่อ",
             "newChat": "เริ่มแชทใหม่",
             "card": {
-                "perNight": "/คืน",
                 "free": "ฟรี",
                 "noReviews": "ยังไม่มีรีวิว",
                 "reviews": "{count} รีวิว",

@@ -142,7 +142,7 @@ describe("Every previously-flagged label now uses text-foreground/70", () => {
   });
 
   it("[normal] price captions: per-night, extra-fee one-time, fee info, no-availability empty state", () => {
-    expect(detailSrc).toContain('<span className="text-xs text-foreground/70">{t.aiChat.card.perNight}</span>');
+    expect(detailSrc).toContain('<span className="text-xs text-foreground/70">{priceUnitSuffix(t, card.priceUnit)}</span>');
     expect(detailSrc).toContain('<span className="text-xs text-foreground/70">{t.aiChat.detail.extraFeeOneTime}</span>');
     expect(detailSrc).toContain('<p className="text-xs text-foreground/70">{detail.price.feeInfo}</p>');
     expect(detailSrc).toContain('<p className="text-sm text-foreground/70">{t.aiChat.detail.noAvailability}</p>');
@@ -166,7 +166,7 @@ describe("Every previously-flagged label now uses text-foreground/70", () => {
   });
 
   it("[normal] the per-night CTA caption", () => {
-    expect(detailSrc).toContain('<span className="text-xs text-foreground/70">{t.aiChat.card.perNight}</span>');
+    expect(detailSrc).toContain('<span className="text-xs text-foreground/70">{priceUnitSuffix(t, card.priceUnit)}</span>');
   });
 });
 
