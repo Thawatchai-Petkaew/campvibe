@@ -177,7 +177,14 @@ function makeCampSiteRecordForPricing(capacity: number | null) {
     maxGuestsPerDay: capacity,
     maxTentsPerDay: null,
     extraFeeAmount: null,
-    spots: [],
+    // CAM-668: every POST test in this file books SPOT_ID — the real route
+    // now rejects a spotId absent from `campSite.spots` (the exact
+    // cross-camp/soft-delete hole CAM-668 closes), so this fixture's `spots`
+    // must contain a live row for SPOT_ID or every spot-scoped POST case here
+    // would (correctly) get a NEW 400, not the pre-existing overlap/capacity/
+    // success outcome each test actually asserts. Kept minimal — same shape
+    // Prisma's `include: { spots: { where: { deletedAt: null } } }` returns.
+    spots: [{ id: SPOT_ID, name: 'Test Spot A1', pricePerNight: 500, priceUnit: 'PER_SITE' }],
     location: { countryRel: { vatRate: 0, timezone: 'Asia/Bangkok' } },
   };
 }
