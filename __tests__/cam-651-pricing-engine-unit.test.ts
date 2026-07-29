@@ -346,11 +346,13 @@ describe('I8 — boundary: quantity clamp + PER_TENT without a tent count', () =
 });
 
 // ---------------------------------------------------------------------------
-// buildBookingPriceArgs — happy path sanity (both call sites' forced-PER_SITE
-// shape, proving "no call site starts charging differently yet")
+// buildBookingPriceArgs — happy path sanity, PER_SITE explicitly passed in
+// (CAM-652 threads the REAL per-camp/spot unit through the two call sites —
+// this is a pure unit test of the builder itself with PER_SITE as the input,
+// not a claim about what either caller forces).
 // ---------------------------------------------------------------------------
-describe('buildBookingPriceArgs — happy path (PER_SITE forced today by both callers)', () => {
-  it('[normal] campSite-only pricing, PER_SITE forced, quantity 1 — matches pre-CAM-651 output', () => {
+describe('buildBookingPriceArgs — happy path (explicit PER_SITE input)', () => {
+  it('[normal] campSite-only pricing, PER_SITE, quantity 1 — matches pre-CAM-651 output', () => {
     const result = buildBookingPriceArgs({
       campSite: { priceLow: 250, priceUnit: 'PER_SITE', extraFeeAmount: null },
       spot: null,

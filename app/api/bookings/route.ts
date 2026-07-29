@@ -139,16 +139,17 @@ async function withBookingTransaction(
         const vatRate = country ? Number(country.vatRate) : 0;
         const timezone = country?.timezone ?? 'Asia/Bangkok';
 
-        // CAM-651: this story wires both pricing call sites through
-        // buildBookingPriceArgs but keeps every existing camp charging
-        // IDENTICALLY — priceUnit is forced to 'PER_SITE' (quantity resolves
-        // to 1 regardless of party size) rather than reading the real
-        // CampSite.priceUnit / Spot.priceUnit columns. CAM-652 threads the
-        // real values through both callers.
+        // CAM-652 (ADR-014): the real CampSite.priceUnit / Spot.priceUnit columns
+        // now travel through buildBookingPriceArgs, and `party.guests` is the
+        // camper's actual real request value — this is what makes a PER_PERSON
+        // camp charge unitPrice x guests x nights instead of unitPrice x nights.
+        // A camp/spot still stuck at the PER_SITE column default (every camp,
+        // until a host opts in via CAM-654) keeps charging exactly as before —
+        // resolveQuantity ignores `guests` for PER_SITE (lib/booking-pricing.ts).
         const priceArgs = buildBookingPriceArgs({
           campSite: {
             priceLow: campSite.priceLow !== null ? Number(campSite.priceLow) : null,
-            priceUnit: 'PER_SITE',
+            priceUnit: campSite.priceUnit ?? null,
             // CAM-268 (PREP-2): the camp's atomic one-time fee — same single source
             // (computeBookingPrice) the detail-page preview uses, so the recorded total
             // never diverges from what was shown before the guest reserved.
@@ -157,17 +158,19 @@ async function withBookingTransaction(
           spot: bookedSpot
             ? {
                 pricePerNight: bookedSpot.pricePerNight ? Number(bookedSpot.pricePerNight) : null,
-                priceUnit: 'PER_SITE',
+                priceUnit: bookedSpot.priceUnit ?? null,
               }
             : null,
-          party: { guests: 1 },
+          party: { guests: data.guests },
           nights,
           vatRate,
         });
-        // PER_SITE always resolves `ok:true` (no tent count required) — this branch
-        // is unreachable today and exists only because buildBookingPriceArgs returns
-        // a discriminated union; treat it as an internal error rather than silently
-        // falling back to a guessed price.
+        // `ok:false` (TENT_COUNT_UNAVAILABLE) is unreachable today — no host
+        // form writes CampSite.priceUnit / Spot.priceUnit yet (CAM-654, the
+        // unit picker, is a separate story), so every row still carries the
+        // column default PER_SITE (ADR-014 §2) — but the discriminated union
+        // still forces this check rather than a silent guessed price if that
+        // ever changes.
         if (!priceArgs.ok) {
           return {
             type: 'error' as const,
@@ -200,6 +203,11 @@ async function withBookingTransaction(
             snapshotSpotName: bookedSpot?.name ?? null,
             snapshotUnitAmount: pricing.unitAmount,
             snapshotSubtotalAmount: subtotalAmount,
+            // CAM-652 (ADR-014 §4): freeze the unit + multiplier that actually
+            // priced this stay, alongside the amounts — a later host unit
+            // change must never reinterpret an existing booking's total.
+            snapshotPricingUnit: priceArgs.input.unit,
+            snapshotQuantity: priceArgs.input.quantity,
             snapshotExtraFeeAmount: pricing.extraFeeAmount, // CAM-268: frozen fee at booking time
             snapshotTaxRate: vatRate, // S5: regional VAT from the camp's Country.vatRate
             snapshotTaxAmount: taxAmount,
