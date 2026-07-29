@@ -10,6 +10,14 @@ image at all (the dominant real state), PER_SITE vs PER_PERSON pricing, a
 free pitch, mixed capacities (2/4/8), 3+ zones, a host-blocked date, an
 existing non-cancelled booking, and a very long name.
 
+The 9 demo pitches are shown on a **camper-facing screen** (that is the
+whole point — the owner needs to judge how the new pitch UI actually
+looks), so their names read like the camp's own inventory (`จุด <letter>1`
+.. `จุด <letter>9`, picking a letter block the camp does not already use) —
+never an internal ticket id or jargon. The undo identity marker lives
+entirely in `Spot.createdAt` instead (see "Reversible by construction"
+below), a column no camper-facing screen ever renders.
+
 ## Usage (STAGING only — the script refuses a localhost `DATABASE_URL`)
 
 ```bash
@@ -36,12 +44,38 @@ new ones. That was caught before it ran: mutating real host data with no
 recorded "before" value cannot be undone, no matter how `--undo` is written.
 
 The current design **only ever `prisma.spot.create()`s new pitches** —
-never `spot.update()` on a real row. Every demo pitch's `Spot.name` starts
-with `DEMO_NAME_PREFIX` (`"CAM-663 Demo — "`), a durable, exact-match
-identity marker (the same idea as the fixed image-URL pool and fixed
-booking/blockedDate date range this script already used) — no real host
-names a pitch that way. `--undo` finds every row carrying that marker and
-removes it; nothing about a real pitch is ever read, written, or deleted.
+never `spot.update()` on a real row.
+
+### Why the identity marker lives on `Spot.createdAt`, not `Spot.name`
+
+An earlier version of this fix put the marker on `Spot.name` (a
+`"CAM-663 Demo — "` prefix). That was itself caught in review: every
+seeded pitch then rendered internal jargon on a camper-facing screen
+(banned by `.claude/rules/code.md` §4 / `DESIGN.md`), nine identically-
+prefixed cards made judging the new pitch UI impossible, and it clobbered
+the "very long name" test case (every name was now long).
+
+`Spot.createdAt` is the marker instead: every demo pitch gets EXACTLY the
+fixed timestamp `DEMO_SPOT_CREATED_AT`, and no real pitch (created at its
+own real time) ever will. `createdAt` is genuinely invisible on every
+camper-facing screen — grep-verified: no component renders a per-pitch
+"created" date; the only reader anywhere is an `orderBy` in
+`app/api/campsites/[id]/spots/route.ts` (a display-order effect only, not
+a rendered value). Ruled out for the same reason: `Spot.name` / `zone` /
+`environment` / `nearFacilities` / `viewType` all render on a camper-facing
+screen, and `Spot.pricePerSite` is a deprecated financial column
+ADR-014 §5 explicitly forbids new readers/writers of. `--undo` finds every
+row carrying that exact timestamp and removes it; nothing about a real
+pitch is ever read, written, or deleted.
+
+### Names read like the camp's own inventory
+
+`buildPlan` detects the camp's own `<letter><number>` pitch-naming
+convention (if any) from its REAL sibling names and picks a letter block
+NONE of them already use (`pickUnusedLetterBlock` — collision-free by
+construction), naming the 9 demo pitches `จุด <letter>1` .. `จุด <letter>9`
+— except exactly one (`no-image-1`) which keeps a deliberately long,
+realistic-sounding name to exercise truncation.
 
 `viewType`/`environment`/`nearFacilities` are copied from one real sibling
 pitch on the same camp (read-only) so the new rows look native instead of
@@ -108,11 +142,12 @@ across the two separate CLI invocations.
 
 Re-running (dry-run or apply) always resolves the same 9 roles to the same
 rows: `buildPlan` looks up already-created demo pitches by their exact
-`DEMO_NAME_PREFIX + role label` name before deciding what to create. Every
-write beyond the initial create is a top-up-to-target-state check (does this
-pitch already have a panorama / >=3 photos / >=1 photo / a live
-BlockedDate / a live non-cancelled Booking?), so a second `--apply` creates
-zero additional rows.
+`Spot.createdAt` marker before deciding what to create. The chosen letter
+block is itself stable across calls too — it is derived only from the real
+sibling names, which this script never touches. Every write beyond the
+initial create is a top-up-to-target-state check (does this pitch already
+have a panorama / >=3 photos / >=1 photo / a live BlockedDate / a live
+non-cancelled Booking?), so a second `--apply` creates zero additional rows.
 
 ## Guard
 

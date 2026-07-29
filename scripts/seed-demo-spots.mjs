@@ -17,12 +17,30 @@
  * script that mutated 9 real pitches in place — the coordinator caught this
  * before it ran: mutating real host data with no recorded "before" value is
  * not reversible, no matter how the undo path is written). Every demo pitch
- * this script creates carries the DEMO_NAME_PREFIX marker in `Spot.name` —
- * the same kind of durable, exact-match identity this script already uses
- * for its images (fixed URL pool) and its booking/blockedDate (fixed date
- * range). `--undo` finds every row with that marker and deletes it, in
- * explicit FK order (see undoPlan) — nothing about a real host's pitch is
- * ever read, written, or removed.
+ * this script creates is identified by an exact-match `Spot.createdAt`
+ * timestamp (`DEMO_SPOT_CREATED_AT` below) — the same kind of durable,
+ * exact-match identity this script already uses for its images (fixed URL
+ * pool) and its booking/blockedDate (fixed date range). `createdAt` is
+ * genuinely invisible on every camper-facing screen (grep-verified — no
+ * component renders a per-pitch "created" date; the only reader is an
+ * `orderBy` in `app/api/campsites/[id]/spots/route.ts`, a display-order
+ * effect only) — unlike `Spot.name`/`zone`/`environment`/`nearFacilities`/
+ * `viewType`, which all render, and `pricePerSite`, a deprecated financial
+ * column ADR-014 §5 forbids new readers/writers of. `--undo` finds every
+ * row with that exact timestamp and deletes it, in explicit FK order (see
+ * undoPlan) — nothing about a real host's pitch is ever read, written, or
+ * removed.
+ *
+ * DEMO PITCH NAMES read like the camp's own inventory, never internal jargon
+ * (`.claude/rules/code.md` §4 / `DESIGN.md` ban technical jargon and IDs in
+ * user-facing copy — these pitches are shown on a camper-facing screen so
+ * the owner can judge how the new pitch UI actually looks). `buildPlan`
+ * detects the camp's own `<letter><number>` pitch-naming convention (if any)
+ * from its real siblings and picks a letter block NONE of them already use
+ * (`pickUnusedLetterBlock`), naming the 9 demo pitches `จุด <letter>1` ..
+ * `จุด <letter>9` — collision-free by construction — except exactly ONE
+ * (`no-image-1`) which keeps a deliberately long, realistic-sounding name to
+ * exercise truncation.
  *
  * SAFETY
  *   - Default mode is DRY RUN (prints the plan, writes nothing). Writing
@@ -77,10 +95,11 @@
  * kind of camp and the round-trip is exact either way.
  *
  * IDEMPOTENT BY CONSTRUCTION: buildPlan looks up any already-created demo
- * pitches by their exact `DEMO_NAME_PREFIX + role label` name (computed by
- * nameForRole, a pure function of the role) before deciding what to create,
- * so re-running (dry-run or apply) always resolves the SAME 9 roles to the
- * SAME rows once they exist. Every write beyond the initial create is a
+ * pitches by their exact `Spot.createdAt` marker before deciding what to
+ * create, so re-running (dry-run or apply) always resolves the SAME 9 roles
+ * to the SAME rows once they exist (the chosen letter block is itself
+ * stable across calls — it is derived only from the REAL siblings, which
+ * this script never touches). Every write beyond the initial create is a
  * "top up to target state" check (does this pitch already have a panorama /
  * >=3 photos / >=1 photo / a live BlockedDate / a live non-cancelled
  * Booking?) — so a second --apply run creates zero additional rows.
@@ -243,34 +262,61 @@ export function capacityForIndex(idx) {
 }
 
 /**
- * Durable identity marker — every Spot this script creates has a `name`
- * starting with this prefix, and ONLY rows this script creates ever will
- * (no real host names a pitch this way). `--undo`'s `spot.deleteMany` keys
- * on this prefix; it is the create-side equivalent of the fixed image
- * URLs / fixed booking-date range this script already used for its
- * children before this design change.
+ * Durable identity marker — every Spot this script creates has EXACTLY this
+ * `createdAt` timestamp, and no real pitch (created at its own real time)
+ * ever will. `createdAt` is invisible on every camper-facing screen (see the
+ * module docstring) — unlike `Spot.name`, which must read like the camp's
+ * own inventory (see nameForRole below). `--undo`'s `spot.deleteMany` keys
+ * on this exact value; it is the create-side equivalent of the fixed image
+ * URLs / fixed booking-date range this script already used for its children.
  */
-export const DEMO_NAME_PREFIX = 'CAM-663 Demo — ';
+export const DEMO_SPOT_CREATED_AT = new Date('2027-01-15T00:00:00.000Z');
 
+/** Exactly one deliberately long, realistic-sounding name — exercises truncation. */
 export const LONG_NAME =
   'ลานกางเต็นท์ริมธารน้ำใสมองเห็นวิวภูเขาใหญ่และทุ่งดอกไม้ป่ากว้างสุดสายตา ' +
   'ท่ามกลางบรรยากาศธรรมชาติร่มรื่นเงียบสงบ เหมาะสำหรับครอบครัวและกลุ่มเพื่อนสนิท';
 
-/** Short, realistic Thai label per role — prefixed with DEMO_NAME_PREFIX to form the full Spot.name. */
-export const ROLE_LABELS = {
-  'panorama-1': 'จุดวิวพาโนราม่า 1',
-  'panorama-2': 'จุดวิวพาโนราม่า 2',
-  'multi-photo-1': 'จุดกางเต็นท์ (หลายรูป) 1',
-  'multi-photo-2': 'จุดกางเต็นท์ (หลายรูป) 2',
-  'multi-photo-3': 'จุดกางเต็นท์ (หลายรูป) 3',
-  'one-photo-1': 'จุดกางเต็นท์ (รูปเดียว) 1',
-  'one-photo-2': 'จุดกางเต็นท์ (มีการจองอยู่แล้ว)',
-  'no-image-1': LONG_NAME,
-  'no-image-2': 'จุดกางเต็นท์ (โฮสต์ปิด, ฟรี)',
-};
+// Tried in order until one is NOT already used as a <letter><number> prefix
+// by any of the camp's real pitch names — Z first (least likely to collide
+// with a real camp's own A/B/C-style zoning), walking down the alphabet.
+export const LETTER_POOL = [
+  'Z', 'Y', 'X', 'W', 'V', 'U', 'T', 'S', 'R', 'Q', 'P', 'O', 'N',
+  'M', 'L', 'K', 'J', 'I', 'H', 'G', 'F', 'E', 'D', 'C', 'B', 'A',
+];
 
-export function nameForRole(role) {
-  return `${DEMO_NAME_PREFIX}${ROLE_LABELS[role]}`;
+// Matches "A1", "จุด A1", "Zone B12", etc. — any single Latin letter
+// immediately followed by digits, anywhere in the name.
+const LETTER_BLOCK_PATTERN = /\b([A-Za-z])\d+\b/;
+
+export function extractUsedLetterBlocks(spotNames) {
+  const used = new Set();
+  for (const name of spotNames) {
+    const match = LETTER_BLOCK_PATTERN.exec(name ?? '');
+    if (match) used.add(match[1].toUpperCase());
+  }
+  return used;
+}
+
+/**
+ * Picks a letter block none of the camp's REAL sibling pitch names already
+ * use, so `จุด <letter>1..9` can never collide with a real pitch's name.
+ * Falls back through the whole alphabet before giving up (never happens in
+ * practice — no camp has all 26 letters as active zoning prefixes).
+ */
+export function pickUnusedLetterBlock(spotNames) {
+  const used = extractUsedLetterBlocks(spotNames);
+  for (const letter of LETTER_POOL) {
+    if (!used.has(letter)) return letter;
+  }
+  throw new Error("every letter block A-Z is already used by this camp's real pitch names — cannot pick a collision-free demo block");
+}
+
+/** `จุด <letter><1..9>` per role, in the camp's own naming style — except the one deliberately long name. */
+export function nameForRole(role, letter) {
+  if (role === 'no-image-1') return LONG_NAME;
+  const roleIndex = ROLE_ORDER.indexOf(role) + 1; // 1..9
+  return `จุด ${letter}${roleIndex}`;
 }
 
 export const DEMO_PRICE_PER_NIGHT = 500;
@@ -339,11 +385,13 @@ export function neededPhotoCount(role, existingPhotoCount) {
 /**
  * Reads the chosen camp's zones, a real sibling pitch's viewType/environment/
  * nearFacilities (so created rows "look native" instead of carrying nulls in
- * columns every real pitch already has populated), and any demo pitches this
- * script already created (by DEMO_NAME_PREFIX), then builds the full write
- * plan. Read-only — never mutates, and never reads/touches a real pitch
- * beyond copying those 3 display fields from one. Safe to call twice in a
- * row (dry-run) and get an identical plan back.
+ * columns every real pitch already has populated), the camp's own
+ * `<letter><number>` naming convention (to pick a collision-free block), and
+ * any demo pitches this script already created (by `DEMO_SPOT_CREATED_AT`),
+ * then builds the full write plan. Read-only — never mutates, and never
+ * reads/touches a real pitch beyond copying 3 display fields + its name
+ * pattern. Safe to call twice in a row (dry-run) and get an identical plan
+ * back.
  */
 export async function buildPlan(prisma, camp) {
   const zones = await prisma.zone.findMany({
@@ -356,21 +404,24 @@ export async function buildPlan(prisma, camp) {
   }
 
   // Real siblings only (excludes any pitch this script already created) — the
-  // source for viewType/environment/nearFacilities realism, never for
-  // price/capacity/zone/name, and never mutated.
+  // source for viewType/environment/nearFacilities realism AND the letter-
+  // block collision check, never for price/capacity/zone, and never mutated.
   const siblings = await prisma.spot.findMany({
-    where: { campSiteId: camp.id, deletedAt: null, name: { not: { startsWith: DEMO_NAME_PREFIX } } },
+    where: { campSiteId: camp.id, deletedAt: null, createdAt: { not: DEMO_SPOT_CREATED_AT } },
     orderBy: { id: 'asc' },
-    select: { viewType: true, environment: true, nearFacilities: true },
+    select: { name: true, viewType: true, environment: true, nearFacilities: true },
   });
   if (siblings.length === 0) {
     throw new Error(`camp ${camp.nameThSlug} has no real sibling pitch to copy viewType/environment/nearFacilities from`);
   }
+  const letter = pickUnusedLetterBlock(siblings.map((s) => s.name));
 
   // Already-created demo pitches from a prior apply, matched back to their
-  // role by exact name (nameForRole is a pure function of the role).
+  // role by exact name (nameForRole is a pure function of role + the SAME
+  // letter recomputed above — stable across calls because it only depends
+  // on the real siblings, which this script never touches).
   const existingDemoSpots = await prisma.spot.findMany({
-    where: { campSiteId: camp.id, deletedAt: null, name: { startsWith: DEMO_NAME_PREFIX } },
+    where: { campSiteId: camp.id, deletedAt: null, createdAt: DEMO_SPOT_CREATED_AT },
     select: {
       id: true, name: true,
       images: { select: { id: true, kind: true, url: true } },
@@ -384,7 +435,7 @@ export async function buildPlan(prisma, camp) {
   let panoramaCursor = 0;
 
   const rows = ROLE_ORDER.map((role, idx) => {
-    const name = nameForRole(role);
+    const name = nameForRole(role, letter);
     const existing = existingByName.get(name) ?? null;
     const sibling = siblings[idx % siblings.length];
 
@@ -433,7 +484,7 @@ export async function buildPlan(prisma, camp) {
     };
   });
 
-  return { camp, zones, rows };
+  return { camp, zones, rows, letter };
 }
 
 /** The per-branch count table the done_when checks for. */
@@ -454,7 +505,7 @@ export function summarizePlan(plan) {
     'distinct zones (want >=3)': new Set(rows.map((r) => r.zoneId)).size,
     'host BlockedDate on spotId': rows.filter((r) => r.needsBlockedDate || r.alreadyHasBlockedDate).length,
     'existing non-cancelled Booking on spotId': rows.filter((r) => r.needsBooking || r.alreadyHasNonCancelledBooking).length,
-    'very long name': rows.filter((r) => r.name === nameForRole('no-image-1')).length,
+    'very long name': rows.filter((r) => r.name === LONG_NAME).length,
     'new pitches to create': rows.filter((r) => r.isNewSpot).length,
   };
 }
@@ -463,7 +514,8 @@ export function printPlan(plan, log = console.log) {
   log(
     `chosen camp: ${plan.camp.nameTh} (${plan.camp.nameThSlug})` +
       `${plan.camp.overridden ? ' [--camp override]' : ` completeness score=${plan.camp.score}`}` +
-      `${plan.camp.useSpotView ? ' [useSpotView currently true]' : ' [useSpotView currently false]'}`
+      `${plan.camp.useSpotView ? ' [useSpotView currently true]' : ' [useSpotView currently false]'}` +
+      ` [letter block: ${plan.letter}]`
   );
   const summary = summarizePlan(plan);
   for (const [label, count] of Object.entries(summary)) {
@@ -492,6 +544,7 @@ export async function applyPlan(prisma, plan) {
           viewType: row.viewType,
           environment: row.environment,
           nearFacilities: row.nearFacilities,
+          createdAt: DEMO_SPOT_CREATED_AT, // the durable, camper-invisible identity marker
         },
       });
       spotId = spot.id;
@@ -551,11 +604,12 @@ export async function applyPlan(prisma, plan) {
 }
 
 /**
- * Removes exactly the pitches this script created (by DEMO_NAME_PREFIX) and
- * everything attached to them — never a real host's pitch/booking/blocked
- * date. HARD delete, deliberately, not soft (`deletedAt`): these rows have
- * no real booking/host history worth preserving (this script is their
- * entire lifecycle, create to delete), and a soft-deleted phantom row left
+ * Removes exactly the pitches this script created (by the exact
+ * `DEMO_SPOT_CREATED_AT` marker) and everything attached to them — never a
+ * real host's pitch/booking/blocked date. HARD delete, deliberately, not
+ * soft (`deletedAt`): these rows have no real booking/host history worth
+ * preserving (this script is their entire lifecycle, create to delete),
+ * and a soft-deleted phantom row left
  * behind forever would be residue undo is supposed to remove. Either choice
  * leaves `getEffectiveCapacity`/`calculateSpotCapacity` computing the same
  * number (both filter `deletedAt: null` — lib/spot-aggregation.ts:46) — hard
@@ -572,7 +626,7 @@ export async function applyPlan(prisma, plan) {
  */
 export async function undoPlan(prisma, plan) {
   const demoSpots = await prisma.spot.findMany({
-    where: { campSiteId: plan.camp.id, deletedAt: null, name: { startsWith: DEMO_NAME_PREFIX } },
+    where: { campSiteId: plan.camp.id, deletedAt: null, createdAt: DEMO_SPOT_CREATED_AT },
     select: { id: true },
   });
   const demoSpotIds = demoSpots.map((s) => s.id);
@@ -657,7 +711,7 @@ export async function main() {
     if (undo) {
       const removed = await undoPlan(prisma, plan);
       console.log(
-        `✓ undo complete: removed ${removed.spots} pitch(es), ${removed.images} image(s), ${removed.bookings} booking(s), ${removed.blockedDates} blocked date(s); useSpotView reset to false`
+        `✓ undo complete: removed ${removed.spots} pitch(es), ${removed.images} image(s), ${removed.bookings} booking(s), ${removed.blockedDates} blocked date(s); useSpotView restored to its original value`
       );
       return;
     }
