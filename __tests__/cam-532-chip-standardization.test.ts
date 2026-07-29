@@ -68,7 +68,10 @@ describe("AC-2: interaction states come from the primitive, never from the consu
     expect(chipSrc).toContain("focus-visible:ring-2");
     expect(chipSrc).toContain("focus-visible:ring-ring");
     expect(chipSrc).toContain("active:scale-95");
-    expect(chipSrc).toContain("disabled && \"opacity-50 pointer-events-none\"");
+    // CAM-662 — opacity may never de-emphasize a control; disabled is now a
+    // flat solid fill/text pair (bg-disabled/text-disabled-foreground), not opacity-50.
+    expect(chipSrc).toContain("disabled && \"border-transparent bg-disabled text-disabled-foreground pointer-events-none\"");
+    expect(chipSrc).not.toMatch(/disabled && "opacity-50/);
   });
 
   it("[structural] selected state is bg-primary text-primary-foreground (DESIGN.md §3 Chip family)", () => {
