@@ -184,9 +184,9 @@ describe('CampgroundDetailClient.tsx — Activity section wiring (AC-1, BR-4)', 
     expect(detailSrc).toMatch(/const activityCodes = codesByGroup\('Activity'\);/);
   });
 
-  it('[normal] the Activity section is gated on activityCodes.length > 0 and uses OptionGroupSection + t.filter["Activity"]', () => {
+  it('[normal] the Activity sub-group is gated on activityCodes.length > 0 and uses OptionGroupSection + t.filter["Activity"] (CAM-667: testId moved onto the primitive itself)', () => {
     expect(detailSrc).toContain('{activityCodes.length > 0 && (');
-    expect(detailSrc).toContain('data-testid="section--activities"');
+    expect(detailSrc).toContain('testId="section--activities"');
     expect(detailSrc).toContain('heading={t.filter["Activity"]}');
     expect(detailSrc).toContain('codes={activityCodes}');
   });
@@ -204,15 +204,15 @@ describe('CampgroundDetailClient.tsx — Activity section wiring (AC-1, BR-4)', 
   });
 });
 
-describe('CampgroundDetailClient.tsx — campSiteType gets its OWN section (AC-2/EC-2, BR-2)', () => {
-  it('[normal] a dedicated section keyed off campSiteTypeCode uses heading t.filter["Campground type"] and codes=[campSiteTypeCode]', () => {
-    expect(detailSrc).toContain('data-testid="section--campground-type"');
+describe('CampgroundDetailClient.tsx — campSiteType gets its OWN sub-group (AC-2/EC-2, BR-2)', () => {
+  it('[normal] a dedicated sub-group keyed off campSiteTypeCode uses heading t.filter["Campground type"] and codes=[campSiteTypeCode] (CAM-667: testId moved onto the primitive)', () => {
+    expect(detailSrc).toContain('testId="section--campground-type"');
     expect(detailSrc).toContain('heading={t.filter["Campground type"]}');
     expect(detailSrc).toContain('codes={[campSiteTypeCode]}');
   });
 
-  it('[normal] gated on campSiteTypeCode truthiness (EC-2: no campSiteType -> no section)', () => {
-    expect(detailSrc).toMatch(/\{campSiteTypeCode && \(\s*<div className="pb-8 border-b border-border\/60" data-testid="section--campground-type">/);
+  it('[normal] gated on campSiteTypeCode truthiness (EC-2: no campSiteType -> no sub-group)', () => {
+    expect(detailSrc).toMatch(/\{campSiteTypeCode && \(\s*<OptionGroupSection/);
   });
 
   it('[regression] campSiteType no longer renders INSIDE the Terrain tile grid (the old merged conditional is gone)', () => {
@@ -220,10 +220,16 @@ describe('CampgroundDetailClient.tsx — campSiteType gets its OWN section (AC-2
     expect(detailSrc).not.toContain('data-testid="text--campground-sitetype"');
   });
 
-  it('[normal] the Terrain-only Site Types section is gated on terrainCodes.length > 0 and uses heading t.campground.siteTypes', () => {
+  it('[normal] the Terrain-only Site Types sub-group is gated on terrainCodes.length > 0 and uses heading t.campground.siteTypes', () => {
     expect(detailSrc).toContain('{terrainCodes.length > 0 && (');
     expect(detailSrc).toContain('heading={t.campground.siteTypes}');
     expect(detailSrc).toContain('codes={terrainCodes}');
+  });
+
+  it('[normal, CAM-667] all nine taxonomy sub-groups now fold under ONE "camp details" heading, gated on hasTaxonomyDetails', () => {
+    expect(detailSrc).toContain('{hasTaxonomyDetails && (');
+    expect(detailSrc).toContain('data-testid="section--camp-details"');
+    expect(detailSrc).toContain('{t.campground.detailsHeading}');
   });
 });
 
@@ -248,11 +254,14 @@ describe('CampgroundDetailClient.tsx — petFriendly row (AC-3/EC-3, BR-3)', () 
 });
 
 describe('CampgroundDetailClient.tsx — BR-1 zero-visual-change refactor: OptionGroupSection replaces every named copy', () => {
-  it('[normal] exactly 9 OptionGroupSection usages (campSiteType, Accommodation type, Terrain, Activity, Annotated features, Camper style, Stay connected, Marking method, Driveway)', () => {
+  it('[normal] exactly 10 OptionGroupSection usages (campSiteType, Accommodation type, Terrain, Activity, Annotated features, Camper style, Stay connected, Marking method, Driveway, Equipment for rent)', () => {
     // CAM-526 (S10) added the Accommodation type section (the 9th usage) on
-    // top of this story's 8 — the count bump is expected, not drift.
+    // top of this story's 8. CAM-667 migrated the previously hand-rolled
+    // "Equipment for rent" block onto the same primitive during the
+    // taxonomy-fold refactor (the 10th usage) — the count bump is expected,
+    // not drift.
     const count = (detailSrc.match(/<OptionGroupSection/g) || []).length;
-    expect(count).toBe(9);
+    expect(count).toBe(10);
   });
 
   it('[normal] the primitive is imported from components/ui/option-group-section', () => {
@@ -317,5 +326,16 @@ describe('i18n — Activity / Campground type / petFriendly copy (already seeded
     expect(translations.th.filter['Activity']).not.toContain('—');
     expect(translations.th.filter['Campground type']).not.toContain('—');
     expect(translations.th.newCampground.petFriendly).not.toContain('—');
+  });
+});
+
+describe('i18n — CAM-667 new copy: the single "camp details" heading', () => {
+  it('[normal] th.campground.detailsHeading is verbatim "รายละเอียดแคมป์"; en is "Camp details"', () => {
+    expect(translations.th.campground.detailsHeading).toBe('รายละเอียดแคมป์');
+    expect(translations.en.campground.detailsHeading).toBe('Camp details');
+  });
+
+  it('[i18n rule] no em-dash, no technical jargon in the new Thai copy', () => {
+    expect(translations.th.campground.detailsHeading).not.toContain('—');
   });
 });

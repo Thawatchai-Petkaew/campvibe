@@ -805,6 +805,32 @@ export default function CampgroundDetailClient({
         return descMap[code] || "";
     };
 
+    // CAM-667 (S5): nine taxonomy groups used to each carry their own
+    // full-width `text-2xl` heading + `border-b` (nine "chapters" of equal
+    // visual weight, measured as the length driver on ~792/795 camps that
+    // have no per-spot pitch section, CAM-664, to shorten instead). They now
+    // share ONE heading + light h3 sub-labels below. These two class strings
+    // are byte-identical to the ones the pre-existing "Stay connected" /
+    // "Marking method" / "Driveway" sub-groups already used (token-only,
+    // no new value — DESIGN.md §2/§5).
+    const TAXONOMY_SUBLABEL_CLASS = "text-sm font-semibold text-muted-foreground mb-3";
+    const TAXONOMY_GRID_CLASS = "grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4";
+    // Gates the WHOLE folded section — a camp with zero of the nine groups
+    // must not render a naked heading with nothing under it (every child
+    // below still self-gates on its own codes, same as before the fold).
+    const hasTaxonomyDetails = !!campSiteTypeCode
+        || accommodationCodes.length > 0
+        || terrainCodes.length > 0
+        || activityCodes.length > 0
+        || facilityCodes.length > 0
+        || externalCodes.length > 0
+        || equipmentCodes.length > 0
+        || annotatedCodes.length > 0
+        || camperStyleCodes.length > 0
+        || stayConnectedCodes.length > 0
+        || markingMethodCodes.length > 0
+        || drivewayCodes.length > 0;
+
     return (
         <>
             {/* CAM-664 (S2): pb-24 clears the fixed mobile StickyActionBar below
@@ -1197,197 +1223,226 @@ export default function CampgroundDetailClient({
                             </div>
                         )}
 
-                        {/* 3a. CAM-528 (S1) AC-2/BR-2 — campSiteType gets its OWN labeled
-                            section (was an unlabeled tile mixed into "Site Types" below).
-                            Scalar column, so it's a single-code array. */}
-                        {campSiteTypeCode && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--campground-type">
-                                <OptionGroupSection
-                                    heading={t.filter["Campground type"]}
-                                    codes={[campSiteTypeCode]}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
+                        {/* CAM-667 (S5): the nine taxonomy groups below (campSiteType,
+                            Accommodation type, Terrain, Activity, facilities, Equipment for
+                            rent, Annotated features, Camper style, Additional info) used to
+                            each be their own `pb-8 border-b` block with a `text-2xl` h2 — nine
+                            chapters of equal visual weight for a single "what does this place
+                            have" answer. Folded into ONE section: one heading, light h3
+                            sub-labels, every value still reachable (each group keeps its own
+                            gate; "ดูเพิ่ม" -> AmenitiesModal is unchanged, per story.md — no
+                            new disclosure pattern invented). hasTaxonomyDetails (above) covers
+                            every group so a camp with none of them renders nothing here at all. */}
+                        {hasTaxonomyDetails && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--camp-details">
+                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">
+                                    {t.campground.detailsHeading}
+                                </h2>
+                                <div className="space-y-8">
+                                    {/* campSiteType — scalar column, own labeled sub-group,
+                                        separate from Terrain (CAM-528 AC-2/BR-2). */}
+                                    {campSiteTypeCode && (
+                                        <OptionGroupSection
+                                            headingTag="h3"
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.filter["Campground type"]}
+                                            codes={[campSiteTypeCode]}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                            testId="section--campground-type"
+                                        />
+                                    )}
 
-                        {/* 3a-2. CAM-526 (S10) AC-2/BR-4 — Accommodation type: a scalar CSV
-                            `String` column (not part of the `options` relation), parsed via
-                            csvToArray. Was fully wired end-to-end except this display section
-                            and the (until now unseeded) host-form group. */}
-                        {accommodationCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--accommodation-types">
-                                <OptionGroupSection
-                                    heading={t.filter["Accommodation type"]}
-                                    codes={accommodationCodes}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
+                                    {/* Accommodation type — scalar CSV column, parsed via csvToArray (CAM-526). */}
+                                    {accommodationCodes.length > 0 && (
+                                        <OptionGroupSection
+                                            headingTag="h3"
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.filter["Accommodation type"]}
+                                            codes={accommodationCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                            testId="section--accommodation-types"
+                                        />
+                                    )}
 
-                        {/* 3b. Site Types (Terrain) — CAM-528 (S1) BR-1: migrated onto the
-                            shared OptionGroupSection primitive, zero visual change. */}
-                        {terrainCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60">
-                                <OptionGroupSection
-                                    heading={t.campground.siteTypes}
-                                    codes={terrainCodes}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
+                                    {/* Terrain (Site Types). */}
+                                    {terrainCodes.length > 0 && (
+                                        <OptionGroupSection
+                                            headingTag="h3"
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.campground.siteTypes}
+                                            codes={terrainCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                            testId="section--site-types"
+                                        />
+                                    )}
 
-                        {/* 3c. CAM-528 (S1) AC-1/BR-4 — Activity: never bucketed on this
-                            page before, even though the AI-chat detail card already showed
-                            it. Icons + i18n landed in CAM-525 (S9). */}
-                        {activityCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--activities">
-                                <OptionGroupSection
-                                    heading={t.filter["Activity"]}
-                                    codes={activityCodes}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
+                                    {/* Activity (CAM-528 AC-1/BR-4). */}
+                                    {activityCodes.length > 0 && (
+                                        <OptionGroupSection
+                                            headingTag="h3"
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.filter["Activity"]}
+                                            codes={activityCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                            testId="section--activities"
+                                        />
+                                    )}
 
-                        {/* 4. What this place offers (Features) */}
-                        <div className="pb-8 border-b border-border/60">
-                            <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.whatOffers}</h2>
+                                    {/* What this place offers (facilities) — Internal/External
+                                        columns + the pre-existing "ดูเพิ่ม" -> AmenitiesModal
+                                        disclosure are unchanged; only the wrapping heading
+                                        drops from its own h2/border-b to a shared h3 sub-label.
+                                        The two column headings step down to h4 to keep the
+                                        heading hierarchy nested correctly under that h3. */}
+                                    {(facilityCodes.length > 0 || externalCodes.length > 0) && (
+                                        <div data-testid="section--what-offers">
+                                            <h3 className={TAXONOMY_SUBLABEL_CLASS}>{t.campground.whatOffers}</h3>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-                                {/* Internal */}
-                                <div>
-                                    <h3 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.internalFacilities}</h3>
-                                    <div className="grid grid-cols-1 gap-y-5">
-                                        {facilityCodes.slice(0, 8).map((facility: string) => (
-                                            <div key={facility} className="flex items-center gap-4">
-                                                {getIcon(facility)}
-                                                <span className="font-normal text-base capitalize text-foreground/80">
-                                                    {t.filter[facility as keyof typeof t.filter] || facility}
-                                                </span>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                                                {facilityCodes.length > 0 && (
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.internalFacilities}</h4>
+                                                        <div className="grid grid-cols-1 gap-y-5">
+                                                            {facilityCodes.slice(0, 8).map((facility: string) => (
+                                                                <div key={facility} className="flex items-center gap-4">
+                                                                    {getIcon(facility)}
+                                                                    <span className="font-normal text-base capitalize text-foreground/80">
+                                                                        {t.filter[facility as keyof typeof t.filter] || facility}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {externalCodes.length > 0 && (
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.externalFacilities}</h4>
+                                                        <div className="grid grid-cols-1 gap-y-5">
+                                                            {externalCodes.slice(0, 6).map((facility: string) => (
+                                                                <div key={facility} className="flex items-center gap-4">
+                                                                    {getIcon(facility)}
+                                                                    <span className="font-normal text-base capitalize text-foreground/80">
+                                                                        {t.filter[facility as keyof typeof t.filter] || facility}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                {/* External */}
-                                {externalCodes.length > 0 && (
-                                    <div>
-                                        <h3 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.externalFacilities}</h3>
-                                        <div className="grid grid-cols-1 gap-y-5">
-                                            {externalCodes.slice(0, 6).map((facility: string) => (
-                                                <div key={facility} className="flex items-center gap-4">
-                                                    {getIcon(facility)}
-                                                    <span className="font-normal text-base capitalize text-foreground/80">
-                                                        {t.filter[facility as keyof typeof t.filter] || facility}
-                                                    </span>
-                                                </div>
-                                            ))}
+                                            {facilityCodes.length > 8 && (
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => setIsAmenitiesOpen(true)}
+                                                    className="mt-8 px-8 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
+                                                >
+                                                    {t.common.showAll} {facilityCodes.length} {t.common.amenities}
+                                                </Button>
+                                            )}
                                         </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
 
-                            {facilityCodes.length > 8 && (
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setIsAmenitiesOpen(true)}
-                                    className="mt-8 px-8 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
-                                >
-                                    {t.common.showAll} {facilityCodes.length} {t.common.amenities}
-                                </Button>
-                            )}
-                        </div>
-
-                        {/* 5. Equipment for Rent */}
-                        {equipmentCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60">
-                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.equipmentRent}</h2>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4">
-                                    {equipmentCodes.map((item: string) => (
-                                        <div key={item} className="flex items-center gap-4">
-                                            {getIcon(item)}
-                                            <span className="font-normal text-base capitalize text-foreground/80">
-                                                {t.filter[item as keyof typeof t.filter] || item}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 6. CAM-515 (S3) — Annotated features (คุณลักษณะ): rules/rights
-                            the camp carries (alcohol/fire/firewood/accessible/reservable),
-                            the FIRST new MasterData group added post-launch. */}
-                        {annotatedCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--annotated-features">
-                                <OptionGroupSection
-                                    heading={t.filter["Annotated features"]}
-                                    codes={annotatedCodes}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
-
-                        {/* 7. CAM-516 (S4) — Camper style (รูปแบบแคมป์): host-declared
-                            vibe/style (chic/general/difficult/indomitable), the SECOND new
-                            MasterData group added post-launch. */}
-                        {camperStyleCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--camper-style">
-                                <OptionGroupSection
-                                    heading={t.filter["Camper style"]}
-                                    codes={camperStyleCodes}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
-
-                        {/* 8. CAM-521 (S8) — final taxonomy slice: a small "ข้อมูลเพิ่มเติม"
-                            (additional info) block for the 3 metadata-only groups (phone
-                            signal / spot-marking method / driveway type) — host-input +
-                            camper-detail-display ONLY, deliberately NOT a filter/search
-                            dimension (BR-4). */}
-                        {(stayConnectedCodes.length > 0 || markingMethodCodes.length > 0 || drivewayCodes.length > 0) && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--additional-info">
-                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.additionalInfo}</h2>
-                                <div className="space-y-6">
-                                    {stayConnectedCodes.length > 0 && (
+                                    {/* Equipment for rent — migrated onto OptionGroupSection
+                                        (was hand-rolled) so it reads as the same light sub-label
+                                        as every other group here; gridClassName preserves the
+                                        exact pre-existing 2/3-col layout (zero visual change). */}
+                                    {equipmentCodes.length > 0 && (
                                         <OptionGroupSection
-                                            heading={t.filter["Stay connected"]}
                                             headingTag="h3"
-                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
-                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
-                                            codes={stayConnectedCodes}
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4"
+                                            heading={t.campground.equipmentRent}
+                                            codes={equipmentCodes}
                                             getLabel={getLabel}
                                             getIcon={getIcon}
+                                            testId="section--equipment-rent"
                                         />
                                     )}
-                                    {markingMethodCodes.length > 0 && (
+
+                                    {/* Annotated features (คุณลักษณะ) — CAM-515. */}
+                                    {annotatedCodes.length > 0 && (
                                         <OptionGroupSection
-                                            heading={t.filter["Marking method"]}
                                             headingTag="h3"
-                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
-                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
-                                            codes={markingMethodCodes}
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.filter["Annotated features"]}
+                                            codes={annotatedCodes}
                                             getLabel={getLabel}
                                             getIcon={getIcon}
+                                            testId="section--annotated-features"
                                         />
                                     )}
-                                    {drivewayCodes.length > 0 && (
+
+                                    {/* Camper style (รูปแบบแคมป์) — CAM-516. */}
+                                    {camperStyleCodes.length > 0 && (
                                         <OptionGroupSection
-                                            heading={t.filter["Driveway"]}
                                             headingTag="h3"
-                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
-                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
-                                            codes={drivewayCodes}
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.filter["Camper style"]}
+                                            codes={camperStyleCodes}
                                             getLabel={getLabel}
                                             getIcon={getIcon}
+                                            testId="section--camper-style"
                                         />
+                                    )}
+
+                                    {/* Additional info (ข้อมูลเพิ่มเติม) — CAM-521 (S8): the 3
+                                        metadata-only groups (phone signal / spot-marking method /
+                                        driveway type), host-input + camper-detail-display ONLY,
+                                        deliberately not a filter/search dimension (BR-4). Inner
+                                        OptionGroupSection headingTag stays "h3" unchanged (the
+                                        primitive has no "h4" option) — a pre-existing, cosmetic-
+                                        only heading-level flat spot, not introduced by this story. */}
+                                    {(stayConnectedCodes.length > 0 || markingMethodCodes.length > 0 || drivewayCodes.length > 0) && (
+                                        <div data-testid="section--additional-info">
+                                            <h3 className={TAXONOMY_SUBLABEL_CLASS}>{t.campground.additionalInfo}</h3>
+                                            <div className="space-y-6">
+                                                {stayConnectedCodes.length > 0 && (
+                                                    <OptionGroupSection
+                                                        heading={t.filter["Stay connected"]}
+                                                        headingTag="h3"
+                                                        headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                                        gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                                        codes={stayConnectedCodes}
+                                                        getLabel={getLabel}
+                                                        getIcon={getIcon}
+                                                    />
+                                                )}
+                                                {markingMethodCodes.length > 0 && (
+                                                    <OptionGroupSection
+                                                        heading={t.filter["Marking method"]}
+                                                        headingTag="h3"
+                                                        headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                                        gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                                        codes={markingMethodCodes}
+                                                        getLabel={getLabel}
+                                                        getIcon={getIcon}
+                                                    />
+                                                )}
+                                                {drivewayCodes.length > 0 && (
+                                                    <OptionGroupSection
+                                                        heading={t.filter["Driveway"]}
+                                                        headingTag="h3"
+                                                        headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                                        gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                                        codes={drivewayCodes}
+                                                        getLabel={getLabel}
+                                                        getIcon={getIcon}
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
