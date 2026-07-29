@@ -81,12 +81,15 @@ function Calendar({
         ),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--day-size) p-0 select-none aria-disabled:opacity-50",
+          // CAM-662 — react-day-picker sets aria-disabled (not the native
+          // `disabled` attr) here, so Button's own disabled: styling never
+          // fires; dim TEXT only via the flat --disabled-foreground token.
+          "size-(--day-size) p-0 select-none aria-disabled:text-disabled-foreground!",
           defaultClassNames.button_previous
         ),
         button_next: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--day-size) p-0 select-none aria-disabled:opacity-50",
+          "size-(--day-size) p-0 select-none aria-disabled:text-disabled-foreground!",
           defaultClassNames.button_next
         ),
         month_caption: cn(
@@ -156,10 +159,10 @@ function Calendar({
           "text-muted-foreground aria-selected:text-muted-foreground",
           defaultClassNames.outside
         ),
-        disabled: cn(
-          "text-muted-foreground opacity-50",
-          defaultClassNames.disabled
-        ),
+        // CAM-662 — an unpickable day dims TEXT only (never opacity): the
+        // flat --disabled-foreground token, not --muted-foreground faded
+        // further by an alpha filter.
+        disabled: cn("text-disabled-foreground", defaultClassNames.disabled),
         hidden: cn("invisible", defaultClassNames.hidden),
         ...classNames,
       }}
