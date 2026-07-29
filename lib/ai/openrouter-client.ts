@@ -125,6 +125,8 @@ import { searchCampsitesTool, SEARCH_CAMPSITES_MAX_RESULTS } from '@/lib/ai/tool
 // at compile time — never a runtime dependency on conversation-store.ts's
 // module graph), defined alongside `deriveShownState` (its derive owner).
 import type { ShownResult } from '@/lib/ai/conversation-store';
+// CAM-656 (ADR-014) — what a shown entry's priceLow is charged per.
+import type { PricingUnit } from '@/lib/booking-pricing';
 // CAM-460 (D2/D3) — the name-length cap, defined alongside the guest wire's
 // own zod bound (`lib/validations/ai-chat.ts` `shownResultSchema`) so both
 // enforcement points share ONE number.
@@ -209,6 +211,9 @@ export function formatTodayContextLine(now: Date = new Date()): string {
  * CAM-460 rework (Defect #2) — `priceLow` passes through unchanged: it is a
  * number/null/undefined, never a prompt-injection sink (only `name`, a
  * free-form string, needs sanitizing).
+ *
+ * CAM-656 (ADR-014) — `priceUnit` passes through unchanged for the same
+ * reason: a closed enum value/undefined, never a prompt-injection sink.
  */
 function boundedShownResults(shownResults: ShownResult[]): ShownResult[] {
   return shownResults.slice(0, SEARCH_CAMPSITES_MAX_RESULTS).map((entry) => ({
@@ -216,7 +221,30 @@ function boundedShownResults(shownResults: ShownResult[]): ShownResult[] {
     campId: entry.campId,
     name: sanitizeShownResultName(entry.name, SHOWN_RESULT_NAME_MAX),
     priceLow: entry.priceLow,
+    priceUnit: entry.priceUnit,
   }));
+}
+
+/**
+ * CAM-656 (ADR-014) — the short parenthetical unit tag appended to a stated
+ * price, mirroring `lib/price-unit-display.ts`'s `priceUnitSuffix` (the
+ * camper-facing card copy CAM-653 already ships) but in plain English, since
+ * this string lands in the system prompt, never in front of a camper.
+ * `undefined` (the unit is genuinely unrecorded for this shown entry) -> `''`,
+ * so `formatStartingPriceSuffix` below states the bare figure with NO unit
+ * claim at all — never defaulted/guessed to per-site.
+ */
+function unitTag(unit: PricingUnit | undefined): string {
+  switch (unit) {
+    case 'PER_PERSON':
+      return ' (per guest, per night)';
+    case 'PER_TENT':
+      return ' (per tent, per night)';
+    case 'PER_SITE':
+      return ' (per night, whole site)';
+    default:
+      return '';
+  }
 }
 
 /**
@@ -230,11 +258,15 @@ function boundedShownResults(shownResults: ShownResult[]): ShownResult[] {
  * `AiChatCampCard` uses); `undefined` = no price data for this entry, so no
  * clause is added at all (the model then cannot use this entry in a price
  * comparison — see the policy sentence below).
+ *
+ * CAM-656 (ADR-014) — `unit` appends the parenthetical charge-per tag
+ * (`unitTag` above) ONLY when it is actually present on this entry; a free
+ * price carries no unit tag at all (a free stay has nothing to charge per).
  */
-function formatStartingPriceSuffix(priceLow: number | null | undefined): string {
+function formatStartingPriceSuffix(priceLow: number | null | undefined, unit: PricingUnit | undefined): string {
   if (priceLow === undefined) return '';
   if (priceLow === null || priceLow === 0) return ' — starting price free';
-  return ` — starting price ฿${priceLow}`;
+  return ` — starting price ฿${priceLow}${unitTag(unit)}`;
 }
 
 /**
@@ -266,7 +298,8 @@ function buildShownResultsBlock(shownResults?: ShownResult[]): string | null {
 
   const bounded = boundedShownResults(shownResults);
   const lines = bounded.map(
-    (entry) => `${entry.ordinal}. ${entry.campId} ${entry.name}${formatStartingPriceSuffix(entry.priceLow)}`
+    (entry) =>
+      `${entry.ordinal}. ${entry.campId} ${entry.name}${formatStartingPriceSuffix(entry.priceLow, entry.priceUnit)}`
   );
   return [
     'Previously shown campsites (the most recent searchCampsites results this conversation), as ordinal -> ' +
@@ -280,7 +313,10 @@ function buildShownResultsBlock(shownResults?: ShownResult[]): string | null {
       'ONLY on the starting prices shown here, phrase it as based on the starting price (for example "จากราคา' +
       'เริ่มต้นที่แสดง อันที่ถูกกว่าคือ...") and NEVER state it as an absolute fact. If two or more shown camps tie ' +
       'at the lowest starting price, say they are tied rather than naming one as cheapest. If a shown entry has no ' +
-      'starting price listed, exclude it from a price comparison and say so rather than guessing.',
+      'starting price listed, exclude it from a price comparison and say so rather than guessing. A starting price ' +
+      'may show a charge-per tag in parentheses (per guest, per tent, or per whole site) — state that tag whenever ' +
+      'you mention the price; if no tag is shown for an entry, state only the figure and never claim or imply ' +
+      'either per-person or per-site pricing for it.',
     `<shown_results>\n${lines.join('\n')}\n</shown_results>`,
   ].join('\n');
 }
@@ -591,6 +627,13 @@ function buildSystemPrompt(
     // getCampDetail routing rule and nudges the model to ground that answer
     // in the S6 camper_type/beginner facet's evidence, instead of guessing.
     'For a Zone B fact about ONE specific named camp — its price, deposit, fees, cancellation policy, amenities, reviews, or whether it suits a beginner ("เหมาะกับมือใหม่ไหม") — the matching tool is getCampDetail, not searchCampsites (for example "ลานสนธรรมชาติ มัดจำเท่าไหร่ ยกเลิกได้ถึงเมื่อไหร่"). If you already have that camp\'s id from a shown result, use it; otherwise first call searchCampsites with the camp\'s name to get its id, then call getCampDetail on that id this turn — never answer the detail from memory and never stop at the search. For a beginner-suitability question specifically, ground your answer in the returned camper_type/beginner facet\'s evidence field — say the data is insufficient when that facet is absent or not answerable, never guess. If the camper asks to compare two or more named camps, use compareCamps, not getCampDetail.',
+    // CAM-656 (ADR-014) — a host can now price PER_PERSON or PER_SITE
+    // (CAM-654), so a bare "฿250" is a real money misstatement once it is a
+    // per-person rate quoted as the whole cost. `price.unit` on getCampDetail
+    // and compareCamps always carries a real value (the column is NOT NULL);
+    // the shown-results price tag above is the only surface where the unit
+    // can be genuinely absent.
+    'Whenever you state a specific price from getCampDetail or compareCamps, say what it is charged per using that result\'s price.unit field — PER_PERSON as "ต่อคน" (per guest), PER_TENT as "ต่อหลัง" (per tent), PER_SITE as the whole site per night. Never state a price with no charge-per unit for these two tools, and never substitute a different unit than the one the data actually returned.',
     // CAM-477 (Theme C) — a mood/vibe/occasion ask with no province, name, or
     // filter given is still a Zone B search request; derive best-effort
     // filters from the vibe or search with none if none can be derived. The

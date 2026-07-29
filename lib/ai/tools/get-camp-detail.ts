@@ -35,6 +35,7 @@ import type { CancellationPolicyValue } from '@/lib/cancellation-policy';
 import { distanceFromBangkokKm } from '@/lib/geo/distance';
 import { computeFacetScores, type FacetScore } from '@/lib/facet-scores';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
+import type { PricingUnit } from '@/lib/booking-pricing';
 
 /** Bounded read — never an unbounded review dump (performance.md). */
 const MAX_REVIEWS_RETURNED = 10;
@@ -62,11 +63,22 @@ export interface CampAmenity {
   icon: string | null;
 }
 
-/** CAM-449 — atomic price/fee fields (api.md rule 4: never a merged "฿1,250 incl VAT" string). */
+/**
+ * CAM-449 — atomic price/fee fields (api.md rule 4: never a merged "฿1,250 incl VAT" string).
+ *
+ * CAM-656 (ADR-014) — `unit` is what `low`/`high` are charged per. Additive
+ * (api.md rule 12). `CampSite.priceUnit` is a NOT NULL column with a
+ * `@default(PER_SITE)` (prisma/schema.prisma), so a live read here always
+ * carries a real, never-invented value — unlike the guest-wire "shown
+ * results" memory (`lib/ai/conversation-store.ts` `ShownResult.priceUnit`),
+ * which CAN be absent for an older client and must never be defaulted by the
+ * model itself.
+ */
 export interface CampDetailPrice {
   low: number | null;
   high: number | null;
   currency: string;
+  unit: PricingUnit;
   /** One-time additive fee (e.g. park entrance), same currency as above. */
   extraFeeAmount: number | null;
   extraFeeLabel: string | null;
@@ -284,6 +296,8 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
       priceLow: true,
       priceHigh: true,
       priceCurrency: true,
+      // CAM-656 (ADR-014) — what priceLow/priceHigh are charged per.
+      priceUnit: true,
       extraFeeAmount: true,
       extraFeeLabel: true,
       feeInfo: true,
@@ -357,6 +371,7 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
       low: campSite.priceLow ? campSite.priceLow.toNumber() : null,
       high: campSite.priceHigh ? campSite.priceHigh.toNumber() : null,
       currency: campSite.priceCurrency,
+      unit: campSite.priceUnit,
       extraFeeAmount: campSite.extraFeeAmount ? campSite.extraFeeAmount.toNumber() : null,
       extraFeeLabel: campSite.extraFeeLabel,
       feeInfo: campSite.feeInfo,

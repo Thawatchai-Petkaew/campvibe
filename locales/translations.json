@@ -590,8 +590,8 @@
         "sort": {
             "sortBy": "Sort by",
             "mostRelated": "Most related",
-            "priceLow": "Price: Low to High",
-            "priceHigh": "Price: High to Low",
+            "priceLow": "Starting price: low to high",
+            "priceHigh": "Starting price: high to low",
             "rating": "Rating"
         },
         "filter": {
@@ -605,6 +605,7 @@
             "priceRange": "Price Range",
             "minPrice": "Min Price",
             "maxPrice": "Max Price",
+            "priceForGuests": "for {{count}} guests",
             "Campground type": "Campground Type",
             "Terrain": "Terrain",
             "Activity": "Activity",
@@ -1742,8 +1743,8 @@
         "sort": {
             "sortBy": "จัดเรียงตาม",
             "mostRelated": "เกี่ยวข้องมากที่สุด",
-            "priceLow": "ราคา: ต่ำไปสูง",
-            "priceHigh": "ราคา: สูงไปต่ำ",
+            "priceLow": "ราคาเริ่มต้น: ต่ำไปสูง",
+            "priceHigh": "ราคาเริ่มต้น: สูงไปต่ำ",
             "rating": "คะแนนรีวิว"
         },
         "filter": {
@@ -1757,6 +1758,7 @@
             "priceRange": "ช่วงราคา",
             "minPrice": "ราคาขั้นต่ำ",
             "maxPrice": "ราคาสูงสุด",
+            "priceForGuests": "สำหรับ {{count}} คน",
             "Campground type": "ประเภทแคมป์",
             "Terrain": "สภาพพื้นที่",
             "Activity": "กิจกรรม",

@@ -75,14 +75,29 @@ export function getActiveFilterChips(
     });
   }
 
+  // CAM-655 (ADR-014 §6) — when the camper has told us a party size, the
+  // filter band no longer means "this number, on the card" (a PER_PERSON
+  // camp's threshold was divided by party size). Naming the party size on
+  // the chip keeps the chip from implying a unit it does not have, without
+  // this component needing to know any camp's actual PricingUnit (that
+  // caption stays CAM-653's job, per card). guests<=1 changes nothing about
+  // the band (division by 1 is a no-op — see lib/campsite-filters.ts), so no
+  // qualifier is shown and the chip is byte-identical to before this story.
+  const guestsParam = params.get("guests");
+  const guestsNum = guestsParam ? parseInt(guestsParam, 10) : NaN;
+  const guestsQualifier =
+    !isNaN(guestsNum) && guestsNum > 1
+      ? ` (${t.filter.priceForGuests.replace("{{count}}", String(guestsNum))})`
+      : "";
+
   const min = params.get("min");
   if (min) {
-    chips.push({ key: "min", value: min, label: `${t.filter.minPrice}: ${min}` });
+    chips.push({ key: "min", value: min, label: `${t.filter.minPrice}: ${min}${guestsQualifier}` });
   }
 
   const max = params.get("max");
   if (max) {
-    chips.push({ key: "max", value: max, label: `${t.filter.maxPrice}: ${max}` });
+    chips.push({ key: "max", value: max, label: `${t.filter.maxPrice}: ${max}${guestsQualifier}` });
   }
 
   for (const group of FILTERABLE_GROUPS) {

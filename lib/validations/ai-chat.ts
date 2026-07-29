@@ -106,6 +106,12 @@ export const shownResultSchema = z.object({
   campSiteId: z.string().uuid(),
   name: z.string().trim().min(1).max(SHOWN_RESULT_NAME_MAX),
   priceLow: z.number().finite().nonnegative().safe().nullable().optional(),
+  // CAM-656 (ADR-014) — ADDITIVE + OPTIONAL (api.md rule 12), mirrors
+  // `priceLow` above: what the resent starting price is charged per. Absent
+  // = the unit is genuinely unrecorded for this entry (an older guest body
+  // that hasn't resent it) — never defaulted/guessed at the prompt-injection
+  // boundary (`lib/ai/openrouter-client.ts`).
+  priceUnit: z.enum(['PER_PERSON', 'PER_TENT', 'PER_SITE']).optional(),
 });
 
 export type ShownResultWire = z.infer<typeof shownResultSchema>;
