@@ -88,6 +88,9 @@ export async function POST(
         environment: data.environment,
         pricePerNight: data.pricePerNight,
         pricePerSite: data.pricePerSite,
+        // CAM-654: forwarded verbatim when sent; omitted -> Prisma column
+        // default PER_SITE (ADR-014 §2, same shape as CampSite.priceUnit).
+        ...(data.priceUnit !== undefined && { priceUnit: data.priceUnit }),
         nearFacilities: data.nearFacilities ? arrayToCsv(data.nearFacilities) : undefined,
         campSiteId: id,
       },

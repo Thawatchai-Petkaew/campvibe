@@ -72,6 +72,10 @@ export function SpotFormDialog({
   const [maxTents, setMaxTents] = useState("");
   const [pricePerNight, setPricePerNight] = useState("");
   const [pricePerSite, setPricePerSite] = useState("");
+  // CAM-654 (ADR-014): inert today (no client sends `spotId` to
+  // POST /api/bookings — see the ADR's Context fact 1), wired now so a
+  // future spot-selection story never needs its own migration/boundary work.
+  const [priceUnit, setPriceUnit] = useState<string>("PER_SITE");
   const [images, setImages] = useState<string[]>([]);
   const [imageKinds, setImageKinds] = useState<Record<string, ImageKind>>({});
 
@@ -109,6 +113,10 @@ export function SpotFormDialog({
       setMaxTents(spot.maxTents != null ? String(spot.maxTents) : "");
       setPricePerNight(spot.pricePerNight != null ? String(Number(spot.pricePerNight)) : "");
       setPricePerSite(spot.pricePerSite != null ? String(Number(spot.pricePerSite)) : "");
+      // CAM-654: an existing spot keeps its real stored value — the DB
+      // column default (PER_SITE) when the host never set it, never
+      // re-defaulted on edit.
+      setPriceUnit(spot.priceUnit ?? "PER_SITE");
       const spotImages = spot.images ?? [];
       setImages(spotImages.map((img) => img.url));
       const kinds: Record<string, ImageKind> = {};
@@ -124,6 +132,7 @@ export function SpotFormDialog({
       setMaxTents("");
       setPricePerNight("");
       setPricePerSite("");
+      setPriceUnit("PER_SITE");
       setImages([]);
       setImageKinds({});
     }
@@ -236,6 +245,9 @@ export function SpotFormDialog({
       maxTents: maxTents.trim() === "" ? null : Number(maxTents),
       pricePerNight: Number(pricePerNight),
       pricePerSite: pricePerSite.trim() === "" ? null : Number(pricePerSite),
+      // CAM-654: no clear path (NOT NULL column, @default(PER_SITE)) —
+      // always sent as a real value, never null/omitted.
+      priceUnit,
       images: images.map((url) => ({ url, kind: imageKinds[url] ?? ("PHOTO" as ImageKind) })),
       ...(zoneId !== NO_ZONE_VALUE ? { zoneId } : {}),
     };
@@ -459,6 +471,26 @@ export function SpotFormDialog({
               disabled={submitting}
               data-testid="input--spot-price-per-site"
             />
+          </div>
+
+          {/* CAM-654 (ADR-014): whether pricePerNight above is charged per
+              person or per site. Reuses the shared newCampground copy keys
+              (one source, no per-form duplicate string) — inert until spot
+              selection ships (no client sends `spotId` to POST /api/bookings
+              today), wired now so it never needs its own migration later. */}
+          <div className="space-y-2">
+            <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4 block">
+              {t.newCampground.priceUnitLabel}
+            </label>
+            <Select value={priceUnit} onValueChange={setPriceUnit} disabled={submitting}>
+              <SelectTrigger className="w-full rounded-full" data-testid="select--spot-price-unit">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PER_PERSON">{t.newCampground.priceUnitPerPerson}</SelectItem>
+                <SelectItem value="PER_SITE">{t.newCampground.priceUnitPerSite}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

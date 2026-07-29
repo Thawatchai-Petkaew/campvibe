@@ -376,6 +376,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(data.bookingMethod && { bookingMethod: data.bookingMethod }),
         ...(data.priceLow !== undefined && { priceLow: clearableWrite(data.priceLow) }),
         ...(data.priceHigh !== undefined && { priceHigh: clearableWrite(data.priceHigh) }),
+        // CAM-654: no clear path (NOT NULL column, @default(PER_SITE)) — same
+        // presence-guarded, write-verbatim shape as campSiteType above.
+        // Absent on the wire = unchanged (this is what makes "a camp left
+        // alone still totals exactly as before" hold: an ordinary edit PUT
+        // never touches this column unless the host actually used the picker).
+        ...(data.priceUnit !== undefined && { priceUnit: data.priceUnit }),
         ...('images' in body && { images: imageReplaceNested(data.images) }),
         ...(data.logo !== undefined && { logo: clearableWrite(data.logo) }),
         // CAM-615: `arrayToCsv([])` returns `undefined` (its documented "empty

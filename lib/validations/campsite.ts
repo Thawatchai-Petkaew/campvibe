@@ -132,6 +132,16 @@ export const OwnershipTypeEnum = z.enum([
   "NATIONAL_PARK", // อุทยานแห่งชาติ
 ]);
 
+// CAM-654 (epic CAM-648, ADR-014): only PER_PERSON/PER_SITE are host-settable.
+// PER_TENT exists on the Prisma `PricingUnit` enum (CAM-650) purely so that
+// enum stays reversible in one migration (see ADR-014 §1) — no client sends a
+// tent count today, so it stays excluded at this boundary. A request carrying
+// PER_TENT fails zod validation (400), same as any other unrecognised enum
+// value. Shared by both campSiteSchema (below) and spotSchema
+// (lib/validations/spot.ts) so the two forms can never drift on which values
+// are selectable.
+export const PriceUnitEnum = z.enum(["PER_PERSON", "PER_SITE"]);
+
 // PREP-2 (CAM-268): closed cancellation-policy set (ADR-003) — see
 // lib/cancellation-policy.ts for the Thai/EN copy per value.
 export const CancellationPolicyEnum = z.enum([
@@ -224,6 +234,16 @@ export const campSiteSchema = z.object({
   // handlers and the client form call).
   priceLow: z.number().finite().min(0, PRICE_RANGE_ERROR).max(100000, PRICE_RANGE_ERROR).optional().nullable(),
   priceHigh: z.number().finite().min(0, PRICE_RANGE_ERROR).max(100000, PRICE_RANGE_ERROR).optional().nullable(),
+
+  // CAM-654: the Prisma column is NOT NULL with @default(PER_SITE) (CAM-650) —
+  // like campSiteType/ownershipType, there is no reachable host action that
+  // clears it back to "unset", so this stays `.optional()` only (no
+  // `.nullable()`; see scripts/check-clearable-fields.mjs's ALLOWLIST-style
+  // reasoning for ownershipType above). Absent on the wire = unchanged
+  // (PUT's `.partial()`) / DB column default PER_SITE (POST create, when the
+  // host form omits it — never happens today since the create form always
+  // sends PER_PERSON, see CampgroundForm.tsx).
+  priceUnit: PriceUnitEnum.optional(),
 
   locationId: z.string().uuid(),
   operatorId: z.string().uuid().optional(),

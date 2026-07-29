@@ -403,6 +403,11 @@ export async function POST(request: NextRequest) {
         bookingMethod: data.bookingMethod,
         priceLow: data.priceLow,
         priceHigh: data.priceHigh,
+        // CAM-654: forwarded verbatim when the host form sends it (create
+        // always sends PER_PERSON — CampgroundForm.tsx). Omitted -> Prisma
+        // applies the column default PER_SITE (ADR-014 §2); a direct API
+        // caller that skips this field lands on that same default.
+        ...(data.priceUnit !== undefined && { priceUnit: data.priceUnit }),
 
         partner: data.partner,
         nationalPark: data.nationalPark,
