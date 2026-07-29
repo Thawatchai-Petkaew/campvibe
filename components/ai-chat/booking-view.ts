@@ -227,7 +227,16 @@ export function buildSummaryView({ slots, camp, t, language, today }: SummaryPar
   const totalValue = camp.priceIsFree
     ? t.aiChat.card.free
     : `฿${THB_FORMAT.format(
-        computeBookingPrice({ unitPrice: camp.unitPrice, nights: 1, vatRate: 0 }).totalAmount
+        // CAM-651: unit/quantity are required inputs now; this surface keeps
+        // charging identically (PER_SITE, quantity 1) — CAM-652 threads the
+        // real per-camp unit + party size through the chat flow too.
+        computeBookingPrice({
+          unitPrice: camp.unitPrice,
+          unit: 'PER_SITE',
+          quantity: 1,
+          nights: 1,
+          vatRate: 0,
+        }).totalAmount
       )}`;
   const prefill: BookingPrefill = { checkIn, checkOut, guests, from: 'chat' };
   const query = buildBookingPrefillQuery(prefill, { today });

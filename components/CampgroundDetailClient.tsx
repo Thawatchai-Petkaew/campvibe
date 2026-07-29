@@ -25,7 +25,7 @@ import type { ReviewListItem } from "@/lib/review-summary";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, parseISO, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
-import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
+import { buildBookingPriceArgs, computeBookingPrice } from "@/lib/booking-pricing";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
 import { computeGuestCeiling, buildGuestOptions, clampGuestsToInitialCeiling } from "@/lib/guest-capacity";
 import type { BookingPrefill } from "@/lib/booking-prefill";
@@ -229,20 +229,31 @@ export default function CampgroundDetailClient({
     const isHeadlinePriceFree = campground.priceLow == null || Number(campground.priceLow) <= 0;
     // CAM-58: use the shared pricing module so displayed total matches what the API records.
     // No spot-selection state in this component — spotPricePerNight is null (uses priceLow).
-    const unitPrice = resolveUnitPrice({
-        campSitePriceLow: campground.priceLow != null ? Number(campground.priceLow) : null,
-        spotPricePerNight: null,
-    });
     // CAM-268 (PREP-2, AC-1): the camp's atomic one-time fee, via the same single
     // pricing source the real booking-creation API uses — so this preview's total
     // always equals what actually gets recorded.
     const campExtraFeeAmount = campground.extraFeeAmount != null ? Number(campground.extraFeeAmount) : 0;
-    const { totalAmount, subtotalAmount, extraFeeAmount } = computeBookingPrice({
-        unitPrice,
+    // CAM-651: routed through buildBookingPriceArgs, but priceUnit is forced to
+    // 'PER_SITE' (quantity always resolves to 1) rather than reading a real
+    // priceUnit column — this story keeps every camp's preview charging
+    // IDENTICALLY to before; CAM-652 threads the real unit + party size.
+    const priceArgs = buildBookingPriceArgs({
+        campSite: {
+            priceLow: campground.priceLow != null ? Number(campground.priceLow) : null,
+            priceUnit: "PER_SITE",
+            extraFeeAmount: campground.extraFeeAmount != null ? campExtraFeeAmount : null,
+        },
+        spot: null,
+        party: { guests: 1 },
         nights: displayNights || 1,
         vatRate: 0,
-        extraFeeAmount: campExtraFeeAmount,
     });
+    // PER_SITE always resolves `ok:true` (no tent count required) — the fallback
+    // below only satisfies the discriminated-union return type and is never
+    // actually reached while every call site forces PER_SITE.
+    const { unitAmount: unitPrice, totalAmount, subtotalAmount, extraFeeAmount } = priceArgs.ok
+        ? computeBookingPrice(priceArgs.input)
+        : { unitAmount: 0, totalAmount: 0, subtotalAmount: 0, extraFeeAmount: 0 };
 
     // Fetch availability data — CAM-616: lifted to a stable useCallback (not
     // an effect-local function) so the retry banner below can re-issue the

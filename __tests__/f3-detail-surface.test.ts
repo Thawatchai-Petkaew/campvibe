@@ -574,8 +574,11 @@ describe("CAM-58: booking breakdown — no placeholder fees, total via shared mo
         expect(detailSrc).not.toMatch(/const totalPrice\s*=/);
     });
 
-    it("[source] imports resolveUnitPrice from booking-pricing (shared module)", () => {
-        expect(detailSrc).toMatch(/resolveUnitPrice/);
+    it("[source] imports buildBookingPriceArgs from booking-pricing (shared module)", () => {
+        // CAM-651: this component now goes through buildBookingPriceArgs (which
+        // wraps resolveUnitPrice internally) rather than calling resolveUnitPrice
+        // directly — see I6 in cam-651-pricing-engine-unit.test.ts.
+        expect(detailSrc).toMatch(/buildBookingPriceArgs/);
         expect(detailSrc).toMatch(/booking-pricing/);
     });
 
@@ -609,23 +612,59 @@ import { resolveUnitPrice, computeBookingPrice } from "../lib/booking-pricing";
 
 describe("CAM-58: booking-pricing module no-fee invariant (UI vatRate=0)", () => {
     it("[unit] totalAmount === subtotalAmount when vatRate is 0 (no fees added)", () => {
-        const unitPrice = resolveUnitPrice({ campSitePriceLow: 800, spotPricePerNight: null });
-        const { totalAmount, subtotalAmount } = computeBookingPrice({ unitPrice, nights: 3, vatRate: 0 });
+        // CAM-651: resolveUnitPrice now carries a unit + source; quantity is
+        // resolved separately and required by computeBookingPrice. PER_SITE +
+        // quantity 1 reproduces this file's original PER_SITE-only totals.
+        const { unitPrice } = resolveUnitPrice({
+            campSitePriceLow: 800,
+            campSitePriceUnit: null,
+            spotPricePerNight: null,
+            spotPriceUnit: null,
+        });
+        const { totalAmount, subtotalAmount } = computeBookingPrice({
+            unitPrice,
+            unit: 'PER_SITE',
+            quantity: 1,
+            nights: 3,
+            vatRate: 0,
+        });
         expect(totalAmount).toBe(subtotalAmount);
         expect(totalAmount).toBe(800 * 3);
     });
 
     it("[unit] displayed total equals unitPrice × nights (no cleaning or service fee added)", () => {
-        const unitPrice = resolveUnitPrice({ campSitePriceLow: 500, spotPricePerNight: null });
-        const { totalAmount } = computeBookingPrice({ unitPrice, nights: 2, vatRate: 0 });
+        const { unitPrice } = resolveUnitPrice({
+            campSitePriceLow: 500,
+            campSitePriceUnit: null,
+            spotPricePerNight: null,
+            spotPriceUnit: null,
+        });
+        const { totalAmount } = computeBookingPrice({
+            unitPrice,
+            unit: 'PER_SITE',
+            quantity: 1,
+            nights: 2,
+            vatRate: 0,
+        });
         // Must NOT be 500*2 + 20 + 35 (old incorrect total = 1055)
         expect(totalAmount).toBe(1000);
         expect(totalAmount).not.toBe(1055);
     });
 
     it("[unit] priceLow null falls back to 50 — total is 50 × nights, no fees", () => {
-        const unitPrice = resolveUnitPrice({ campSitePriceLow: null, spotPricePerNight: null });
-        const { totalAmount, subtotalAmount } = computeBookingPrice({ unitPrice, nights: 1, vatRate: 0 });
+        const { unitPrice } = resolveUnitPrice({
+            campSitePriceLow: null,
+            campSitePriceUnit: null,
+            spotPricePerNight: null,
+            spotPriceUnit: null,
+        });
+        const { totalAmount, subtotalAmount } = computeBookingPrice({
+            unitPrice,
+            unit: 'PER_SITE',
+            quantity: 1,
+            nights: 1,
+            vatRate: 0,
+        });
         expect(unitPrice).toBe(50);
         expect(totalAmount).toBe(50);
         expect(totalAmount).toBe(subtotalAmount);

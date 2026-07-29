@@ -215,7 +215,12 @@ describe('CampgroundDetailClient.tsx — source-inspection (CAM-268)', () => {
   const detailSrc = src('components/CampgroundDetailClient.tsx');
 
   it('[AC-1] passes extraFeeAmount into the single shared pricing source', () => {
-    expect(detailSrc).toMatch(/computeBookingPrice\(\{[\s\S]{0,200}extraFeeAmount/);
+    // CAM-651: the shared entry point is now buildBookingPriceArgs (which
+    // itself calls computeBookingPrice) — extraFeeAmount is threaded through
+    // buildBookingPriceArgs's campSite argument, not a direct computeBookingPrice
+    // object literal (see I6 in cam-651-pricing-engine-unit.test.ts, which
+    // asserts NO caller invokes computeBookingPrice({ directly).
+    expect(detailSrc).toMatch(/buildBookingPriceArgs\(\{[\s\S]{0,700}extraFeeAmount/);
   });
 
   it('[AC-1] the itemized fee row only renders when extraFeeAmount > 0', () => {
@@ -261,6 +266,8 @@ describe('campsites API routes wire the new fields (CAM-268)', () => {
   it('bookings/route.ts snapshots the fee actually applied (ADR-005 crystallization)', () => {
     const content = src('app/api/bookings/route.ts');
     expect(content).toContain('snapshotExtraFeeAmount');
-    expect(content).toMatch(/computeBookingPrice\(\{[\s\S]{0,200}extraFeeAmount/);
+    // CAM-651: extraFeeAmount now threads through buildBookingPriceArgs (see
+    // the AC-1 comment above for CampgroundDetailClient.tsx).
+    expect(content).toMatch(/buildBookingPriceArgs\(\{[\s\S]{0,700}extraFeeAmount/);
   });
 });
