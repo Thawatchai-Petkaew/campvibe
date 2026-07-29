@@ -31,7 +31,18 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        "group/calendar bg-background p-3 [--cell-radius:var(--radius-full)] [--cell-size:--spacing(11)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
+        // CAM-657 — SIZE OWNERSHIP: the grid PITCH and the day CONTROL are two
+        // different numbers, and conflating them is what made a picked day hug its
+        // cell edge (measured before the fix: a 44px control inside a 44px cell =
+        // 0px of air left/right, against 8px of air above/below from the `mt-2`
+        // between weeks).
+        //   --cell-size (48px) = the pitch of one column. Cells stay edge-to-edge,
+        //     which is what lets a range band run unbroken across a week.
+        //   --day-size  (44px) = the day control itself. 44px is the touch floor
+        //     (DESIGN.md §2.0) and never steps down, so the breathing room has to
+        //     come from growing the pitch, never from shrinking the control.
+        // The 4px difference centres the control with 2px of air on all four sides.
+        "group/calendar bg-background p-3 [--cell-radius:var(--radius-full)] [--cell-size:--spacing(12)] [--day-size:--spacing(11)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className
@@ -50,18 +61,22 @@ function Calendar({
           defaultClassNames.months
         ),
         month: cn("flex w-full flex-col gap-4", defaultClassNames.month),
+        // CAM-657 — the nav sits in the same 48px band as the caption and centres a
+        // 44px control inside it, so the month arrows keep the icon-button token
+        // (`--day-size` = 44px, DESIGN.md §2.0 icon button) instead of inheriting
+        // the wider column pitch.
         nav: cn(
-          "absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1",
+          "absolute inset-x-0 top-0 flex h-(--cell-size) w-full items-center justify-between gap-1",
           defaultClassNames.nav
         ),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
+          "size-(--day-size) p-0 select-none aria-disabled:opacity-50",
           defaultClassNames.button_previous
         ),
         button_next: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
+          "size-(--day-size) p-0 select-none aria-disabled:opacity-50",
           defaultClassNames.button_next
         ),
         month_caption: cn(
@@ -106,12 +121,15 @@ function Calendar({
         // every selection fill is declared exactly once, on the day BUTTON
         // (`CalendarDayButton` below). Two layers declaring the same shape is what
         // produced the circle / square / half-circle mix the owner reported.
+        // CAM-657 — the cell holds the 48px column pitch and CENTRES its control;
+        // centring is layout, so it belongs here. It still declares no radius and no
+        // fill: those stay the button's, exactly as CAM-533 settled.
         day: cn(
-          "group/day relative aspect-square h-full w-full p-0 text-center select-none",
+          "group/day relative flex aspect-square h-full w-full min-w-(--cell-size) items-center justify-center p-0 text-center select-none",
           defaultClassNames.day
         ),
-        // The day button spans the full cell, so the range band is continuous without
-        // any cell-level background or bleed pseudo-element.
+        // The range states below span the full cell (`size-full` on the button), so the
+        // band is continuous without any cell-level background or bleed pseudo-element.
         range_start: defaultClassNames.range_start,
         range_middle: defaultClassNames.range_middle,
         range_end: defaultClassNames.range_end,
@@ -212,7 +230,24 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal",
+        // CAM-657 — the day control is `--day-size` (44px, the touch floor), centred by
+        // its cell, so a picked day and a today ring carry 2px of air on all four sides
+        // instead of butting against the cell boundary.
+        "relative isolate z-10 flex aspect-square size-(--day-size) flex-col gap-1 border-0 leading-none font-normal",
+        // …but the three RANGE states take the whole 48px cell back. Cells are
+        // edge-to-edge, so a full-cell button is what keeps the band unbroken between
+        // consecutive days; an inset middle would read as a dashed band. The cost is
+        // deliberate and named: a range endpoint is a 48px round cap while a single
+        // pick is a 44px circle, and the two never appear on the same calendar
+        // (`data-selected-single` is false whenever any range modifier is set).
+        "data-[range-start=true]:size-full data-[range-middle=true]:size-full data-[range-end=true]:size-full",
+        // A one-day range (start AND end on the same day) has no band to connect, so it
+        // goes back to the inset 44px circle and reads identically to a single pick.
+        // This is the state a camper sits in after tapping check-in and before tapping
+        // check-out, so it is the one they look at longest. Two attribute selectors
+        // outrank the single-attribute `size-full` rules above, the same specificity
+        // mechanism CAM-533 used to keep this day fully round.
+        "data-[range-start=true]:data-[range-end=true]:size-(--day-size)",
         // CAM-533 — the ONE place a day's radius is declared. All four values read
         // `--cell-radius` (= `--radius-full`, app/globals.css), so a day is never a
         // stray px value. Endpoints round their OUTER edge and stay flat on the inner

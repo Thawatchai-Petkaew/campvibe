@@ -366,6 +366,12 @@ hand-rolled `<button>` pill is a **Critical** gate violation and is caught by `c
 - Today uses `border`, focus uses `ring` — different CSS properties on purpose, so a focused today cell keeps a visible focus ring.
 - The row-end edges of a range that wraps a week stay flat, which reads as "continues on the next row".
 
+**Size rule (CAM-657) — the column PITCH and the day CONTROL are two different numbers.** `--cell-size` = **48px**, the pitch of one column; `--day-size` = **44px**, the control itself. The 4px difference centres the control with **2px of air on all four sides**, which is what stops a picked day or a today ring from hugging its cell boundary. Collapsing the two back into one number is the defect: measured before the fix, a 44px control in a 44px cell had 0px of air left/right against 8px above/below (the `mt-2` between weeks), which is the imbalance the owner reported.
+
+- 44px is the **touch floor** (§2.0) and never steps down, so breathing room comes from growing the pitch, never from shrinking the control.
+- Cells stay **edge-to-edge** (no gap between them). The three range states therefore take the whole cell (`size-full` on the day button) — that is what keeps the band unbroken between consecutive days; an inset middle would read as a dashed band. A range of one day has no band to connect and returns to the inset 44px control.
+- ❌ Never inset the range middle, and never set `--day-size` below 44px. Both are pinned by `__tests__/cam-657-calendar-cell-spacing.test.ts`.
+
 ### Composition (existing primitives and wrappers — reuse, do not rebuild)
 
 Before building anything new, check this list and the Component Index (§3.1 below). Re-implementing an existing primitive is the #1 source of UI drift (CAM-220/CAM-221).
