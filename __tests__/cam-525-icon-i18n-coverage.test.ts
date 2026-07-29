@@ -221,3 +221,45 @@ describe('CAM-525 — ICON_BY_NAME (name-keyed, for MasterData.icon) resolves ev
     expect(() => getIconByName('NotARealIconName')).not.toThrow();
   });
 });
+
+// ===========================================================================
+// CAM-664 (S2) — Spot.viewType, a real Prisma ENUM (not a MasterData row, so
+// it never rode through SEEDED_CODES/masterDataBlock above). Read the enum's
+// own members straight from the schema (same "read as text" discipline this
+// file already applies to prisma/seed.ts) so a future added view type is
+// caught here structurally, not just by memory.
+// ===========================================================================
+describe('CAM-664 — Spot.viewType enum: every member has a real icon in FACILITY_ICON_MAP', () => {
+  const schemaSrc = src('prisma/schema.prisma');
+  const enumStart = schemaSrc.indexOf('enum ViewType {');
+  const enumEnd = schemaSrc.indexOf('}', enumStart);
+  const viewTypeBlock = schemaSrc.slice(enumStart, enumEnd);
+  const VIEW_TYPES = viewTypeBlock
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^[A-Z]+$/.test(line));
+
+  it('[setup] reads the real 6 members straight from prisma/schema.prisma', () => {
+    expect(VIEW_TYPES.sort()).toEqual(
+      ['GENERAL', 'RIVER', 'MOUNTAIN', 'LAKE', 'FOREST', 'BEACH'].sort()
+    );
+  });
+
+  it.each(VIEW_TYPES)('[normal] ViewType.%s resolves to a lucide icon (not the ShieldCheck fallback)', (viewType) => {
+    expect(FACILITY_ICON_MAP[viewType], `no FACILITY_ICON_MAP entry for ViewType "${viewType}"`).toBeDefined();
+    expect(getFacilityIcon(viewType)).toBe(FACILITY_ICON_MAP[viewType]);
+  });
+
+  it('[regression] ViewType.LAKE reuses the pre-existing Terrain "LAKE" entry (same key, no duplicate added)', () => {
+    // The 4-letter Terrain MasterData code IS the full word "LAKE" — the one
+    // deliberate overlap between the two key spaces (facility-icon-map.ts).
+    expect(FACILITY_ICON_MAP.LAKE).toBeDefined();
+  });
+
+  it('[null/empty] a spot with no viewType (null) falls back to the same icon as the literal "GENERAL" member', () => {
+    expect(getFacilityIcon('GENERAL')).toBe(FACILITY_ICON_MAP.GENERAL);
+    // The host form's own NO_VIEW_TYPE sentinel writes null for "no particular
+    // view" — the same case as the enum's own GENERAL member (spot-form-dialog.tsx).
+    expect(getFacilityIcon('GENERAL')).not.toBe(getFacilityIcon('NOT_A_REAL_VIEW_TYPE'));
+  });
+});
