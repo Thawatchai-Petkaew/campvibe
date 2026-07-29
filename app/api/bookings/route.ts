@@ -21,6 +21,10 @@ type BookingTxResult =
   | { type: 'ok'; booking: Awaited<ReturnType<typeof prisma.booking.create>> }
   | { type: 'conflict'; detail: string; message: string }
   | { type: 'not_found' }
+  // CAM-668 (CAM-665 security review): `spotId` was provided but does not
+  // belong to `campSiteId` — or belongs to it but is soft-deleted. See the
+  // Check 0 comment below for why this is one rejection, not two.
+  | { type: 'invalid_spot' }
   | { type: 'error'; cause: unknown };
 
 // ---------------------------------------------------------------------------
@@ -120,9 +124,12 @@ async function withBookingTransaction(
         }
 
         // --- Fetch campSite for pricing (inside tx for snapshot consistency) ---
+        // CAM-668: `spots` is scoped `deletedAt: null` — a soft-deleted pitch on
+        // THIS camp must never be bookable/priceable, same as a foreign one
+        // (Check 0 below treats both identically).
         const campSite = await tx.campSite.findUnique({
           where: { id: data.campSiteId },
-          include: { spots: true, location: { include: { countryRel: true } } },
+          include: { spots: { where: { deletedAt: null } }, location: { include: { countryRel: true } } },
         });
         if (!campSite) {
           return { type: 'not_found' as const };
@@ -133,6 +140,32 @@ async function withBookingTransaction(
         // CAM-58: price computation centralised in lib/booking-pricing.ts — shared with the UI
         // so displayed total always equals recorded total.
         const bookedSpot = data.spotId ? campSite.spots.find((s) => s.id === data.spotId) : undefined;
+
+        // --- Check 0 (CAM-668, CAM-665 security review): spotId must belong to
+        // THIS camp and be live ------------------------------------------------
+        // The finding: Checks 1 and 3 above both scope by campSiteId+spotId, so
+        // a FOREIGN spotId simply matches nothing in either query and sails
+        // through — campSite.spots.find() above then returns undefined,
+        // pricing silently falls back to camp-level, and booking.create below
+        // still WRITES the foreign spotId. GET /api/bookings later returns
+        // spot:{name,zone} for that foreign spot — a cross-tenant read.
+        //
+        // Runs HERE (not a separate query) deliberately: `campSite` above is
+        // already fetched inside THIS Serializable transaction (ADR-006), so
+        // there is no separate tx.spot.findFirst call to add (ADR-009 no
+        // forked-data-path) and no TOCTOU window — a host soft-deleting the
+        // pitch concurrently is caught by Postgres serializable snapshot
+        // isolation exactly like every other check in this transaction.
+        //
+        // ONE query, ONE `.find()` — "no such pitch anywhere" and "pitch
+        // exists but belongs to another camp" both collapse into the exact
+        // same `bookedSpot === undefined` result, so the response below can
+        // never be used as an existence oracle for another camp's spots.
+        // Mirrors app/api/campsites/[id]/availability/route.ts's own spotId
+        // rejection (CAM-665) — same 400, so the read and write paths agree.
+        if (data.spotId && !bookedSpot) {
+          return { type: 'invalid_spot' as const };
+        }
 
         const nights = calculateNights(checkIn, checkOut);
         const currency = campSite.priceCurrency ?? 'THB';
@@ -289,6 +322,15 @@ export async function POST(request: NextRequest) {
     }
     if (result.type === 'not_found') {
       return apiError('Camp site not found', 404);
+    }
+    if (result.type === 'invalid_spot') {
+      // CAM-668: deliberately 400, not 404 — this route's 404 is reserved for
+      // the campsite itself (branch above). A spotId that doesn't belong to
+      // this camp — or doesn't exist at all, or is soft-deleted — is a bad
+      // INPUT VALUE in context, the same class as a zod validation failure,
+      // and mirrors GET /api/campsites/[id]/availability's own rejection for
+      // the identical field (CAM-665) so the two never disagree.
+      return apiError('Invalid spotId parameter', 400);
     }
     if (result.type === 'ok') {
       return apiSuccess(serializeDecimals(result.booking), 201);
