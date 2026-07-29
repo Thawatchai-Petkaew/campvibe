@@ -127,21 +127,30 @@ export async function getBlockedDatesForRange(
  * an expired hold silently drops out of every read here, no cron, no row
  * rewrite (ADR-012 §4 "lazy vs cron expiry", BR-2).
  *
- * spotId is NOT filtered here (unlike getBlockedDatesForRange) — a spot-level
- * hold still counts against the camp-wide capacity bottleneck exactly like a
- * spot-level Booking already does (BR-3); there is no separate per-spot
- * capacity concept in this schema.
+ * spotId (CAM-665): OPTIONAL and additive — omitted, this function's
+ * behavior is BYTE-IDENTICAL to before this story (no spotId predicate at
+ * all — every hold, camp-wide or spot-specific, still counts against the
+ * camp-wide guest-count bottleneck exactly as ADR-012 §4 established; "there
+ * is no separate per-spot CAPACITY concept in this schema" remains true).
+ * When a caller passes spotId (the new per-spot AVAILABILITY reader,
+ * getSpotDailyAvailability below), the filter narrows to holds that are
+ * EITHER whole-camp (`spotId: null`, mirrors getBlockedDatesForRange's own
+ * OR-shape) OR scoped to that exact spot — this is a NEW, separate concept
+ * (pitch occupancy) layered on top, never a change to the existing camp-wide
+ * capacity leg.
  */
 export async function getActiveHoldsForRange(
   campSiteId: string,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  spotId?: string
 ): Promise<{ startDate: Date; endDate: Date; guests: number }[]> {
   return prisma.internalHold.findMany({
     where: {
       campSiteId,
       status: 'ACTIVE',
       expiresAt: { gt: new Date() },
+      ...(spotId ? { OR: [{ spotId: null }, { spotId }] } : {}),
       AND: [
         { startDate: { lte: endDate } },
         { endDate: { gte: startDate } },
@@ -755,6 +764,173 @@ export async function getRemainingCapacityForCamps(
   }
 
   return result;
+}
+
+/**
+ * CAM-665 — per-spot (pitch) day-by-day occupancy: is ONE specific `spotId`
+ * free on a date, independent of whole-camp guest-count capacity. Answers a
+ * question no existing reader could: getEffectiveCapacity sums spots into one
+ * camp scalar, getCampSiteDailyAvailability/getActiveHoldsForRange never
+ * filtered by spot, and getRemainingCapacity/checkDateAvailabilityInTx take
+ * no spotId — the gap this story closes.
+ *
+ * SEMANTICS (decided here, stated explicitly): a pitch is a SLOT, not a
+ * capacity bucket. A day is occupied when ANY of —
+ *   - a non-cancelled Booking on this exact spotId overlaps the day, OR
+ *   - a BlockedDate covers it — this spot OR a whole-camp block (`spotId:
+ *     null`) — reusing getBlockedDatesForRange's existing OR-shape verbatim, OR
+ *   - an ACTIVE, non-expired InternalHold covers it — this spot OR a
+ *     whole-camp hold, symmetric with the BlockedDate treatment just above
+ *     (this story's explicit decision: ADR-012 §4 never defined a per-spot
+ *     hold semantic because no per-spot AVAILABILITY concept existed before
+ *     now; this is additive and does NOT touch getActiveHoldsForRange's
+ *     default no-spotId camp-wide CAPACITY behavior above).
+ *
+ * ADR-012 §4 (no forked capacity path): reuses getBlockedDatesForRange and
+ * the now spotId-aware getActiveHoldsForRange rather than a second query
+ * path. NEVER touches whole-camp guest-count math (getEffectiveCapacity,
+ * getCampSiteDailyAvailability, getRemainingCapacity,
+ * checkDateAvailabilityInTx, getAvailabilityStatusForCamps,
+ * getRemainingCapacityForCamps are all untouched) — a camp not queried by
+ * spotId does not move by a single value (§15b cross-layer invariant).
+ */
+export interface SpotDayAvailability {
+  bookedByGuest: boolean;
+  blockedByHost: boolean;
+  held: boolean;
+  available: boolean;
+}
+
+/**
+ * Non-cancelled Booking rows on ONE spot that could touch any day in
+ * [startDate, endDate] — a broad lte/gte fetch, same shape as the whole-camp
+ * booking query in getCampSiteDailyAvailability above (NOT the strict
+ * single-stay overlap test isSpotBookedForStay uses below). Exact per-day
+ * occupancy is derived by the half-open per-night loop in the caller,
+ * identical in shape to every other per-day loop in this file.
+ */
+async function getSpotBookingsForRange(
+  campSiteId: string,
+  spotId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<{ checkInDate: Date; checkOutDate: Date }[]> {
+  return prisma.booking.findMany({
+    where: {
+      campSiteId,
+      spotId,
+      status: { not: 'CANCELLED' },
+      AND: [
+        { checkInDate: { lte: endDate } },
+        { checkOutDate: { gte: startDate } },
+      ],
+    },
+    select: { checkInDate: true, checkOutDate: true },
+  });
+}
+
+export async function getSpotDailyAvailability(
+  campSiteId: string,
+  spotId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<Record<string, SpotDayAvailability>> {
+  // CAM-344/CAM-401-class DoS guard — identical cap + comparison as the
+  // whole-camp sibling above, checked BEFORE any Prisma call or loop.
+  const dayCount =
+    Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  if (dayCount > MAX_STATUS_RANGE_NIGHTS) {
+    throw new AvailabilityRangeTooWideError(dayCount);
+  }
+
+  const days: Record<string, SpotDayAvailability> = {};
+  const cursor = new Date(startDate);
+  while (cursor <= endDate) {
+    days[cursor.toISOString().split('T')[0]] = {
+      bookedByGuest: false,
+      blockedByHost: false,
+      held: false,
+      available: true,
+    };
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const bookings = await getSpotBookingsForRange(campSiteId, spotId, startDate, endDate);
+  for (const booking of bookings) {
+    const d = new Date(booking.checkInDate < startDate ? startDate : booking.checkInDate);
+    const checkOut = new Date(booking.checkOutDate);
+    while (d < checkOut && d <= endDate) {
+      const key = d.toISOString().split('T')[0];
+      if (days[key]) days[key].bookedByGuest = true;
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  // Reused verbatim (already spotId-aware) — a block on THIS spot OR a
+  // whole-camp block (spotId: null) both make the pitch unavailable.
+  const blockedRanges = await getBlockedDatesForRange(campSiteId, startDate, endDate, spotId);
+  for (const block of blockedRanges) {
+    const d = new Date(block.startDate < startDate ? startDate : block.startDate);
+    const blockEnd = new Date(block.endDate);
+    while (d <= blockEnd && d <= endDate) {
+      const key = d.toISOString().split('T')[0];
+      if (days[key]) days[key].blockedByHost = true;
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  // This story's hold decision (see doc comment above): a hold on THIS spot
+  // OR a whole-camp hold (spotId: null) both occupy the pitch. Does NOT
+  // change getActiveHoldsForRange's default (no-spotId) camp-wide capacity
+  // behavior — every existing camp-level caller is unaffected (§15b).
+  const holds = await getActiveHoldsForRange(campSiteId, startDate, endDate, spotId);
+  for (const hold of holds) {
+    const d = new Date(hold.startDate < startDate ? startDate : hold.startDate);
+    const holdEnd = new Date(hold.endDate);
+    while (d < holdEnd && d <= endDate) {
+      const key = d.toISOString().split('T')[0];
+      if (days[key]) days[key].held = true;
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  for (const day of Object.values(days)) {
+    day.available = !(day.bookedByGuest || day.blockedByHost || day.held);
+  }
+
+  return days;
+}
+
+/**
+ * CAM-665 (ADR-012 §4 — no forked capacity path, the seam defect this story
+ * fixes rather than reproduces): the EXACT predicate
+ * app/api/bookings/route.ts's Check 1 ran as its OWN inline query before this
+ * story — moved verbatim (same half-open lt/gt overlap test, same
+ * `status: { not: 'CANCELLED' }` filter) so the write gate and the read-side
+ * getSpotDailyAvailability above now derive pitch occupancy from ONE module,
+ * never two independent code paths that could silently drift (the exact
+ * failure class behind CAM-190/CAM-267/CAM-400).
+ */
+export async function isSpotBookedForStay(
+  client: PrismaClient | Prisma.TransactionClient,
+  campSiteId: string,
+  spotId: string,
+  checkIn: Date,
+  checkOut: Date
+): Promise<boolean> {
+  const overlap = await client.booking.findFirst({
+    where: {
+      campSiteId,
+      spotId,
+      status: { not: 'CANCELLED' },
+      AND: [
+        { checkInDate: { lt: checkOut } },
+        { checkOutDate: { gt: checkIn } },
+      ],
+    },
+    select: { id: true },
+  });
+  return overlap !== null;
 }
 
 /**
