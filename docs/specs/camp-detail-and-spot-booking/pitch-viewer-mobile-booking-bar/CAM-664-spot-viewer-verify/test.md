@@ -6,7 +6,7 @@ persona: CAMPER
 artifact: test
 owner: qa-engineer
 status: In Progress (blocked — CAM-671 open)
-version: v2
+version: v3
 updated: 2026-07-29
 ---
 # Test — CAM-664 spot-viewer verification (real-browser regression pass)
@@ -89,3 +89,4 @@ The first push passed locally but CI's `e2e-regression` job failed 9/12 specs, a
 
 - v1 (2026-07-29) — created; full real-browser pass against a throwaway local DB (`campvibe_e2e_cam664v`); CAM-671 confirmed still open and reproducible.
 - v2 (2026-07-29) — fixed a real CI failure (run 30464260329): the fixture now seeds via `global.setup.ts` (additive, no second seeding path); found + fixed a fixture gap (camp needed its own gallery image) that was exposing an unrelated pre-existing hydration-mismatch bug; verified `test.fail()` reports correctly under CI's exact `--workers=1` config; 107/107 regression specs pass on a database seeded exactly the way CI seeds it.
+- v3 (2026-07-29) — fixed a second real CI failure (run 30467727195, 1 remaining spec red): `feat(cam-666)` (commit 15a6352) merged to `dev` mid-verification and made the mobile `StickyActionBar` (and the desktop widget) stay ABSENT until a pitch is picked (`hasPitchSelection` in `CampgroundDetailClient.tsx`, verified against the current source — the SpotViewer/strip themselves still pre-select the first pitch internally, unchanged). `[section--cam669-chat-clears-bar]` was written against the pre-CAM-666 always-present bar; fixed by selecting a pitch before waiting for the bar. Re-ran the full file + full suite (`--workers=1`, fresh DB seeded the CI way) after merging `origin/dev`: 107/107 pass, geometry assertions unchanged (0px overlap, 40px gap) and kept measuring real bounding boxes.

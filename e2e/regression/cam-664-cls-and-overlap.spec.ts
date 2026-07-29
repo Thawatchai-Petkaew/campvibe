@@ -109,6 +109,13 @@ test("[section--spot-viewer-cls-on-switch] switching among every branch (panoram
 // ---------------------------------------------------------------------------
 test("[section--cam669-chat-clears-bar] CAM-669 — the AI-chat launcher clears the mobile booking bar at 360px, with a measured gap", async ({ page }, testInfo) => {
   await page.goto(CAMP_URL, { waitUntil: "networkidle", timeout: 60_000 });
+  await page.waitForSelector('[data-testid="tablist--spot-strip"]', { timeout: 15_000 });
+  // CAM-666 (merged to dev after this spec's first draft): on a per-pitch camp,
+  // price/totals/the reserve control — including the mobile StickyActionBar —
+  // stay ABSENT until a pitch is picked (`hasPitchSelection` in
+  // CampgroundDetailClient.tsx; verified live against the current source,
+  // not assumed). Select one so the bar this test measures actually exists.
+  await page.locator('[data-testid^="tab--spot-strip-"]').first().click();
   await page.waitForSelector('[data-testid="section--mobile-booking-bar"]', { timeout: 15_000 });
   // The launcher nudges itself via a CSS custom property published by an
   // effect + ResizeObserver (sticky-action-bar.tsx) — wait one settle frame
