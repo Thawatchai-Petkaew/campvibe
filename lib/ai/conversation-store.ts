@@ -58,6 +58,7 @@ import { prisma } from '@/lib/prisma';
 // the read-side validator under the same bare name would silently collide
 // with it (TS module scope), so it is imported under a distinct name here.
 import { extractCardsBlock, normalizeBlocks as normalizeCardsBlocks } from '@/lib/api-client';
+import type { PricingUnit } from '@/lib/booking-pricing';
 
 // ---------------------------------------------------------------------------
 // Caps (BR-1, BR-3, BR-4) — every cap lives here, never re-derived elsewhere.
@@ -311,11 +312,22 @@ export async function loadWindow(
  * below always sets a defined value (`card.priceLow` is never `undefined`);
  * only the guest wire path can leave it `undefined`.
  */
+/**
+ * CAM-656 (ADR-014) — `priceUnit` is what `priceLow` (above) is charged per,
+ * the SAME `AiChatCardResponse.priceUnit` the camper's card already carries
+ * (`lib/api-client.ts`) — additive + optional (api.md rule 12): `undefined`
+ * means the unit is genuinely unrecorded for this entry (an older/not-yet-
+ * updated guest wire body, or a card persisted before CAM-653), and must be
+ * read as UNKNOWN, never defaulted/guessed to PER_SITE by the model itself
+ * (`lib/ai/openrouter-client.ts`'s `formatStartingPriceSuffix` states the
+ * unit only when it is actually present).
+ */
 export interface ShownResult {
   ordinal: number;
   campId: string;
   name: string;
   priceLow?: number | null;
+  priceUnit?: PricingUnit;
 }
 
 /**
@@ -364,6 +376,10 @@ export function deriveShownState(history: ConversationMessageView[]): Conversati
       // CAM-460 rework (Defect #2) — card-parity: the SAME priceLow the
       // camper's card already displayed, never a range/spot price never shown.
       priceLow: card.priceLow,
+      // CAM-656 (ADR-014) — card-parity for the unit too: the SAME
+      // priceUnit the camper's card already carried (undefined for a card
+      // persisted before CAM-653).
+      priceUnit: card.priceUnit,
     }));
     for (const card of cards) shownIds.add(card.id);
   }
