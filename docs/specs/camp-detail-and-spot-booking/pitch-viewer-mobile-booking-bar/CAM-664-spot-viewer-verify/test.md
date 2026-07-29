@@ -6,7 +6,7 @@ persona: CAMPER
 artifact: test
 owner: qa-engineer
 status: In Progress (blocked — CAM-671 open)
-version: v1
+version: v2
 updated: 2026-07-29
 ---
 # Test — CAM-664 spot-viewer verification (real-browser regression pass)
@@ -63,10 +63,29 @@ No `story.md`/AC table exists for CAM-664 in `docs/specs/` (the story was built 
 
 `browser.newContext()` inherits the `regression` project's configured `use.storageState` (the shared host session) **even when no `storageState` option is passed** — verified live (a fresh, unqualified `browser.newContext({ viewport })` already carried `authjs.session-token` before any navigation). A true guest/unauthenticated context in this project requires explicitly passing `storageState: { cookies: [], origins: [] }`. This is now documented inline in `cam-664-spot-viewer.spec.ts`'s guest-view test for future authors of a guest-context test in this suite.
 
+## CI fixture fix (real CI failure, run 30464260329)
+
+The first push passed locally but CI's `e2e-regression` job failed 9/12 specs, all at the identical `waitForSelector('[data-testid="tablist--spot-strip"]')` 15s timeout. Root cause: `cam-664-seed.ts` was a standalone CLI script that nothing in CI ever CALLED — CI's own "Migrate + seed" step runs `prisma migrate deploy && npx tsx prisma/seed.ts` only, never `cam-664-seed.ts`, so the per-pitch camp was silently absent there (present only when a human manually ran the seed locally first).
+
+**Fix (additive, no second seeding mechanism):** `cam-664-seed.ts` now exports `seedCam664Camp(prisma)`; `e2e/regression/global.setup.ts` (the ONE setup step both a local regression run and the CI job already execute via Playwright's `dependencies` mechanism) calls it, right after the BR-1 guard and before login. The CLI `main()` stays for local ad-hoc use, gated on `require.main === module` so importing the module never double-runs it. No CI workflow edit; no change to `scripts/setup-e2e-db.ts`.
+
+**Fixture-isolation check (per the coordinator's explicit ask — "if it would alter any existing spec's fixture, say so and stop"):** Added a NEW, independently-slugged CampSite + its own Zones/Spots via idempotent upsert; grepped every other regression spec for exact-count assumptions on Home/catalog cards — none found (`.first()` selectors throughout). Verified end-to-end against a database seeded EXACTLY the way CI seeds it (`prisma migrate deploy && npx tsx prisma/seed.ts`, no manual `cam-664-seed.ts` call) — the camp appears automatically.
+
+**One real regression found and fixed during this check:** the new camp initially had ZERO CampSite-level gallery images (only per-spot images), which made its Home/catalog card fall into `ImageWithFallback`'s placeholder branch — exposing a PRE-EXISTING, unrelated hydration mismatch in `components/ui/image-with-fallback.tsx` (SSR renders `/placeholder-camp.svg`, client re-renders `/placeholder-camp-dark.svg`, a light/dark theme SSR/CSR divergence, out of this dispatch's file surface to fix). Next.js dev mode's error overlay left a residual `role="dialog"` DOM node on `/`, which broke `cam-561-mobile-search-fullscreen.spec.ts`'s exact-dialog-count assertions (a spec unrelated to CAM-664). Fix: `cam-664-seed.ts` now also gives the camp one real CampSite-level `Image` row — this is not a workaround, it makes the fixture MORE faithful (a real per-spot-eligible camp on staging always has `>=20` of its own gallery photos per `seed-demo-spots.mjs`'s own selection rule, `MIN_CAMP_IMAGES`). Not reported as a new defect ticket (out of scope, low-severity, dev-overlay-only) — noted here for traceability.
+
+**`test.fail()` reporting verified, not assumed:** ran the full regression project with `--workers=1` (matching CI's own `workers: process.env.CI ? 1 : undefined` config exactly) against a database seeded the CI way — 107/107 pass, including `[section--cam671-host-header-row-overflow]` reporting as an expected pass (not a failure) even under this exact configuration.
+
+**Two other apparent failures during debugging were confirmed NOT regressions, not glossed over:**
+
+- `cam-540-dialog-select-dismiss.spec.ts` — a transient artifact from the SAME dev-overlay issue above (resolved by the image fix; confirmed clean on a full fresh run).
+- `ac3-logo-roundtrip.spec.ts` — local DB-state pollution from re-running the suite repeatedly against the same persistent throwaway DB during debugging (a prior run's own logo upload never got reset); confirmed clean on a truly fresh DB. Not a CI concern (CI's Postgres service container is ephemeral per run).
+- `ac6-spot-lifecycle.spec.ts` — a concurrency artifact from running with the local default (auto/parallel) workers; confirmed clean with `--workers=1`, which is what CI actually uses.
+
 ## Links
 
-`e2e/regression/cam-664-seed.ts` (throwaway-DB seed, reuses `scripts/seed-demo-spots.mjs`'s exported plan builder) · `.claude/rules/qa.md` · CAM-671 (ticket DB)
+`e2e/regression/cam-664-seed.ts` (throwaway-DB seed, reuses `scripts/seed-demo-spots.mjs`'s exported plan builder; now exports `seedCam664Camp` for `global.setup.ts`) · `e2e/regression/global.setup.ts` · `.claude/rules/qa.md` · CAM-671 (ticket DB)
 
 ## Changelog
 
 - v1 (2026-07-29) — created; full real-browser pass against a throwaway local DB (`campvibe_e2e_cam664v`); CAM-671 confirmed still open and reproducible.
+- v2 (2026-07-29) — fixed a real CI failure (run 30464260329): the fixture now seeds via `global.setup.ts` (additive, no second seeding path); found + fixed a fixture gap (camp needed its own gallery image) that was exposing an unrelated pre-existing hydration-mismatch bug; verified `test.fail()` reports correctly under CI's exact `--workers=1` config; 107/107 regression specs pass on a database seeded exactly the way CI seeds it.

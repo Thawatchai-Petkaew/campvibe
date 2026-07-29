@@ -11,10 +11,13 @@
  * free + host-blocked pitch, a booked pitch, a deliberately long name) — see
  * `e2e/regression/cam-664-seed.ts`.
  *
- * Seed prerequisite (idempotent, safe to re-run):
- *   DATABASE_URL=<.env.e2e value> npx tsx e2e/regression/cam-664-seed.ts
- * (needs `.env.e2e` -> a LOCAL throwaway DB already migrated + seeded via
- * `npm run e2e:db:setup` — never the shared `campvibe` dev DB, BR-1.)
+ * Fixture: the camp is seeded automatically by `e2e/regression/global.setup.ts`
+ * (the `regression-setup` project's own dependency step — runs before this
+ * file both locally and in CI, see that file's header for why a per-spec
+ * manual seed step was removed after a real CI failure, run 30464260329).
+ * No manual seed command needed — just `npm run e2e:db:setup` once (local
+ * throwaway DB migrated + baseline-seeded; never the shared `campvibe` dev
+ * DB, BR-1) before running the suite.
  *
  * Run: PW_REGRESSION=1 npx playwright test e2e/regression/cam-664-spot-viewer.spec.ts --project=regression
  */
