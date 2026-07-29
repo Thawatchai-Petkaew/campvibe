@@ -1,0 +1,54 @@
+## Story
+As a **Host**, I want a booking to actually charge the unit I set on my camp (per person or per site), so that a camp priced ฿250 `PER_PERSON` really totals ฿750 for 3 guests instead of the ฿250 the owner reported.
+Why: CAM-650 landed the schema and CAM-651 taught `computeBookingPrice` the `unit x quantity x nights` math, but every real caller still forces `priceUnit: 'PER_SITE'` + `party: { guests: 1 }` — nothing anywhere reads the real column or the real party size yet. This story is what actually fixes the owner's reported number (once a camp's `priceUnit` is `PER_PERSON` — CAM-654, the host unit picker, is what lets a host set it; until then every camp stays `PER_SITE` and charges identically).
+Scope: the three real callers of `buildBookingPriceArgs`/`computeBookingPrice` — `app/api/bookings/route.ts` (server, authoritative), `components/CampgroundDetailClient.tsx` (client preview, incl. the booking breakdown row's quantity term for `PER_PERSON`), and `components/ai-chat/booking-view.ts` + `components/ai-chat/AiChatDetailCard.tsx` (the in-chat booking summary CAM-651 flagged as a mechanical, not-yet-reconciled fix). No host-facing unit picker (CAM-654), no `PER_TENT` exposure, no caption/label copy (CAM-653 owns every price caption).
+Depends on: ADR-014 (CAM-649) · CAM-650 (schema) · CAM-651 (engine)
+
+## AC
+| # | Given | When | Then (user sees, Thai verbatim) | System effect | Neg/edge |
+|---|---|---|---|---|---|
+| AC-1 | A camp priced ฿250, `priceUnit = PER_PERSON`, no spot selected | A camper books it for 3 guests, 1 night | Booking confirmation total shows `฿750` | `POST /api/bookings` records `totalPrice = 750`, `snapshotPricingUnit = 'PER_PERSON'`, `snapshotQuantity = 3` | EC-1 |
+| AC-2 | The same `PER_PERSON` camp, on its own detail page, before the camper reserves | The camper sets guests to 3 on the booking widget | The previewed breakdown row reads `฿250 x 3 คน x 1 คืน` and the previewed total equals `฿750` | Client preview's `buildBookingPriceArgs` call receives `party: { guests: 3 }` and `priceUnit: 'PER_PERSON'` from the real `campground.priceUnit` column — same total the server will record | EC-2 |
+| AC-3 | Any existing camp/spot still at the `priceUnit = PER_SITE` column default (every camp today, until CAM-654 ships) | A guest completes a booking through the unmodified flow (server, client preview, or in-chat summary) | Total is byte-identical to before this story | `resolveQuantity` ignores `guests` for `PER_SITE` — `subtotalAmount = unitPrice x nights`, unchanged | EC-3 |
+| AC-4 | The in-chat booking flow (`booking-view.ts`'s `buildSummaryView`), any camp | The camper reaches the booking summary step | Total shown matches what tapping through to the real booking page would total | `buildSummaryView` now calls `buildBookingPriceArgs` (not a hand-assembled `computeBookingPrice` object literal) — no caller left assembling its own pricing input | EC-4 |
+| AC-5 | A booking created before this change (`snapshotPricingUnit`/`snapshotQuantity` both `NULL`) | The camper opens that booking's detail page | The stored total renders exactly as it always has, with no guest-count term anywhere in the breakdown | `app/bookings/[id]/BookingDetailClient.tsx` renders `booking.totalPrice` directly — it never reads `snapshotPricingUnit`/`snapshotQuantity`, so a `NULL` cannot change what renders (ADR-005 immutability) | — (nothing to fail; the display path structurally cannot regress this case) |
+
+## Rules
+- BR-1 The server (`app/api/bookings/route.ts`) reads `campSite.priceUnit`/`bookedSpot.priceUnit` (falling back to `null` -> `PER_SITE` per `resolveUnitPrice`'s existing normalization, ADR-014 §2) and passes `party: { guests: data.guests }` — the camper's real, zod-validated (`1..500`) guest count, never a hardcoded `1`.
+- BR-2 The client preview (`CampgroundDetailClient.tsx`) reads `campground.priceUnit` (already present on the full-row `include` the detail page fetches — no new query) and passes `party: { guests }` — the same `guests` state the booking widget's `<Select>` already drives.
+- BR-3 The breakdown row adds a guest-count term (`t.booking.guestsCount`, e.g. `3 คน`) **only** when the resolved unit is `PER_PERSON` — a `PER_SITE` camp's row stays exactly `฿{unit} x {nights} {คืน}` (BR-1/AC-3).
+- BR-4 The in-chat summary (`booking-view.ts`) routes through `buildBookingPriceArgs` with `party: { guests: slots.guests }` — the party size the camper already picked in that same flow. `AiChatDetailCard.tsx` threads `resolved.unit` (the same `resolveUnitPrice` call it already made) into `BookingCampContext.priceUnit`; `get-camp-detail` (`lib/ai/**`) does not select `CampSite.priceUnit` yet, so this value is always `PER_SITE` today — real, not hardcoded at the call site, so a later story only has to extend the tool's select, not this wiring.
+- BR-5 No caller anywhere constructs a `ComputeBookingPriceInput` object literal directly (`grep -rn "computeBookingPrice({" app lib components` = 0) — every caller goes through `buildBookingPriceArgs`.
+
+## Edge cases
+- EC-1 IF a spot is selected on a `PER_PERSON` camp AND the booked spot's own `priceUnit` differs from the camp's (e.g. spot = `PER_SITE`) THEN the SPOT's own unit wins — a price is never paired with a different row's unit (`resolveUnitPrice`, unchanged from CAM-651).
+- EC-2 IF `guests` is `0` in a stale client-side computation path THEN `resolveQuantity` clamps `PER_PERSON` to `max(1, guests)` — never a `0`-guest total (CAM-651 BR, re-verified here on the real threaded value).
+- EC-3 IF `campSite.priceUnit` is `null`/`undefined` in a DB row (theoretically possible only via a fixture that predates the CAM-650 default) THEN it normalizes to `PER_SITE` and the booking still succeeds — never a crash, never a guessed non-`PER_SITE` unit.
+- EC-4 IF `camp.priceUnit` is ever anything other than `PER_SITE`/`PER_PERSON` (i.e. `PER_TENT`, unreachable today — no writer sets it) THEN `buildBookingPriceArgs` returns `{ok:false, reason:'TENT_COUNT_UNAVAILABLE'}` and the caller surfaces a generic internal error rather than a guessed price (server) or a `0`-fallback (client/chat) — never silently mis-charges.
+
+## Data
+- No schema change — `CampSite.priceUnit`/`Spot.priceUnit`/`Booking.snapshotPricingUnit`/`Booking.snapshotQuantity` all already exist (CAM-650). This story is the read-path wiring: the three real callers now read the columns that were previously ignored, and the server additionally WRITES `snapshotPricingUnit`/`snapshotQuantity` onto each new booking (crystallization, ADR-005/ADR-014 §4) — the first story to populate those two columns.
+- Migration: none.
+
+## Seams & refs
+- Reuse: `lib/booking-pricing.ts`'s `buildBookingPriceArgs` remains the ONE composition point (CAM-651) — this story only changes what each caller PASSES INTO it, never the function itself.
+- Reader/writer sweep (architecture.md §15b — this story changes how `priceUnit`/`guests` are threaded, not just where they render): grepped `buildBookingPriceArgs(`/`resolveUnitPrice(` across `app/`, `lib/`, `components/`, `__tests__/`. Consumers: `app/api/bookings/route.ts` (NOW — real `campSite.priceUnit`/`bookedSpot.priceUnit` + `data.guests`; writes `snapshotPricingUnit`/`snapshotQuantity`), `components/CampgroundDetailClient.tsx` (NOW — real `campground.priceUnit` + `guests` state; breakdown row quantity term), `components/ai-chat/AiChatDetailCard.tsx` + `components/ai-chat/booking-view.ts` (NOW — `BookingCampContext.priceUnit` threaded through, `buildSummaryView` routed through `buildBookingPriceArgs`; still always resolves `PER_SITE` today because `lib/ai/tools/get-camp-detail.ts`'s `select` does not carry `priceUnit` — out of this story's file surface, LATER), `app/bookings/[id]/BookingDetailClient.tsx` (NO-CHANGE — reads only `booking.totalPrice`, never the snapshot unit/quantity columns, so a `NULL` on a pre-existing booking cannot regress). Test fixtures updated (compiler-enumerated, not behavior-changing): `__tests__/cam-640-booking-view.test.ts`, `__tests__/cam-640-booking-turn.test.ts` (add `priceUnit: 'PER_SITE'` to the shared `BookingCampContext` fixture).
+- Refs: ADR-014 (CAM-649) · CAM-650 (schema) · CAM-651 (engine, this story's direct predecessor and the source of the "third caller" flag) · `.claude/rules/architecture.md` §15b (reader/writer sweep) · `.claude/rules/api.md` §12 (additive contract change — `snapshotPricingUnit`/`snapshotQuantity` are new nullable columns already on the schema).
+
+## Out of scope
+- The host-facing unit picker (setting `CampSite.priceUnit`/`Spot.priceUnit` to anything but the column default) → CAM-654. Until it ships, every camp stays `PER_SITE` and this story changes zero real totals — it makes the totals RIGHT once a host can opt in.
+- Every price CAPTION (`/คืน`, `/คน/คืน` on cards/headlines/chat cards) → CAM-653. This story touches only the booking breakdown row (the itemized `฿unit x quantity x nights` line), never a caption.
+- Exposing `PER_TENT` at any zod/UI/AI-tool boundary, or capturing a tent count anywhere in the booking flow → a future "per tent" story (ADR-014 §1, unchanged from CAM-651).
+- Extending `lib/ai/tools/get-camp-detail.ts`'s `select` to carry `CampSite.priceUnit` (the fix that would let the in-chat summary resolve a real non-`PER_SITE` unit) → out of this story's file surface (`lib/ai/**` is a paid CI gate); a follow-up story extends that tool's select once needed.
+
+## Self-verify
+- AC-1 → integration (`__tests__/cam-652-charge-the-chosen-unit.test.ts` — real `buildBookingPriceArgs`/`computeBookingPrice` through `POST /api/bookings`, PER_PERSON x 3 guests = 750, snapshot fields asserted).
+- AC-2 → source-inspection + parity behavioral test (same file — `campground.priceUnit`/`party: { guests }` threading confirmed present; a shared-builder parity test proves the client and server totals agree for the same real inputs, with a regression case proving the assertion has teeth).
+- AC-3 → integration (I2 golden numbers, `cam-651-pricing-engine-unit.test.ts`, re-run unchanged; new PER_SITE case in `cam-652-*` alongside the PER_PERSON case).
+- AC-4 → source-inspection (`booking-view.ts` calls `buildBookingPriceArgs(`, never `computeBookingPrice({`; `AiChatDetailCard.tsx` threads `resolved.unit`) + behavioral (`cam-640-booking-view.test.ts` new PER_PERSON case: total multiplies by `slots.guests`).
+- AC-5 → source-inspection (`BookingDetailClient.tsx` never contains `snapshotPricingUnit`/`snapshotQuantity`, only `booking.totalPrice`).
+- Story-specific: `grep -rn "computeBookingPrice({" app lib components` = 0 · full `npm test` green (11500+ tests, 0 regressions) · `npm run typecheck`/`npm run lint`/`check:ds`/`check:palette` clean.
+- Gate = /quality-gate · Done = every AC verified on localhost (dev DB) before merge into `dev`.
+
+## Changelog
+- v1 (2026-07-29) — created

@@ -45,6 +45,7 @@ const CAMP: BookingCampContext = {
   ],
   maxGuestsPerDay: 10,
   unitPrice: 500,
+  priceUnit: "PER_SITE",
   priceIsFree: false,
 };
 

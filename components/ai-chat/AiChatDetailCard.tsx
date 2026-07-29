@@ -269,21 +269,27 @@ export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: Ai
   // assertion.
   function handleStartBooking() {
     if (!detail) return;
+    // CAM-652: `get-camp-detail` (lib/ai/**) does not select CampSite.priceUnit
+    // yet — this surface cannot read a host's real unit choice today. `unit`
+    // below is the SAME `resolveUnitPrice` call this caller already made
+    // (campSitePriceUnit: null normalizes to PER_SITE, ADR-014 §2's documented
+    // "no unit recorded" default) — carried through so booking-view.ts routes
+    // the chat total through buildBookingPriceArgs like every other caller,
+    // instead of assembling its own ComputeBookingPriceInput.
+    const resolved = resolveUnitPrice({
+      campSitePriceLow: detail.price.low,
+      campSitePriceUnit: null,
+      spotPricePerNight: null,
+      spotPriceUnit: null,
+    });
     onStartBooking({
       campId: card.id,
       slug,
       name,
       weekendAvailability: detail.weekendAvailability,
       maxGuestsPerDay: detail.capacity.maxGuestsPerDay,
-      // CAM-651: resolveUnitPrice now returns { unitPrice, unit, source } — this
-      // caller only ever needed the number (BookingCampContext.unitPrice stays
-      // a plain number; CAM-652 threads the real unit through the chat flow).
-      unitPrice: resolveUnitPrice({
-        campSitePriceLow: detail.price.low,
-        campSitePriceUnit: null,
-        spotPricePerNight: null,
-        spotPriceUnit: null,
-      }).unitPrice,
+      unitPrice: resolved.unitPrice,
+      priceUnit: resolved.unit,
       priceIsFree: detail.price.isFree,
     });
   }
