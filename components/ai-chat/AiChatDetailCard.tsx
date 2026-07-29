@@ -275,7 +275,15 @@ export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: Ai
       name,
       weekendAvailability: detail.weekendAvailability,
       maxGuestsPerDay: detail.capacity.maxGuestsPerDay,
-      unitPrice: resolveUnitPrice({ campSitePriceLow: detail.price.low, spotPricePerNight: null }),
+      // CAM-651: resolveUnitPrice now returns { unitPrice, unit, source } — this
+      // caller only ever needed the number (BookingCampContext.unitPrice stays
+      // a plain number; CAM-652 threads the real unit through the chat flow).
+      unitPrice: resolveUnitPrice({
+        campSitePriceLow: detail.price.low,
+        campSitePriceUnit: null,
+        spotPricePerNight: null,
+        spotPriceUnit: null,
+      }).unitPrice,
       priceIsFree: detail.price.isFree,
     });
   }

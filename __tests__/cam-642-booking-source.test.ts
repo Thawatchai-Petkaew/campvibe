@@ -51,9 +51,15 @@ vi.mock('@/lib/auth-utils', () => ({
   requireAuth: vi.fn(),
 }));
 
+// CAM-651: the route now calls buildBookingPriceArgs (not resolveUnitPrice)
+// directly, so that is what must be mocked here.
 vi.mock('@/lib/booking-pricing', () => ({
-  resolveUnitPrice: vi.fn(() => 500),
+  buildBookingPriceArgs: vi.fn(() => ({
+    ok: true,
+    input: { unitPrice: 500, unit: 'PER_SITE', quantity: 1, nights: 1, vatRate: 0 },
+  })),
   computeBookingPrice: vi.fn(() => ({
+    unitAmount: 500,
     subtotalAmount: 500,
     taxAmount: 0,
     vatInclusive: false,

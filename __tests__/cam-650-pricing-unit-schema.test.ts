@@ -11,9 +11,12 @@
  *
  *  1. [pure unit, no DB] computeBookingPrice's output is byte-identical to
  *     before this change — asserted against hard-coded golden numbers, never
- *     a re-derived formula (lib/booking-pricing.ts is untouched by this
- *     story; this pins that fact so a future story can't accidentally wire
- *     the two together without a red test naming it).
+ *     a re-derived formula. CAM-651 (the follow-up engine story) made
+ *     `unit`/`quantity` required inputs; these two calls now pass
+ *     `unit: 'PER_SITE', quantity: 1` explicitly to keep asserting the exact
+ *     same golden totals this story pinned (see also
+ *     `__tests__/cam-651-pricing-engine-unit.test.ts` I2 "unit neutrality",
+ *     which owns this invariant going forward).
  *
  *  2. [real DB, skipped when DATABASE_URL is absent — same gating pattern as
  *     __tests__/cam-617-location-exclusivity-real-db.test.ts] a Booking
@@ -41,7 +44,7 @@ loadDotenv();
 // ---------------------------------------------------------------------------
 describe('CAM-650 — computeBookingPrice is unchanged (golden numbers, no guest/tent multiplier)', () => {
   it('[golden] 1 night at 250/night, no VAT, no fee -> totals 250 (the exact owner-reported gap: NOT 750 for 3 guests)', () => {
-    const result = computeBookingPrice({ unitPrice: 250, nights: 1, vatRate: 0 });
+    const result = computeBookingPrice({ unitPrice: 250, unit: 'PER_SITE', quantity: 1, nights: 1, vatRate: 0 });
     expect(result).toEqual({
       unitAmount: 250,
       subtotalAmount: 250,
@@ -55,7 +58,14 @@ describe('CAM-650 — computeBookingPrice is unchanged (golden numbers, no guest
   });
 
   it('[golden] 3 nights at 500/night + 100 one-time fee + 7% VAT -> matches the pinned CAM-268-era total', () => {
-    const result = computeBookingPrice({ unitPrice: 500, nights: 3, vatRate: 0.07, extraFeeAmount: 100 });
+    const result = computeBookingPrice({
+      unitPrice: 500,
+      unit: 'PER_SITE',
+      quantity: 1,
+      nights: 3,
+      vatRate: 0.07,
+      extraFeeAmount: 100,
+    });
     expect(result).toEqual({
       unitAmount: 500,
       subtotalAmount: 1500,
