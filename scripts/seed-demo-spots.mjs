@@ -5,12 +5,24 @@
  * Staging has 3,006 pitches across 783 camps, but only 2 images attached to
  * pitches in the whole database and only 2 camps have per-pitch mode
  * (`useSpotView`) on. CAM-664's UI work has almost nothing real to render.
- * This script picks ONE real, published camp on STAGING and curates 9 of its
- * existing live pitches so every UI branch a spot-detail screen must handle
- * has a real example: a wide panorama, several photos, exactly one photo, no
- * image at all (the dominant real state), PER_SITE vs PER_PERSON pricing, a
- * free pitch, mixed capacities, multiple zones, a host-blocked date, an
- * existing booking, and a very long name.
+ * This script picks ONE real, published camp on STAGING and CREATES 9 brand
+ * new demo pitches on it — it never mutates an existing pitch — so every UI
+ * branch a spot-detail screen must handle has a real example: a wide
+ * panorama, several photos, exactly one photo, no image at all (the
+ * dominant real state), PER_SITE vs PER_PERSON pricing, a free pitch, mixed
+ * capacities, multiple zones, a host-blocked date, an existing booking, and
+ * a very long name.
+ *
+ * REVERSIBLE BY CONSTRUCTION (design change from an earlier draft of this
+ * script that mutated 9 real pitches in place — the coordinator caught this
+ * before it ran: mutating real host data with no recorded "before" value is
+ * not reversible, no matter how the undo path is written). Every demo pitch
+ * this script creates carries the DEMO_NAME_PREFIX marker in `Spot.name` —
+ * the same kind of durable, exact-match identity this script already uses
+ * for its images (fixed URL pool) and its booking/blockedDate (fixed date
+ * range). `--undo` finds every row with that marker and deletes it, in
+ * explicit FK order (see undoPlan) — nothing about a real host's pitch is
+ * ever read, written, or removed.
  *
  * SAFETY
  *   - Default mode is DRY RUN (prints the plan, writes nothing). Writing
@@ -34,32 +46,35 @@
  *   node scripts/seed-demo-spots.mjs --undo --camp <nameThSlug>   # remove what this script created
  *
  * CAMP SELECTION (rule-based, not hard-coded): published · deletedAt null ·
- * >= MIN_LIVE_PITCHES live spots · >= MIN_CAMP_IMAGES camp-gallery images ·
- * >= MIN_ZONES live zones · highest completeness score (see
- * COMPLETENESS_FIELDS), tie-broken by id ascending for determinism. `--camp`
- * overrides the rule entirely.
+ * `useSpotView` currently false (see below) · >= MIN_LIVE_PITCHES live
+ * spots (a signal of a substantial, real camp to attach demo pitches to) ·
+ * >= MIN_CAMP_IMAGES camp-gallery images · >= MIN_ZONES live zones ·
+ * highest completeness score (see COMPLETENESS_FIELDS), tie-broken by id
+ * ascending for determinism. `--camp` overrides the rule entirely (and may
+ * target a camp already in per-spot mode — see the useSpotView note below).
  *
- * IDEMPOTENT BY CONSTRUCTION: the 9 demo pitches are always the first
- * DEMO_SPOT_COUNT live spots of the chosen camp ordered by `id asc` — that
- * ordering never changes because of this script's own writes, so re-running
- * (dry-run or apply) always resolves the SAME 9 pitches to the SAME roles.
- * Every write is a "top up to target state" check (does this pitch already
- * have a panorama / >=3 photos / >=1 photo / a live BlockedDate / a live
- * non-cancelled Booking?) — so a second --apply run creates zero additional
- * rows.
+ * WHY `useSpotView` must be false for rule-based selection: with
+ * `useSpotView = true` a camp's effective capacity becomes the SUM of its
+ * live spots' capacities (lib/campsite-availability.ts:44,
+ * getEffectiveCapacity -> calculateSpotCapacity). Adding 9 demo pitches
+ * therefore raises a REAL capacity number the moment this script flips the
+ * flag on; undoing it (deleting the 9 pitches + resetting the flag) lowers
+ * it back to exactly what it was. That symmetry only holds cleanly when
+ * this script is the one who turned the flag on in the first place — hence
+ * the rule excludes camps already running per-spot mode, so apply/undo is
+ * always an unambiguous round-trip. `--camp` can still target one of those
+ * 2 camps deliberately; in that case `--undo` will turn `useSpotView` off
+ * even though this script did not turn it on — a printed warning covers
+ * that case (see main()).
  *
- * UNDO SCOPE: --undo removes exactly the rows this script would create —
- * identified by exact (spotId + url) match for images (every URL this script
- * writes is one of PANORAMA_URLS/PHOTO_URL_POOL, effectively impossible to
- * collide with a real host's own upload) and by exact (spotId + fixed demo
- * date range) match for the BlockedDate/Booking — plus resets
- * `useSpotView` back to false on the chosen camp. It does NOT revert the
- * priceUnit/maxCampers/zoneId/name/pricePerNight overwrites made on the 9
- * demo Spot rows (those are edits to pre-existing rows, not created rows, and
- * this script does not persist their prior values anywhere — see the PR
- * description for this documented, deliberate scope limit). `--undo` always
- * requires an explicit `--camp` — it never auto-selects a camp for a
- * destructive operation.
+ * IDEMPOTENT BY CONSTRUCTION: buildPlan looks up any already-created demo
+ * pitches by their exact `DEMO_NAME_PREFIX + role label` name (computed by
+ * nameForRole, a pure function of the role) before deciding what to create,
+ * so re-running (dry-run or apply) always resolves the SAME 9 roles to the
+ * SAME rows once they exist. Every write beyond the initial create is a
+ * "top up to target state" check (does this pitch already have a panorama /
+ * >=3 photos / >=1 photo / a live BlockedDate / a live non-cancelled
+ * Booking?) — so a second --apply run creates zero additional rows.
  */
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
@@ -140,10 +155,12 @@ export function computeCompletenessScore(camp) {
 }
 
 /**
- * Rule-based camp selection: published + deletedAt null + meets the 3 hard
- * minimums, then the highest completeness score, tied-broken by id ascending
- * (deterministic — never changes run to run for the same DB state).
- * `overrideSlug` (nameThSlug) bypasses the rule entirely.
+ * Rule-based camp selection: published + deletedAt null + useSpotView
+ * currently false (see the module docstring's capacity-symmetry note) +
+ * meets the 3 hard minimums, then the highest completeness score,
+ * tie-broken by id ascending (deterministic — never changes run to run for
+ * the same DB state). `overrideSlug` (nameThSlug) bypasses the rule
+ * entirely, including the useSpotView check.
  */
 export async function pickCamp(prisma, { overrideSlug } = {}) {
   if (overrideSlug) {
@@ -158,7 +175,7 @@ export async function pickCamp(prisma, { overrideSlug } = {}) {
   }
 
   const candidates = await prisma.campSite.findMany({
-    where: { isPublished: true, deletedAt: null },
+    where: { isPublished: true, deletedAt: null, useSpotView: false },
     select: {
       ...CAMP_SELECT,
       _count: {
@@ -180,7 +197,7 @@ export async function pickCamp(prisma, { overrideSlug } = {}) {
 
   if (eligible.length === 0) {
     throw new Error(
-      `no camp on this target matches the selection rule (published, >=${MIN_LIVE_PITCHES} live pitches, >=${MIN_CAMP_IMAGES} camp images, >=${MIN_ZONES} zones)`
+      `no camp on this target matches the selection rule (published, useSpotView=false, >=${MIN_LIVE_PITCHES} live pitches, >=${MIN_CAMP_IMAGES} camp images, >=${MIN_ZONES} zones)`
     );
   }
 
@@ -195,7 +212,7 @@ export async function pickCamp(prisma, { overrideSlug } = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// The 9-pitch demo set — deterministic role assignment
+// The 9-pitch demo set — deterministic roles, created (never mutated) rows
 // ---------------------------------------------------------------------------
 
 export const ROLE_ORDER = [
@@ -216,14 +233,41 @@ export function capacityForIndex(idx) {
   return CAPACITIES[idx % CAPACITIES.length];
 }
 
-/** Ordered (id asc) live spots -> [{ role, spot }] for the first DEMO_SPOT_COUNT. */
-export function assignSpotsToRoles(liveSpots) {
-  if (liveSpots.length < DEMO_SPOT_COUNT) {
-    throw new Error(
-      `camp has only ${liveSpots.length} live pitches — need at least ${DEMO_SPOT_COUNT} (selection rule requires >=${MIN_LIVE_PITCHES})`
-    );
-  }
-  return ROLE_ORDER.map((role, idx) => ({ role, spot: liveSpots[idx] }));
+/**
+ * Durable identity marker — every Spot this script creates has a `name`
+ * starting with this prefix, and ONLY rows this script creates ever will
+ * (no real host names a pitch this way). `--undo`'s `spot.deleteMany` keys
+ * on this prefix; it is the create-side equivalent of the fixed image
+ * URLs / fixed booking-date range this script already used for its
+ * children before this design change.
+ */
+export const DEMO_NAME_PREFIX = 'CAM-663 Demo — ';
+
+export const LONG_NAME =
+  'ลานกางเต็นท์ริมธารน้ำใสมองเห็นวิวภูเขาใหญ่และทุ่งดอกไม้ป่ากว้างสุดสายตา ' +
+  'ท่ามกลางบรรยากาศธรรมชาติร่มรื่นเงียบสงบ เหมาะสำหรับครอบครัวและกลุ่มเพื่อนสนิท';
+
+/** Short, realistic Thai label per role — prefixed with DEMO_NAME_PREFIX to form the full Spot.name. */
+export const ROLE_LABELS = {
+  'panorama-1': 'จุดวิวพาโนราม่า 1',
+  'panorama-2': 'จุดวิวพาโนราม่า 2',
+  'multi-photo-1': 'จุดกางเต็นท์ (หลายรูป) 1',
+  'multi-photo-2': 'จุดกางเต็นท์ (หลายรูป) 2',
+  'multi-photo-3': 'จุดกางเต็นท์ (หลายรูป) 3',
+  'one-photo-1': 'จุดกางเต็นท์ (รูปเดียว) 1',
+  'one-photo-2': 'จุดกางเต็นท์ (มีการจองอยู่แล้ว)',
+  'no-image-1': LONG_NAME,
+  'no-image-2': 'จุดกางเต็นท์ (โฮสต์ปิด, ฟรี)',
+};
+
+export function nameForRole(role) {
+  return `${DEMO_NAME_PREFIX}${ROLE_LABELS[role]}`;
+}
+
+export const DEMO_PRICE_PER_NIGHT = 500;
+
+export function priceForRole(role) {
+  return role === 'no-image-2' ? 0 : DEMO_PRICE_PER_NIGHT;
 }
 
 // ---------------------------------------------------------------------------
@@ -254,10 +298,6 @@ export const PHOTO_URL_POOL = [
   'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=1200',
 ];
 
-export const LONG_NAME =
-  'ลานกางเต็นท์ริมธารน้ำใสมองเห็นวิวภูเขาใหญ่และทุ่งดอกไม้ป่ากว้างสุดสายตา ' +
-  'ท่ามกลางบรรยากาศธรรมชาติร่มรื่นเงียบสงบ เหมาะสำหรับครอบครัวและกลุ่มเพื่อนสนิท';
-
 export const DEMO_BOOKING_CHECK_IN = new Date('2027-03-10T00:00:00.000Z');
 export const DEMO_BOOKING_CHECK_OUT = new Date('2027-03-12T00:00:00.000Z');
 export const DEMO_BOOKING_NIGHTS = 2;
@@ -277,10 +317,13 @@ export function neededPhotoCount(role, existingPhotoCount) {
 // ---------------------------------------------------------------------------
 
 /**
- * Reads the chosen camp's zones + live spots and builds the full write plan.
- * Read-only — never mutates. Safe to call twice in a row (dry-run) and get
- * an identical plan back, because it depends only on `id asc` ordering and
- * current DB state, neither of which a dry-run touches.
+ * Reads the chosen camp's zones, a real sibling pitch's viewType/environment/
+ * nearFacilities (so created rows "look native" instead of carrying nulls in
+ * columns every real pitch already has populated), and any demo pitches this
+ * script already created (by DEMO_NAME_PREFIX), then builds the full write
+ * plan. Read-only — never mutates, and never reads/touches a real pitch
+ * beyond copying those 3 display fields from one. Safe to call twice in a
+ * row (dry-run) and get an identical plan back.
  */
 export async function buildPlan(prisma, camp) {
   const zones = await prisma.zone.findMany({
@@ -292,25 +335,41 @@ export async function buildPlan(prisma, camp) {
     throw new Error(`camp ${camp.nameThSlug} has only ${zones.length} live zones — need at least ${MIN_ZONES}`);
   }
 
-  const liveSpots = await prisma.spot.findMany({
-    where: { campSiteId: camp.id, deletedAt: null },
+  // Real siblings only (excludes any pitch this script already created) — the
+  // source for viewType/environment/nearFacilities realism, never for
+  // price/capacity/zone/name, and never mutated.
+  const siblings = await prisma.spot.findMany({
+    where: { campSiteId: camp.id, deletedAt: null, name: { not: { startsWith: DEMO_NAME_PREFIX } } },
     orderBy: { id: 'asc' },
+    select: { viewType: true, environment: true, nearFacilities: true },
+  });
+  if (siblings.length === 0) {
+    throw new Error(`camp ${camp.nameThSlug} has no real sibling pitch to copy viewType/environment/nearFacilities from`);
+  }
+
+  // Already-created demo pitches from a prior apply, matched back to their
+  // role by exact name (nameForRole is a pure function of the role).
+  const existingDemoSpots = await prisma.spot.findMany({
+    where: { campSiteId: camp.id, deletedAt: null, name: { startsWith: DEMO_NAME_PREFIX } },
     select: {
-      id: true, name: true, priceUnit: true, maxCampers: true, pricePerNight: true, zoneId: true,
+      id: true, name: true,
       images: { select: { id: true, kind: true, url: true } },
       bookings: { where: { deletedAt: null, status: { not: 'CANCELLED' } }, select: { id: true } },
       blockedDates: { where: { deletedAt: null }, select: { id: true } },
     },
   });
-
-  const assignments = assignSpotsToRoles(liveSpots);
+  const existingByName = new Map(existingDemoSpots.map((s) => [s.name, s]));
 
   let photoCursor = 0;
   let panoramaCursor = 0;
 
-  const rows = assignments.map(({ role, spot }, idx) => {
-    const existingPhotoCount = spot.images.filter((i) => i.kind === 'PHOTO').length;
-    const existingPanoramaCount = spot.images.filter((i) => i.kind === 'PANORAMA').length;
+  const rows = ROLE_ORDER.map((role, idx) => {
+    const name = nameForRole(role);
+    const existing = existingByName.get(name) ?? null;
+    const sibling = siblings[idx % siblings.length];
+
+    const existingPhotoCount = existing ? existing.images.filter((i) => i.kind === 'PHOTO').length : 0;
+    const existingPanoramaCount = existing ? existing.images.filter((i) => i.kind === 'PANORAMA').length : 0;
 
     const imagesToCreate = [];
     if (role.startsWith('panorama') && existingPanoramaCount === 0) {
@@ -323,25 +382,28 @@ export async function buildPlan(prisma, camp) {
       photoCursor += 1;
     }
 
-    const isFreeRole = role === 'no-image-2';
-    const isLongNameRole = role === 'no-image-1';
     const isBlockedDateRole = role === 'no-image-2';
     const isBookingRole = role === 'one-photo-2';
+    const alreadyHasBlockedDate = existing ? existing.blockedDates.length > 0 : false;
+    const alreadyHasNonCancelledBooking = existing ? existing.bookings.length > 0 : false;
 
     return {
-      spotId: spot.id,
       role,
+      name,
+      spotId: existing ? existing.id : null, // null = needs prisma.spot.create
+      isNewSpot: !existing,
       priceUnit: priceUnitForIndex(idx),
       maxCampers: capacityForIndex(idx),
+      pricePerNight: priceForRole(role),
       zoneId: zones[idx % zones.length].id,
-      pricePerNight: spot.pricePerNight,
+      viewType: sibling.viewType,
+      environment: sibling.environment,
+      nearFacilities: sibling.nearFacilities,
       imagesToCreate,
-      setFreePrice: isFreeRole,
-      setLongName: isLongNameRole,
-      needsBlockedDate: isBlockedDateRole && spot.blockedDates.length === 0,
-      alreadyHasBlockedDate: spot.blockedDates.length > 0,
-      needsBooking: isBookingRole && spot.bookings.length === 0,
-      alreadyHasNonCancelledBooking: spot.bookings.length > 0,
+      needsBlockedDate: isBlockedDateRole && !alreadyHasBlockedDate,
+      alreadyHasBlockedDate,
+      needsBooking: isBookingRole && !alreadyHasNonCancelledBooking,
+      alreadyHasNonCancelledBooking,
       currentImageCounts: { photo: existingPhotoCount, panorama: existingPanoramaCount },
     };
   });
@@ -362,19 +424,21 @@ export function summarizePlan(plan) {
     'no image at all (2)': noImageRows.filter((r) => r.currentImageCounts.photo === 0 && r.currentImageCounts.panorama === 0).length,
     'priceUnit = PER_SITE': rows.filter((r) => r.priceUnit === 'PER_SITE').length,
     'priceUnit = PER_PERSON': rows.filter((r) => r.priceUnit === 'PER_PERSON').length,
-    'priced 0 (free)': rows.filter((r) => r.setFreePrice).length,
+    'priced 0 (free)': rows.filter((r) => r.pricePerNight === 0).length,
     'distinct capacities (want 2/4/8 = 3)': new Set(rows.map((r) => r.maxCampers)).size,
     'distinct zones (want >=3)': new Set(rows.map((r) => r.zoneId)).size,
     'host BlockedDate on spotId': rows.filter((r) => r.needsBlockedDate || r.alreadyHasBlockedDate).length,
     'existing non-cancelled Booking on spotId': rows.filter((r) => r.needsBooking || r.alreadyHasNonCancelledBooking).length,
-    'very long name': rows.filter((r) => r.setLongName).length,
+    'very long name': rows.filter((r) => r.name === nameForRole('no-image-1')).length,
+    'new pitches to create': rows.filter((r) => r.isNewSpot).length,
   };
 }
 
 export function printPlan(plan, log = console.log) {
   log(
     `chosen camp: ${plan.camp.nameTh} (${plan.camp.nameThSlug})` +
-      `${plan.camp.overridden ? ' [--camp override]' : ` completeness score=${plan.camp.score}`}`
+      `${plan.camp.overridden ? ' [--camp override]' : ` completeness score=${plan.camp.score}`}` +
+      `${plan.camp.useSpotView ? ' [useSpotView already true — undo will still turn it off]' : ''}`
   );
   const summary = summarizePlan(plan);
   for (const [label, count] of Object.entries(summary)) {
@@ -387,22 +451,30 @@ export function printPlan(plan, log = console.log) {
 // ---------------------------------------------------------------------------
 
 export async function applyPlan(prisma, plan) {
-  const created = { images: 0, blockedDates: 0, bookings: 0 };
+  const created = { spots: 0, images: 0, blockedDates: 0, bookings: 0 };
 
   for (const row of plan.rows) {
-    await prisma.spot.update({
-      where: { id: row.spotId },
-      data: {
-        priceUnit: row.priceUnit,
-        maxCampers: row.maxCampers,
-        zoneId: row.zoneId,
-        ...(row.setFreePrice ? { pricePerNight: 0 } : {}),
-        ...(row.setLongName ? { name: LONG_NAME } : {}),
-      },
-    });
+    let spotId = row.spotId;
+    if (!spotId) {
+      const spot = await prisma.spot.create({
+        data: {
+          campSiteId: plan.camp.id,
+          name: row.name,
+          priceUnit: row.priceUnit,
+          maxCampers: row.maxCampers,
+          pricePerNight: row.pricePerNight,
+          zoneId: row.zoneId,
+          viewType: row.viewType,
+          environment: row.environment,
+          nearFacilities: row.nearFacilities,
+        },
+      });
+      spotId = spot.id;
+      created.spots += 1;
+    }
 
     for (const img of row.imagesToCreate) {
-      await prisma.image.create({ data: { spotId: row.spotId, url: img.url, kind: img.kind, alt: null } });
+      await prisma.image.create({ data: { spotId, url: img.url, kind: img.kind, alt: null } });
       created.images += 1;
     }
 
@@ -410,7 +482,7 @@ export async function applyPlan(prisma, plan) {
       await prisma.blockedDate.create({
         data: {
           campSiteId: plan.camp.id,
-          spotId: row.spotId,
+          spotId,
           startDate: DEMO_BLOCKED_START,
           endDate: DEMO_BLOCKED_END,
           reason: DEMO_BLOCKED_REASON,
@@ -433,7 +505,7 @@ export async function applyPlan(prisma, plan) {
         data: {
           userId: camper.id,
           campSiteId: plan.camp.id,
-          spotId: row.spotId,
+          spotId,
           checkInDate: DEMO_BOOKING_CHECK_IN,
           checkOutDate: DEMO_BOOKING_CHECK_OUT,
           guests: DEMO_BOOKING_GUESTS,
@@ -453,23 +525,58 @@ export async function applyPlan(prisma, plan) {
   return created;
 }
 
-/** Removes exactly the rows this script's plan would create, by exact identity match. */
+/**
+ * Removes exactly the pitches this script created (by DEMO_NAME_PREFIX) and
+ * everything attached to them — never a real host's pitch/booking/blocked
+ * date. HARD delete, deliberately, not soft (`deletedAt`): these rows have
+ * no real booking/host history worth preserving (this script is their
+ * entire lifecycle, create to delete), and a soft-deleted phantom row left
+ * behind forever would be residue undo is supposed to remove. Either choice
+ * leaves `getEffectiveCapacity`/`calculateSpotCapacity` computing the same
+ * number (both filter `deletedAt: null` — lib/spot-aggregation.ts:46) — hard
+ * delete additionally leaves the `Spot` table itself clean.
+ *
+ * Explicit FK-order delete, not cascade, because the two FKs behave
+ * DIFFERENTLY (verified in prisma/migrations, not assumed):
+ *   - Image.spotId    -> ON DELETE CASCADE   (20260621121000_s4b_image_table)
+ *   - Booking.spotId  -> ON DELETE SET NULL  (20260620112306_init)
+ *   - BlockedDate.spotId -> ON DELETE SET NULL (20260621113624_s7_roadmap_entities)
+ * Only Image would actually cascade; Booking/BlockedDate would survive as
+ * orphaned NULL-spotId rows if we just deleted the Spot. So every child is
+ * deleted explicitly, in FK order, before the Spot row itself.
+ */
 export async function undoPlan(prisma, plan) {
-  const roleSpotIds = plan.rows.map((r) => r.spotId);
-  const demoUrls = [...PANORAMA_URLS, ...PHOTO_URL_POOL];
+  const demoSpots = await prisma.spot.findMany({
+    where: { campSiteId: plan.camp.id, deletedAt: null, name: { startsWith: DEMO_NAME_PREFIX } },
+    select: { id: true },
+  });
+  const demoSpotIds = demoSpots.map((s) => s.id);
 
-  const deletedImages = await prisma.image.deleteMany({
-    where: { spotId: { in: roleSpotIds }, url: { in: demoUrls } },
-  });
-  const deletedBookings = await prisma.booking.deleteMany({
-    where: { spotId: { in: roleSpotIds }, checkInDate: DEMO_BOOKING_CHECK_IN, checkOutDate: DEMO_BOOKING_CHECK_OUT },
-  });
-  const deletedBlocked = await prisma.blockedDate.deleteMany({
-    where: { spotId: { in: roleSpotIds }, startDate: DEMO_BLOCKED_START, endDate: DEMO_BLOCKED_END },
-  });
+  let removedImages = 0;
+  let removedBookings = 0;
+  let removedBlocked = 0;
+  let removedSpots = 0;
+
+  if (demoSpotIds.length > 0) {
+    removedBookings = (
+      await prisma.booking.deleteMany({
+        where: { spotId: { in: demoSpotIds }, checkInDate: DEMO_BOOKING_CHECK_IN, checkOutDate: DEMO_BOOKING_CHECK_OUT },
+      })
+    ).count;
+    removedBlocked = (
+      await prisma.blockedDate.deleteMany({
+        where: { spotId: { in: demoSpotIds }, startDate: DEMO_BLOCKED_START, endDate: DEMO_BLOCKED_END },
+      })
+    ).count;
+    removedImages = (
+      await prisma.image.deleteMany({ where: { spotId: { in: demoSpotIds } } })
+    ).count;
+    removedSpots = (await prisma.spot.deleteMany({ where: { id: { in: demoSpotIds } } })).count;
+  }
+
   await prisma.campSite.update({ where: { id: plan.camp.id }, data: { useSpotView: false } });
 
-  return { images: deletedImages.count, bookings: deletedBookings.count, blockedDates: deletedBlocked.count };
+  return { spots: removedSpots, images: removedImages, bookings: removedBookings, blockedDates: removedBlocked };
 }
 
 // ---------------------------------------------------------------------------
@@ -508,7 +615,7 @@ export async function main() {
     if (undo) {
       const removed = await undoPlan(prisma, plan);
       console.log(
-        `✓ undo complete: removed ${removed.images} image(s), ${removed.bookings} booking(s), ${removed.blockedDates} blocked date(s); useSpotView reset to false`
+        `✓ undo complete: removed ${removed.spots} pitch(es), ${removed.images} image(s), ${removed.bookings} booking(s), ${removed.blockedDates} blocked date(s); useSpotView reset to false`
       );
       return;
     }
@@ -516,7 +623,7 @@ export async function main() {
     if (apply) {
       const created = await applyPlan(prisma, plan);
       console.log(
-        `✓ apply complete: created ${created.images} image(s), ${created.blockedDates} blocked date(s), ${created.bookings} booking(s)`
+        `✓ apply complete: created ${created.spots} pitch(es), ${created.images} image(s), ${created.blockedDates} blocked date(s), ${created.bookings} booking(s)`
       );
       return;
     }

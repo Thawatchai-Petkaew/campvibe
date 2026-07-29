@@ -3,16 +3,20 @@
  * (platform-hardening — "Camp detail and spot booking")
  *
  * `scripts/seed-demo-spots.mjs` picks one real, published staging camp and
- * curates 9 of its existing live pitches so every branch a spot-detail
- * screen (CAM-664) must handle has a real example. This suite exercises the
- * pure logic + the plan builder against an in-memory fake Prisma client —
- * never a real DB (this script targets staging only; the guard is proven by
- * env-var tests below, not by connecting anywhere).
+ * CREATES 9 brand-new demo pitches on it (never mutates an existing pitch)
+ * so every branch a spot-detail screen (CAM-664) must handle has a real
+ * example. This suite exercises the pure logic + the plan builder against an
+ * in-memory fake Prisma client — never a real DB (this script targets
+ * staging only; the guard is proven by env-var tests below, not by
+ * connecting anywhere).
  *
  * Coverage matrix (qa.md §7): normal · null/empty · boundary · error/
- * validation · concurrent/ordering (idempotent re-run / dry-run determinism).
+ * validation · concurrent/ordering (idempotent re-run / dry-run determinism
+ * / apply-undo round trip).
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
+import type { PrismaClient } from '@prisma/client';
+import { getEffectiveCapacity } from '@/lib/campsite-availability';
 import {
   LOCAL_HOSTS,
   hostOf,
@@ -27,11 +31,13 @@ import {
   CAPACITIES,
   priceUnitForIndex,
   capacityForIndex,
-  assignSpotsToRoles,
   neededPhotoCount,
+  DEMO_NAME_PREFIX,
+  nameForRole,
+  priceForRole,
+  LONG_NAME,
   PANORAMA_URLS,
   PHOTO_URL_POOL,
-  LONG_NAME,
   DEMO_BOOKING_CHECK_IN,
   DEMO_BOOKING_CHECK_OUT,
   DEMO_BLOCKED_START,
@@ -44,27 +50,41 @@ import {
 } from '../scripts/seed-demo-spots.mjs';
 
 // ===========================================================================
-// Fake Prisma — in-memory, tailored to exactly the calls this script makes.
+// Fake Prisma — in-memory, tailored to exactly the calls this script (and
+// the REAL getEffectiveCapacity/calculateSpotCapacity it is round-trip-
+// tested against below) make.
 // ===========================================================================
 
 type FakeCamp = {
   id: string; nameTh: string; nameThSlug: string; useSpotView: boolean;
   isPublished: boolean; deletedAt: null;
+  maxGuestsPerDay: number | null; maxTentsPerDay: number | null;
   description?: string | null; logo?: string | null; videoUrl?: string | null;
   phone?: string | null; lineId?: string | null; facebookUrl?: string | null;
   address?: string | null; directions?: string | null; feeInfo?: string | null;
   toiletInfo?: string | null; groundType?: string | null; cancellationPolicy?: string | null;
   tags?: string | null; partner?: string | null; nationalPark?: string | null;
-  ownershipType?: string | null; minimumAge?: number | null; maxGuestsPerDay?: number | null;
-  maxTentsPerDay?: number | null; priceLow?: number | null; priceHigh?: number | null;
+  ownershipType?: string | null; minimumAge?: number | null;
+  priceLow?: number | null; priceHigh?: number | null;
   avgRating?: number | null; reviewCount?: number;
 };
 type FakeZone = { id: string; campSiteId: string; name: string; sortOrder: number; deletedAt: null };
 type FakeImage = { id: string; spotId: string; url: string; kind: 'PHOTO' | 'PANORAMA'; alt: null };
 type FakeBooking = { id: string; spotId: string; campSiteId: string; userId: string; checkInDate: Date; checkOutDate: Date; guests: number; totalPrice: number; currency: string; status: string; deletedAt: null };
 type FakeBlockedDate = { id: string; spotId: string; campSiteId: string; startDate: Date; endDate: Date; reason: string; deletedAt: null };
-type FakeSpot = { id: string; campSiteId: string; name: string; priceUnit: string; maxCampers: number | null; pricePerNight: number; zoneId: string | null; deletedAt: null };
+type FakeSpot = {
+  id: string; campSiteId: string; name: string; priceUnit: string; maxCampers: number | null;
+  maxTents: number | null; pricePerNight: number; zoneId: string | null;
+  viewType: string | null; environment: string | null; nearFacilities: string | null; deletedAt: null;
+};
 type FakeUser = { id: string; role: string; deletedAt: null };
+
+function matchesNameFilter(name: string, filter: any): boolean {
+  if (filter === undefined) return true;
+  if (filter.startsWith !== undefined) return name.startsWith(filter.startsWith);
+  if (filter.not?.startsWith !== undefined) return !name.startsWith(filter.not.startsWith);
+  return true;
+}
 
 function makeFakePrisma(fixture: {
   camps: FakeCamp[]; zones: FakeZone[]; spots: FakeSpot[]; images: FakeImage[];
@@ -80,16 +100,19 @@ function makeFakePrisma(fixture: {
   let idCounter = 0;
   const nextId = (prefix: string) => `${prefix}-${(idCounter += 1)}`;
 
-  const campSelectShape = (c: FakeCamp) => ({ ...c });
-
   return {
     _store: { camps, zones, spots, images, bookings, blockedDates, users },
     campSite: {
       findMany: async ({ where }: any) => {
         return camps
-          .filter((c) => (where?.isPublished !== undefined ? c.isPublished === where.isPublished : true) && c.deletedAt === where?.deletedAt)
+          .filter(
+            (c) =>
+              (where?.isPublished !== undefined ? c.isPublished === where.isPublished : true) &&
+              c.deletedAt === where?.deletedAt &&
+              (where?.useSpotView !== undefined ? c.useSpotView === where.useSpotView : true)
+          )
           .map((c) => ({
-            ...campSelectShape(c),
+            ...c,
             _count: {
               spots: spots.filter((s) => s.campSiteId === c.id && s.deletedAt === null).length,
               images: fixture.campImageCounts[c.id] ?? 0,
@@ -99,7 +122,7 @@ function makeFakePrisma(fixture: {
       },
       findFirst: async ({ where }: any) => {
         const c = camps.find((x) => x.nameThSlug === where.nameThSlug && x.deletedAt === where.deletedAt);
-        return c ? campSelectShape(c) : null;
+        return c ? { ...c } : null;
       },
       update: async ({ where, data }: any) => {
         const c = camps.find((x) => x.id === where.id);
@@ -117,23 +140,47 @@ function makeFakePrisma(fixture: {
       },
     },
     spot: {
+      // Serves 3 distinct call shapes: buildPlan's sibling lookup (name.not.startsWith),
+      // buildPlan/undoPlan's demo-pitch lookup (name.startsWith), and the REAL
+      // calculateSpotCapacity's plain campSiteId+deletedAt lookup (no name filter).
       findMany: async ({ where }: any) => {
         return spots
-          .filter((s) => s.campSiteId === where.campSiteId && s.deletedAt === where.deletedAt)
+          .filter(
+            (s) =>
+              s.campSiteId === where.campSiteId &&
+              s.deletedAt === where.deletedAt &&
+              matchesNameFilter(s.name, where.name)
+          )
           .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
           .map((s) => ({
-            id: s.id, name: s.name, priceUnit: s.priceUnit, maxCampers: s.maxCampers,
-            pricePerNight: s.pricePerNight, zoneId: s.zoneId,
+            ...s,
             images: images.filter((i) => i.spotId === s.id).map((i) => ({ id: i.id, kind: i.kind, url: i.url })),
             bookings: bookings.filter((b) => b.spotId === s.id && b.deletedAt === null && b.status !== 'CANCELLED').map((b) => ({ id: b.id })),
             blockedDates: blockedDates.filter((b) => b.spotId === s.id && b.deletedAt === null).map((b) => ({ id: b.id })),
           }));
       },
-      update: async ({ where, data }: any) => {
-        const s = spots.find((x) => x.id === where.id);
-        if (!s) throw new Error(`no spot ${where.id}`);
-        Object.assign(s, data);
-        return { ...s };
+      create: async ({ data }: any) => {
+        const row: FakeSpot = {
+          id: nextId('spot'), campSiteId: data.campSiteId, name: data.name, priceUnit: data.priceUnit,
+          maxCampers: data.maxCampers ?? null, maxTents: null, pricePerNight: data.pricePerNight,
+          zoneId: data.zoneId ?? null, viewType: data.viewType ?? null, environment: data.environment ?? null,
+          nearFacilities: data.nearFacilities ?? null, deletedAt: null,
+        };
+        spots.push(row);
+        return { ...row };
+      },
+      deleteMany: async ({ where }: any) => {
+        const ids: string[] = where.id.in;
+        const before = spots.length;
+        const keep = spots.filter((s) => !ids.includes(s.id));
+        spots.length = 0;
+        spots.push(...keep);
+        return { count: before - keep.length };
+      },
+      // Never called by this script (create-only design) — throws loudly if
+      // it ever is, so a regression back to mutating a real pitch fails LOUD.
+      update: async () => {
+        throw new Error('spot.update must never be called — this script only ever creates demo pitches (CAM-663 design change)');
       },
     },
     image: {
@@ -144,11 +191,10 @@ function makeFakePrisma(fixture: {
       },
       deleteMany: async ({ where }: any) => {
         const before = images.length;
-        const keep = images.filter((i) => !(where.spotId.in.includes(i.spotId) && where.url.in.includes(i.url)));
-        const removed = before - keep.length;
+        const keep = images.filter((i) => !where.spotId.in.includes(i.spotId));
         images.length = 0;
         images.push(...keep);
-        return { count: removed };
+        return { count: before - keep.length };
       },
     },
     blockedDate: {
@@ -210,20 +256,19 @@ function makeFakePrisma(fixture: {
   };
 }
 
-/** A fresh camp with `spotCount` live spots, `zoneCount` live zones, all images/bookings/blockedDates empty. */
+/** A fresh camp with `spotCount` REAL sibling live spots, `zoneCount` live zones, useSpotView false, no demo pitches yet. */
 function makeFreshFixture({ spotCount = 12, zoneCount = 3, campImages = 25 } = {}) {
   const campId = 'camp-1';
   const camps: FakeCamp[] = [
     {
       id: campId, nameTh: 'แคมป์สาธิต', nameThSlug: 'demo-camp', useSpotView: false,
-      isPublished: true, deletedAt: null,
+      isPublished: true, deletedAt: null, maxGuestsPerDay: 40, maxTentsPerDay: 20,
       description: 'สถานที่กางเต็นท์ริมน้ำ', logo: 'https://example.com/logo.png', videoUrl: null,
       phone: '0812345678', lineId: '@democamp', facebookUrl: 'https://fb.com/democamp',
       address: '123 หมู่ 4', directions: 'เลี้ยวซ้ายที่ปากทาง', feeInfo: '50 บาทต่อคัน',
       toiletInfo: 'ห้องน้ำรวม', groundType: '{"GRASS":10}', cancellationPolicy: 'FLEXIBLE',
       tags: 'ริมน้ำ,ครอบครัว', partner: null, nationalPark: null, ownershipType: 'PRIVATE',
-      minimumAge: 5, maxGuestsPerDay: 100, maxTentsPerDay: 30, priceLow: 300, priceHigh: 900,
-      avgRating: 4.5, reviewCount: 12,
+      minimumAge: 5, priceLow: 300, priceHigh: 900, avgRating: 4.5, reviewCount: 12,
     },
   ];
   const zones: FakeZone[] = Array.from({ length: zoneCount }, (_, i) => ({
@@ -231,7 +276,8 @@ function makeFreshFixture({ spotCount = 12, zoneCount = 3, campImages = 25 } = {
   }));
   const spots: FakeSpot[] = Array.from({ length: spotCount }, (_, i) => ({
     id: `spot-${String(i + 1).padStart(2, '0')}`, campSiteId: campId, name: `จุดกางเต็นท์ ${i + 1}`,
-    priceUnit: 'PER_SITE', maxCampers: 4, pricePerNight: 500 + i * 10, zoneId: zones[0].id, deletedAt: null,
+    priceUnit: 'PER_SITE', maxCampers: 4, maxTents: 2, pricePerNight: 500 + i * 10, zoneId: zones[0].id,
+    viewType: 'MOUNTAIN', environment: 'GRASS', nearFacilities: 'SHOW,WIFI', deletedAt: null,
   }));
   return {
     camps, zones, spots, images: [] as FakeImage[], bookings: [] as FakeBooking[], blockedDates: [] as FakeBlockedDate[],
@@ -239,6 +285,8 @@ function makeFreshFixture({ spotCount = 12, zoneCount = 3, campImages = 25 } = {
     campImageCounts: { [campId]: campImages } as Record<string, number>,
   };
 }
+
+const byId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 // ===========================================================================
 // (a) guard — checkGuard / hostOf
@@ -300,7 +348,7 @@ describe('CAM-663 (b) — computeCompletenessScore', () => {
 });
 
 // ===========================================================================
-// (c) pickCamp — selection rule + override
+// (c) pickCamp — selection rule (incl. useSpotView=false) + override
 // ===========================================================================
 describe('CAM-663 (c) — pickCamp: rule-based selection + --camp override', () => {
   it('[normal] picks the only eligible published camp', async () => {
@@ -311,18 +359,39 @@ describe('CAM-663 (c) — pickCamp: rule-based selection + --camp override', () 
     expect(camp.overridden).toBe(false);
   });
 
+  it('[error/validation, Critical, teeth] a camp already in per-spot mode (useSpotView=true) is EXCLUDED from rule-based selection', async () => {
+    const fixture = makeFreshFixture();
+    fixture.camps[0].useSpotView = true;
+    const prisma = makeFakePrisma(fixture);
+    await expect(pickCamp(prisma as any, {})).rejects.toThrow(/no camp on this target/);
+  });
+
+  it('[normal] --camp override still targets a camp already in per-spot mode', async () => {
+    const fixture = makeFreshFixture();
+    fixture.camps[0].useSpotView = true;
+    const prisma = makeFakePrisma(fixture);
+    const camp = await pickCamp(prisma as any, { overrideSlug: 'demo-camp' });
+    expect(camp.overridden).toBe(true);
+    expect(camp.useSpotView).toBe(true);
+  });
+
   it('[normal, teeth] picks the HIGHER completeness score between two eligible camps', async () => {
     const fixture = makeFreshFixture();
     const sparseCamp: FakeCamp = {
       ...fixture.camps[0], id: 'camp-2', nameThSlug: 'sparse-camp', description: null, logo: null,
       videoUrl: null, phone: null, lineId: null, facebookUrl: null, address: null, directions: null,
       feeInfo: null, toiletInfo: null, groundType: null, cancellationPolicy: null, tags: null,
-      partner: null, nationalPark: null, ownershipType: null, minimumAge: null, maxGuestsPerDay: null,
-      maxTentsPerDay: null, priceLow: null, priceHigh: null, avgRating: null, reviewCount: 0,
+      partner: null, nationalPark: null, ownershipType: null, minimumAge: null,
+      priceLow: null, priceHigh: null, avgRating: null, reviewCount: 0,
     };
     fixture.camps.push(sparseCamp);
     fixture.zones.push(...Array.from({ length: 3 }, (_, i) => ({ id: `z2-${i}`, campSiteId: 'camp-2', name: `z${i}`, sortOrder: i, deletedAt: null })));
-    fixture.spots.push(...Array.from({ length: 10 }, (_, i) => ({ id: `s2-${i}`, campSiteId: 'camp-2', name: `s${i}`, priceUnit: 'PER_SITE', maxCampers: 4, pricePerNight: 300, zoneId: `z2-0`, deletedAt: null })));
+    fixture.spots.push(
+      ...Array.from({ length: 10 }, (_, i) => ({
+        id: `s2-${i}`, campSiteId: 'camp-2', name: `s${i}`, priceUnit: 'PER_SITE', maxCampers: 4, maxTents: 2,
+        pricePerNight: 300, zoneId: `z2-0`, viewType: null, environment: null, nearFacilities: null, deletedAt: null,
+      }))
+    );
     fixture.campImageCounts['camp-2'] = 25;
 
     const prisma = makeFakePrisma(fixture);
@@ -358,10 +427,10 @@ describe('CAM-663 (c) — pickCamp: rule-based selection + --camp override', () 
 });
 
 // ===========================================================================
-// (d) pure role-assignment logic
+// (d) pure role/content logic
 // ===========================================================================
-describe('CAM-663 (d) — role assignment: deterministic, covers every variety branch', () => {
-  it('[boundary] ROLE_ORDER has exactly DEMO_SPOT_COUNT (9) roles, 4 buckets', () => {
+describe('CAM-663 (d) — role/content logic: deterministic, covers every variety branch', () => {
+  it('[boundary] ROLE_ORDER has exactly DEMO_SPOT_COUNT (9) roles, 4 image buckets', () => {
     expect(ROLE_ORDER).toHaveLength(9);
     expect(DEMO_SPOT_COUNT).toBe(9);
   });
@@ -376,11 +445,6 @@ describe('CAM-663 (d) — role assignment: deterministic, covers every variety b
     expect(seen).toEqual(new Set(CAPACITIES));
   });
 
-  it('[error/validation, teeth] assignSpotsToRoles throws when fewer than 9 live spots', () => {
-    const spots = Array.from({ length: 8 }, (_, i) => ({ id: `s${i}` }));
-    expect(() => assignSpotsToRoles(spots as any)).toThrow(/at least 9/);
-  });
-
   it('[normal] neededPhotoCount: multi-photo targets 3, one-photo targets 1, no-image targets 0', () => {
     expect(neededPhotoCount('multi-photo-1', 0)).toBe(3);
     expect(neededPhotoCount('one-photo-1', 0)).toBe(1);
@@ -391,6 +455,19 @@ describe('CAM-663 (d) — role assignment: deterministic, covers every variety b
     expect(neededPhotoCount('multi-photo-1', 2)).toBe(1);
     expect(neededPhotoCount('multi-photo-1', 5)).toBe(0);
     expect(neededPhotoCount('one-photo-1', 3)).toBe(0);
+  });
+
+  it('[normal] every role has a unique name under DEMO_NAME_PREFIX (the undo identity marker)', () => {
+    const names = ROLE_ORDER.map((r) => nameForRole(r));
+    expect(new Set(names).size).toBe(names.length);
+    for (const n of names) expect(n.startsWith(DEMO_NAME_PREFIX)).toBe(true);
+  });
+
+  it('[normal] priceForRole: only no-image-2 is free (0); every other role is a positive price', () => {
+    expect(priceForRole('no-image-2')).toBe(0);
+    for (const role of ROLE_ORDER.filter((r) => r !== 'no-image-2')) {
+      expect(priceForRole(role)).toBeGreaterThan(0);
+    }
   });
 
   it('[Critical] no demo URL ever points at /uploads (public/uploads* 404s on staging)', () => {
@@ -409,14 +486,15 @@ describe('CAM-663 (d) — role assignment: deterministic, covers every variety b
 
   it('[normal] LONG_NAME is long enough to exercise truncation', () => {
     expect(LONG_NAME.length).toBeGreaterThan(80);
+    expect(nameForRole('no-image-1')).toContain(LONG_NAME);
   });
 });
 
 // ===========================================================================
-// (e) buildPlan + summarizePlan — the full variety matrix
+// (e) buildPlan + summarizePlan — the full variety matrix, never touches a real pitch
 // ===========================================================================
-describe('CAM-663 (e) — buildPlan: produces every branch of the variety list', () => {
-  it('[normal, teeth] a fresh camp produces the full count table', async () => {
+describe('CAM-663 (e) — buildPlan: produces every branch of the variety list, real pitches untouched', () => {
+  it('[normal, teeth] a fresh camp produces the full count table, all 9 marked as NEW pitches', async () => {
     const fixture = makeFreshFixture();
     const prisma = makeFakePrisma(fixture);
     const camp = await pickCamp(prisma as any, {});
@@ -435,6 +513,14 @@ describe('CAM-663 (e) — buildPlan: produces every branch of the variety list',
     expect(summary['host BlockedDate on spotId']).toBe(1);
     expect(summary['existing non-cancelled Booking on spotId']).toBe(1);
     expect(summary['very long name']).toBe(1);
+    expect(summary['new pitches to create']).toBe(9);
+
+    // the plan never references any of the 12 real sibling spot names
+    const realSpotNames = new Set(fixture.spots.map((s) => s.name));
+    for (const row of plan.rows) {
+      expect(row.spotId).toBeNull(); // fresh camp — nothing exists yet
+      expect(realSpotNames.has(row.name)).toBe(false);
+    }
   });
 
   it('[concurrent/ordering, teeth] dry-run twice (no writes in between) prints an IDENTICAL plan', async () => {
@@ -446,8 +532,8 @@ describe('CAM-663 (e) — buildPlan: produces every branch of the variety list',
     const planB = await buildPlan(prisma as any, camp);
 
     expect(summarizePlan(planA)).toEqual(summarizePlan(planB));
-    expect(planA.rows.map((r) => ({ spotId: r.spotId, role: r.role }))).toEqual(
-      planB.rows.map((r) => ({ spotId: r.spotId, role: r.role }))
+    expect(planA.rows.map((r) => ({ name: r.name, role: r.role }))).toEqual(
+      planB.rows.map((r) => ({ name: r.name, role: r.role }))
     );
   });
 
@@ -458,43 +544,32 @@ describe('CAM-663 (e) — buildPlan: produces every branch of the variety list',
     await expect(buildPlan(prisma as any, camp)).rejects.toThrow(/live zones/);
   });
 
-  it('[null/empty, teeth] a pitch that already has a live non-cancelled Booking is NOT re-booked', async () => {
-    const fixture = makeFreshFixture();
-    // spot-07 is the "one-photo-2" role (index 6, 0-based) — pre-seed it with a real booking.
-    fixture.bookings.push({
-      id: 'existing-bkg', spotId: 'spot-07', campSiteId: 'camp-1', userId: 'user-camper-1',
-      checkInDate: new Date('2026-12-01'), checkOutDate: new Date('2026-12-03'),
-      guests: 2, totalPrice: 1000, currency: 'THB', status: 'CONFIRMED', deletedAt: null,
-    });
+  it('[null/empty, teeth] no real sibling pitches to copy from throws (never invents viewType/environment)', async () => {
+    const fixture = makeFreshFixture({ spotCount: 0 });
     const prisma = makeFakePrisma(fixture);
-    const camp = await pickCamp(prisma as any, {});
-    const plan = await buildPlan(prisma as any, camp);
-    const row = plan.rows.find((r: any) => r.role === 'one-photo-2')!;
-    expect(row.needsBooking).toBe(false);
-    expect(row.alreadyHasNonCancelledBooking).toBe(true);
-    expect(summarizePlan(plan)['existing non-cancelled Booking on spotId']).toBe(1);
+    const camp = { id: 'camp-1', nameThSlug: 'demo-camp', useSpotView: false, overridden: true, score: 0 };
+    await expect(buildPlan(prisma as any, camp)).rejects.toThrow(/no real sibling pitch/);
   });
 
-  it('[null/empty] a CANCELLED booking on the role spot does NOT satisfy the bucket — a new one is still planned', async () => {
+  it('[normal] viewType/environment/nearFacilities are copied from a real sibling, read-only', async () => {
     const fixture = makeFreshFixture();
-    fixture.bookings.push({
-      id: 'cancelled-bkg', spotId: 'spot-07', campSiteId: 'camp-1', userId: 'user-camper-1',
-      checkInDate: new Date('2026-12-01'), checkOutDate: new Date('2026-12-03'),
-      guests: 2, totalPrice: 1000, currency: 'THB', status: 'CANCELLED', deletedAt: null,
-    });
+    fixture.spots[0].viewType = 'LAKE';
+    fixture.spots[0].environment = 'SAND';
+    fixture.spots[0].nearFacilities = 'TOIL';
     const prisma = makeFakePrisma(fixture);
     const camp = await pickCamp(prisma as any, {});
     const plan = await buildPlan(prisma as any, camp);
-    const row = plan.rows.find((r: any) => r.role === 'one-photo-2')!;
-    expect(row.needsBooking).toBe(true);
+    expect(plan.rows.every((r) => r.viewType !== undefined)).toBe(true);
+    // the sibling rows themselves are untouched (buildPlan is read-only)
+    expect(fixture.spots[0].viewType).toBe('LAKE');
   });
 });
 
 // ===========================================================================
-// (f) applyPlan — writes exactly the planned rows, idempotent on a 2nd apply
+// (f) applyPlan — creates exactly the planned rows, idempotent on re-apply
 // ===========================================================================
-describe('CAM-663 (f) — applyPlan: writes correctly, idempotent on re-apply', () => {
-  it('[normal, teeth] creates the expected image/blockedDate/booking counts + sets useSpotView', async () => {
+describe('CAM-663 (f) — applyPlan: creates pitches (never updates), idempotent on re-apply', () => {
+  it('[normal, teeth] creates 9 pitches + expected image/blockedDate/booking counts + sets useSpotView', async () => {
     const fixture = makeFreshFixture();
     const prisma = makeFakePrisma(fixture);
     const camp = await pickCamp(prisma as any, {});
@@ -502,6 +577,7 @@ describe('CAM-663 (f) — applyPlan: writes correctly, idempotent on re-apply', 
 
     const created = await applyPlan(prisma as any, plan);
 
+    expect(created.spots).toBe(9);
     // 2 panorama + 3*3 multi-photo + 2*1 one-photo = 2 + 9 + 2 = 13 images
     expect(created.images).toBe(13);
     expect(created.blockedDates).toBe(1);
@@ -510,25 +586,35 @@ describe('CAM-663 (f) — applyPlan: writes correctly, idempotent on re-apply', 
     const updatedCamp = prisma._store.camps.find((c) => c.id === camp.id)!;
     expect(updatedCamp.useSpotView).toBe(true);
 
-    const freeSpot = prisma._store.spots.find((s) => s.id === 'spot-09')!; // no-image-2 role (index 8)
+    const freeSpot = prisma._store.spots.find((s) => s.name === nameForRole('no-image-2'))!;
     expect(Number(freeSpot.pricePerNight)).toBe(0);
-    const longNameSpot = prisma._store.spots.find((s) => s.id === 'spot-08')!; // no-image-1 role (index 7)
-    expect(longNameSpot.name).toBe(LONG_NAME);
+    const longNameSpot = prisma._store.spots.find((s) => s.name === nameForRole('no-image-1'))!;
+    expect(longNameSpot.name).toContain(LONG_NAME);
+
+    // the 12 real siblings are byte-for-byte untouched
+    for (const original of fixture.spots) {
+      const stillThere = prisma._store.spots.find((s) => s.id === original.id);
+      expect(stillThere).toEqual(original);
+    }
   });
 
   it('[concurrent/ordering, teeth] a SECOND apply on the same state creates ZERO additional rows', async () => {
     const fixture = makeFreshFixture();
     const prisma = makeFakePrisma(fixture);
-    const camp = await pickCamp(prisma as any, {});
+    const camp = await pickCamp(prisma as any, { overrideSlug: 'demo-camp' });
 
     const plan1 = await buildPlan(prisma as any, camp);
     const first = await applyPlan(prisma as any, plan1);
+    expect(first.spots).toBe(9);
     expect(first.images).toBe(13);
 
-    const camp2 = await pickCamp(prisma as any, {});
+    // rule-based pickCamp would now exclude this camp (useSpotView flipped true) — use
+    // override, exactly as a real --apply re-run would need to (mirrors main()'s contract).
+    const camp2 = await pickCamp(prisma as any, { overrideSlug: 'demo-camp' });
     const plan2 = await buildPlan(prisma as any, camp2);
     const second = await applyPlan(prisma as any, plan2);
 
+    expect(second.spots).toBe(0);
     expect(second.images).toBe(0);
     expect(second.blockedDates).toBe(0);
     expect(second.bookings).toBe(0);
@@ -545,31 +631,37 @@ describe('CAM-663 (f) — applyPlan: writes correctly, idempotent on re-apply', 
 });
 
 // ===========================================================================
-// (g) undoPlan — removes exactly the tagged rows, nothing else
+// (g) undoPlan — removes exactly the demo pitches (+ children), nothing else
 // ===========================================================================
-describe('CAM-663 (g) — undoPlan: removes exactly the rows this script creates', () => {
-  it('[normal, teeth] removes the created images/booking/blockedDate and resets useSpotView', async () => {
+describe('CAM-663 (g) — undoPlan: removes exactly what this script created', () => {
+  it('[normal, teeth] removes the created pitches/images/booking/blockedDate and resets useSpotView', async () => {
     const fixture = makeFreshFixture();
     const prisma = makeFakePrisma(fixture);
     const camp = await pickCamp(prisma as any, {});
     const plan = await buildPlan(prisma as any, camp);
     await applyPlan(prisma as any, plan);
 
-    const removed = await undoPlan(prisma as any, plan);
+    const campForUndo = await pickCamp(prisma as any, { overrideSlug: 'demo-camp' });
+    const planForUndo = await buildPlan(prisma as any, campForUndo);
+    const removed = await undoPlan(prisma as any, planForUndo);
+
+    expect(removed.spots).toBe(9);
     expect(removed.images).toBe(13);
     expect(removed.bookings).toBe(1);
     expect(removed.blockedDates).toBe(1);
 
-    expect(prisma._store.images.filter((i) => plan.rows.some((r: any) => r.spotId === i.spotId))).toHaveLength(0);
+    expect(prisma._store.spots.filter((s) => s.name.startsWith(DEMO_NAME_PREFIX))).toHaveLength(0);
     expect(prisma._store.bookings).toHaveLength(0);
     expect(prisma._store.blockedDates).toHaveLength(0);
+    expect(prisma._store.images).toHaveLength(0);
     expect(prisma._store.camps.find((c) => c.id === camp.id)!.useSpotView).toBe(false);
+    // the 12 real siblings survive, untouched
+    expect(prisma._store.spots).toHaveLength(12);
   });
 
-  it('[Critical, teeth] never touches a real image/booking that is NOT one of this scripts own URLs/dates', async () => {
+  it('[Critical, teeth] never touches a real pitch/booking that this script did not create', async () => {
     const fixture = makeFreshFixture();
-    // A real, pre-existing photo on a DIFFERENT, unrelated URL + a real booking on unrelated dates.
-    fixture.images.push({ id: 'real-img', spotId: 'spot-01', url: 'https://images.unsplash.com/photo-REAL-USER-UPLOAD?w=1200', kind: 'PHOTO', alt: null });
+    // A real, pre-existing booking on a REAL sibling pitch, on unrelated dates.
     fixture.bookings.push({
       id: 'real-bkg', spotId: 'spot-01', campSiteId: 'camp-1', userId: 'user-camper-1',
       checkInDate: new Date('2026-08-01'), checkOutDate: new Date('2026-08-03'),
@@ -580,10 +672,12 @@ describe('CAM-663 (g) — undoPlan: removes exactly the rows this script creates
     const plan = await buildPlan(prisma as any, camp);
     await applyPlan(prisma as any, plan);
 
-    await undoPlan(prisma as any, plan);
+    const campForUndo = await pickCamp(prisma as any, { overrideSlug: 'demo-camp' });
+    const planForUndo = await buildPlan(prisma as any, campForUndo);
+    await undoPlan(prisma as any, planForUndo);
 
-    expect(prisma._store.images.some((i) => i.id === 'real-img')).toBe(true);
     expect(prisma._store.bookings.some((b) => b.id === 'real-bkg')).toBe(true);
+    expect(prisma._store.spots.some((s) => s.id === 'spot-01')).toBe(true);
   });
 
   it('[boundary] the demo booking/blockedDate identity keys are the fixed dates exported by the module', () => {
@@ -618,5 +712,63 @@ describe('CAM-663 (h) — parseArgs: default dry-run, explicit --apply/--undo, -
 
   it('[null/empty] --camp with no following value yields undefined, not a crash', () => {
     expect(parseArgs(['--camp'])).toMatchObject({ campSlug: undefined });
+  });
+});
+
+// ===========================================================================
+// (i) Apply -> undo ROUND TRIP — byte-for-byte restoration
+//
+// NOT A REAL DATABASE PROOF. The repo's real DB-touching harness
+// (scripts/setup-e2e-db.ts) requires a reachable LOCAL Postgres, and this
+// ticket's hard prohibition ("never seed against a localhost URL / never
+// touch the local dev database") blocks using it for this story. This test
+// operates on the SAME in-memory fake Prisma client as every test above —
+// but, to keep the capacity claim honest rather than re-implemented, it
+// calls the REAL production `getEffectiveCapacity` (lib/campsite-
+// availability.ts) against that fake client, not a hand-rolled formula. See
+// docs/RUNBOOK-demo-spot-seed.md "Test-harness note" for the full context.
+// ===========================================================================
+describe('CAM-663 (i) — apply->undo round trip restores an exact snapshot (plan/fake-Prisma level only, not a real DB proof)', () => {
+  it('[Critical, teeth] camp row + all 12 real sibling Spot rows + getEffectiveCapacity are byte-for-byte identical before vs after undo', async () => {
+    const fixture = makeFreshFixture();
+    const prisma = makeFakePrisma(fixture);
+
+    const campBefore = JSON.parse(JSON.stringify(prisma._store.camps.find((c) => c.id === 'camp-1')));
+    const spotsBefore = JSON.parse(JSON.stringify([...prisma._store.spots].sort(byId)));
+    const capacityBefore = await getEffectiveCapacity(prisma as unknown as PrismaClient, {
+      id: campBefore.id, useSpotView: campBefore.useSpotView,
+      maxGuestsPerDay: campBefore.maxGuestsPerDay, maxTentsPerDay: campBefore.maxTentsPerDay,
+    });
+
+    // --- apply ---
+    const camp = await pickCamp(prisma as any, {});
+    const plan = await buildPlan(prisma as any, camp);
+    await applyPlan(prisma as any, plan);
+
+    const campAfterApply = prisma._store.camps.find((c) => c.id === 'camp-1')!;
+    expect(campAfterApply.useSpotView).toBe(true); // sanity: the flag really flipped
+    const capacityAfterApply = await getEffectiveCapacity(prisma as unknown as PrismaClient, {
+      id: campAfterApply.id, useSpotView: campAfterApply.useSpotView,
+      maxGuestsPerDay: campAfterApply.maxGuestsPerDay, maxTentsPerDay: campAfterApply.maxTentsPerDay,
+    });
+    // sanity: capacity really moved (PER-SPOT sum now includes the 9 new demo pitches) — the
+    // whole point of the capacity note in the runbook.
+    expect(capacityAfterApply).not.toEqual(capacityBefore);
+
+    // --- undo (must use --camp; rule-based pickCamp now excludes this camp, useSpotView=true) ---
+    const campForUndo = await pickCamp(prisma as any, { overrideSlug: 'demo-camp' });
+    const planForUndo = await buildPlan(prisma as any, campForUndo);
+    await undoPlan(prisma as any, planForUndo);
+
+    const campAfterUndo = JSON.parse(JSON.stringify(prisma._store.camps.find((c) => c.id === 'camp-1')));
+    const spotsAfterUndo = JSON.parse(JSON.stringify([...prisma._store.spots].sort(byId)));
+    const capacityAfterUndo = await getEffectiveCapacity(prisma as unknown as PrismaClient, {
+      id: campAfterUndo.id, useSpotView: campAfterUndo.useSpotView,
+      maxGuestsPerDay: campAfterUndo.maxGuestsPerDay, maxTentsPerDay: campAfterUndo.maxTentsPerDay,
+    });
+
+    expect(campAfterUndo).toEqual(campBefore);
+    expect(spotsAfterUndo).toEqual(spotsBefore);
+    expect(capacityAfterUndo).toEqual(capacityBefore);
   });
 });
