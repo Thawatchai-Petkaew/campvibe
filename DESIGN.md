@@ -421,7 +421,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 
 > **Check this index before building any UI — reuse, do not rebuild.** If a primitive exists here, use it. If DESIGN.md names a primitive as "(planned)", build that primitive first (don't hand-roll inline).
 
-#### `components/ui/*` primitives (31)
+#### `components/ui/*` primitives (32)
 
 | component | use when | role/radius note |
 |---|---|---|
@@ -452,6 +452,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | `sheet` | Side / bottom drawer — long or contextual content | — |
 | `skeleton` | Single-element loading placeholder | — |
 | `sonner` | Transient toast feedback | — |
+| `sticky-action-bar` | Mobile-only fixed bottom price/summary + one primary action | `z-40`; publishes `--bottom-bar-height` — see "Bottom-docked elements" below |
 | `tabs` | Switch sections within one page (not cross-page nav) | — |
 | `textarea` | Multi-line text input | `rounded-3xl` |
 | `tooltip` | Short hint text only — no action | — |
@@ -469,6 +470,14 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | `RootShellSkeleton` *(planned)* | — | Minimal last-resort skeleton for `app/loading.tsx`; planned S2 |
 | `ProfileFormSkeleton` *(planned)* | — | Profile form section skeleton; planned S3 |
 | `BookingListSkeleton` *(planned)* | — | Booking-list section skeleton; planned S4 |
+
+### Bottom-docked elements — shared `--bottom-bar-height` contract (CAM-669)
+
+A fixed, viewport-bottom-docked element (e.g. `sticky-action-bar`, `z-40`) and the global `AiChatLauncher` (`z-50`) can occupy the same screen region on mobile. Never hardcode one component's height into another's offset — that drifts the moment either changes. Instead:
+
+- The bottom-docked bar publishes its own **real rendered height** on the CSS custom property `--bottom-bar-height` (set on the root element via `ResizeObserver`, reset to `0px` on unmount). `app/globals.css` declares the `0px` default so any reader is safe before the bar's effect runs or when no bar is mounted at all.
+- A sibling that must clear it (currently `AiChatLauncher`) adds `var(--bottom-bar-height, 0px)` into its own fixed-offset `calc()` — it never reads the bar's markup or a fixed magic number.
+- A future bottom-docked element participates for free by reading the same variable; a second, unrelated bar would need its own variable name (this contract does not merge two simultaneous bars into one number).
 
 ### Empty image slot — the missing/failed photo placeholder (CAM-539)
 

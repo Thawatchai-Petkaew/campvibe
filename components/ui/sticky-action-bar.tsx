@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,18 @@ interface StickyActionBarProps {
  * `z-40` (below the global AI-chat launcher's `z-50`) and a
  * `max(…, env(safe-area-inset-bottom))` bottom pad — the same safe-area
  * idiom already used by `SearchModal.tsx`/`AiChatPanel.tsx`.
+ *
+ * CAM-669: publishes its own real rendered height on the `--bottom-bar-height`
+ * custom property (root element), so any bottom-docked sibling (currently
+ * `AiChatLauncher`) can read it and clear the bar without either side
+ * hardcoding the other's dimensions (DESIGN.md "Bottom-docked elements"
+ * contract). A `ResizeObserver` on the bar's own wrapper measures it live —
+ * this doubles as the mobile/desktop toggle for free, because `md:hidden`
+ * collapses the element to 0 height at the `md` breakpoint, so the published
+ * value naturally goes back to 0 with no separate media-query logic. Reset to
+ * `0px` on unmount so a route that never mounts this bar is unaffected;
+ * `app/globals.css` declares the same `0px` default on `:root` for any reader
+ * that queries the variable before this effect ever runs.
  */
 export function StickyActionBar({
     primaryLabel,
@@ -50,8 +63,32 @@ export function StickyActionBar({
     className,
     "data-testid": testId,
 }: StickyActionBarProps) {
+    const barRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const el = barRef.current;
+        if (!el) return;
+
+        const publishHeight = () => {
+            document.documentElement.style.setProperty(
+                "--bottom-bar-height",
+                `${el.getBoundingClientRect().height}px`
+            );
+        };
+
+        publishHeight();
+        const resizeObserver = new ResizeObserver(publishHeight);
+        resizeObserver.observe(el);
+
+        return () => {
+            resizeObserver.disconnect();
+            document.documentElement.style.setProperty("--bottom-bar-height", "0px");
+        };
+    }, []);
+
     return (
         <div
+            ref={barRef}
             className={cn(
                 "md:hidden fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-4",
                 "border-t border-border bg-card px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]",

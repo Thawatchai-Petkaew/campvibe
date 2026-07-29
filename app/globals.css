@@ -551,6 +551,19 @@ h6 {
   --hud-inset-sm: 12px; /* horizontal breathing gap between a full-width HUD row and the screen edge on mobile/tablet */
 }
 
+/* ── CAM-669 — shared bottom-docked-element contract ──────────────────────────
+   `--bottom-bar-height`: the REAL rendered height of whichever fixed
+   bottom-docked bar is currently mounted (today: `components/ui/sticky-
+   action-bar.tsx`), published live via ResizeObserver in that component and
+   reset to 0px on unmount. Declared here as the default so any reader
+   (currently `AiChatLauncher`) gets 0px before that effect ever runs, and on
+   any route where no bar is mounted at all. See DESIGN.md "Bottom-docked
+   elements" for the full contract — a future bottom-docked element publishes
+   the same variable instead of a page hardcoding another component's height. */
+:root {
+  --bottom-bar-height: 0px;
+}
+
 /* ── CAM-426 น้องกองไฟ AI Expression Layer — ambient utilities (assistant surface only) ── */
 @layer components {
   /* Static campfire-night aurora backdrop (teal→sky + warm horizon). Decorative; place behind content. */
