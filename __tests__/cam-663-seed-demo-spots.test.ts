@@ -203,6 +203,15 @@ function makeFakePrisma(fixture: {
         blockedDates.push(row);
         return { ...row };
       },
+      findFirst: async ({ where }: any) => {
+        const row = blockedDates.find(
+          (b) =>
+            where.spotId.in.includes(b.spotId) &&
+            b.startDate.getTime() === where.startDate.getTime() &&
+            b.endDate.getTime() === where.endDate.getTime()
+        );
+        return row ? { reason: row.reason } : null;
+      },
       deleteMany: async ({ where }: any) => {
         const before = blockedDates.length;
         const keep = blockedDates.filter(
@@ -728,47 +737,77 @@ describe('CAM-663 (h) — parseArgs: default dry-run, explicit --apply/--undo, -
 // availability.ts) against that fake client, not a hand-rolled formula. See
 // docs/RUNBOOK-demo-spot-seed.md "Test-harness note" for the full context.
 // ===========================================================================
+async function runApplyUndoRoundTrip(
+  fixture: ReturnType<typeof makeFreshFixture>,
+  { campSlugForApply }: { campSlugForApply?: string } = {}
+) {
+  const prisma = makeFakePrisma(fixture);
+
+  const campBefore = JSON.parse(JSON.stringify(prisma._store.camps.find((c) => c.id === 'camp-1')));
+  const spotsBefore = JSON.parse(JSON.stringify([...prisma._store.spots].sort(byId)));
+  const capacityBefore = await getEffectiveCapacity(prisma as unknown as PrismaClient, {
+    id: campBefore.id, useSpotView: campBefore.useSpotView,
+    maxGuestsPerDay: campBefore.maxGuestsPerDay, maxTentsPerDay: campBefore.maxTentsPerDay,
+  });
+
+  // --- apply ---
+  const camp = await pickCamp(prisma as any, campSlugForApply ? { overrideSlug: campSlugForApply } : {});
+  const plan = await buildPlan(prisma as any, camp);
+  await applyPlan(prisma as any, plan);
+
+  const campAfterApply = { ...prisma._store.camps.find((c) => c.id === 'camp-1')! };
+  const capacityAfterApply = await getEffectiveCapacity(prisma as unknown as PrismaClient, {
+    id: campAfterApply.id, useSpotView: campAfterApply.useSpotView,
+    maxGuestsPerDay: campAfterApply.maxGuestsPerDay, maxTentsPerDay: campAfterApply.maxTentsPerDay,
+  });
+
+  // --- undo (must use --camp; matches main()'s real contract: --undo always requires --camp) ---
+  const campForUndo = await pickCamp(prisma as any, { overrideSlug: 'demo-camp' });
+  const planForUndo = await buildPlan(prisma as any, campForUndo);
+  await undoPlan(prisma as any, planForUndo);
+
+  const campAfterUndo = JSON.parse(JSON.stringify(prisma._store.camps.find((c) => c.id === 'camp-1')));
+  const spotsAfterUndo = JSON.parse(JSON.stringify([...prisma._store.spots].sort(byId)));
+  const capacityAfterUndo = await getEffectiveCapacity(prisma as unknown as PrismaClient, {
+    id: campAfterUndo.id, useSpotView: campAfterUndo.useSpotView,
+    maxGuestsPerDay: campAfterUndo.maxGuestsPerDay, maxTentsPerDay: campAfterUndo.maxTentsPerDay,
+  });
+
+  return { campBefore, spotsBefore, capacityBefore, campAfterApply, capacityAfterApply, campAfterUndo, spotsAfterUndo, capacityAfterUndo };
+}
+
 describe('CAM-663 (i) — apply->undo round trip restores an exact snapshot (plan/fake-Prisma level only, not a real DB proof)', () => {
-  it('[Critical, teeth] camp row + all 12 real sibling Spot rows + getEffectiveCapacity are byte-for-byte identical before vs after undo', async () => {
+  it('[Critical, teeth] case A — camp STARTS useSpotView=false: round trip restores false + original capacity', async () => {
+    const fixture = makeFreshFixture(); // useSpotView: false
+    const r = await runApplyUndoRoundTrip(fixture);
+
+    expect(r.campAfterApply.useSpotView).toBe(true); // apply flips it on
+    expect(r.capacityAfterApply).not.toEqual(r.capacityBefore); // capacity really moved
+
+    expect(r.campAfterUndo).toEqual(r.campBefore);
+    expect(r.campAfterUndo.useSpotView).toBe(false); // restored to its original false
+    expect(r.spotsAfterUndo).toEqual(r.spotsBefore);
+    expect(r.capacityAfterUndo).toEqual(r.capacityBefore);
+  });
+
+  // This is the case that was actually broken: a real camp already in per-spot
+  // mode (e.g. the owner's own test camp, khao-kho-windmill-meadow-15-th) had
+  // undo unconditionally hardcode useSpotView:false, silently flipping a real
+  // camp OUT of per-spot mode and dropping its capacity derivation back to
+  // maxGuestsPerDay — even though apply itself never touched the flag (it was
+  // already true, a no-op). Fixed by reading the durable
+  // DEMO_BLOCKED_REASON_ORIGIN_* marker instead of hardcoding false.
+  it('[Critical, teeth] case B — camp STARTS useSpotView=true: round trip restores TRUE, never a hardcoded false', async () => {
     const fixture = makeFreshFixture();
-    const prisma = makeFakePrisma(fixture);
+    fixture.camps[0].useSpotView = true; // already in per-spot mode — rule-based selection would now exclude it, so apply must use --camp too
+    const r = await runApplyUndoRoundTrip(fixture, { campSlugForApply: 'demo-camp' });
 
-    const campBefore = JSON.parse(JSON.stringify(prisma._store.camps.find((c) => c.id === 'camp-1')));
-    const spotsBefore = JSON.parse(JSON.stringify([...prisma._store.spots].sort(byId)));
-    const capacityBefore = await getEffectiveCapacity(prisma as unknown as PrismaClient, {
-      id: campBefore.id, useSpotView: campBefore.useSpotView,
-      maxGuestsPerDay: campBefore.maxGuestsPerDay, maxTentsPerDay: campBefore.maxTentsPerDay,
-    });
+    expect(r.campAfterApply.useSpotView).toBe(true); // unchanged — apply is a no-op on an already-true flag
+    expect(r.capacityAfterApply).not.toEqual(r.capacityBefore); // capacity still moves: 9 new pitches now summed in
 
-    // --- apply ---
-    const camp = await pickCamp(prisma as any, {});
-    const plan = await buildPlan(prisma as any, camp);
-    await applyPlan(prisma as any, plan);
-
-    const campAfterApply = prisma._store.camps.find((c) => c.id === 'camp-1')!;
-    expect(campAfterApply.useSpotView).toBe(true); // sanity: the flag really flipped
-    const capacityAfterApply = await getEffectiveCapacity(prisma as unknown as PrismaClient, {
-      id: campAfterApply.id, useSpotView: campAfterApply.useSpotView,
-      maxGuestsPerDay: campAfterApply.maxGuestsPerDay, maxTentsPerDay: campAfterApply.maxTentsPerDay,
-    });
-    // sanity: capacity really moved (PER-SPOT sum now includes the 9 new demo pitches) — the
-    // whole point of the capacity note in the runbook.
-    expect(capacityAfterApply).not.toEqual(capacityBefore);
-
-    // --- undo (must use --camp; rule-based pickCamp now excludes this camp, useSpotView=true) ---
-    const campForUndo = await pickCamp(prisma as any, { overrideSlug: 'demo-camp' });
-    const planForUndo = await buildPlan(prisma as any, campForUndo);
-    await undoPlan(prisma as any, planForUndo);
-
-    const campAfterUndo = JSON.parse(JSON.stringify(prisma._store.camps.find((c) => c.id === 'camp-1')));
-    const spotsAfterUndo = JSON.parse(JSON.stringify([...prisma._store.spots].sort(byId)));
-    const capacityAfterUndo = await getEffectiveCapacity(prisma as unknown as PrismaClient, {
-      id: campAfterUndo.id, useSpotView: campAfterUndo.useSpotView,
-      maxGuestsPerDay: campAfterUndo.maxGuestsPerDay, maxTentsPerDay: campAfterUndo.maxTentsPerDay,
-    });
-
-    expect(campAfterUndo).toEqual(campBefore);
-    expect(spotsAfterUndo).toEqual(spotsBefore);
-    expect(capacityAfterUndo).toEqual(capacityBefore);
+    expect(r.campAfterUndo).toEqual(r.campBefore);
+    expect(r.campAfterUndo.useSpotView).toBe(true); // MUST stay true — undo must never falsely flip a real per-spot camp off
+    expect(r.spotsAfterUndo).toEqual(r.spotsBefore);
+    expect(r.capacityAfterUndo).toEqual(r.capacityBefore);
   });
 });

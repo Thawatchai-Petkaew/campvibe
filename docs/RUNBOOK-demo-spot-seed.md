@@ -47,6 +47,20 @@ removes it; nothing about a real pitch is ever read, written, or deleted.
 pitch on the same camp (read-only) so the new rows look native instead of
 carrying nulls in columns every real pitch already has populated.
 
+### The useSpotView flag survives across separate CLI invocations, too
+
+`--apply` and `--undo` always run as two SEPARATE processes (per the Usage
+above). By the time `--undo` reads the camp, its live `useSpotView` column
+may already be `true` either because this camp started `false` and apply
+flipped it, or because it started `true` and apply correctly left it alone
+— both look identical from the `CampSite` row alone at that point. The
+original value is recorded once, durably, in the demo BlockedDate's
+`reason` text at the moment that row is first created
+(`DEMO_BLOCKED_REASON_ORIGIN_WHOLE_CAMP` / `_PER_SPOT`) — the same
+"fixed value = identity marker" idiom as the image URLs / booking date
+range — and `undoPlan` reads it back before deleting that row, so `--undo`
+restores the flag to its true original state whichever camp is targeted.
+
 ### Cleanup order (verified against `prisma/migrations`, not assumed)
 
 Deleting a `Spot` does **not** uniformly cascade its children — the three
@@ -79,15 +93,16 @@ delete additionally leaves the `Spot` table itself clean.
 With `useSpotView = true`, a camp's effective capacity becomes the **SUM of
 its live spots' capacities** (`lib/campsite-availability.ts:44`,
 `getEffectiveCapacity` → `calculateSpotCapacity`). Creating 9 demo pitches on
-a camp and flipping `useSpotView` on therefore **raises that camp's real
-displayed/enforced capacity** for as long as the demo pitches exist;
-`--undo` deletes them and resets the flag, which lowers it back to exactly
-what it was. Rule-based camp selection only picks a camp whose
-`useSpotView` is currently `false`, so this round-trip is always
-unambiguous. `--camp` can still target a camp already in per-spot mode
-deliberately — in that case `--undo` will still turn `useSpotView` off even
-though this script did not turn it on (the script prints a warning when the
-chosen camp already has it on).
+a camp therefore **raises that camp's real displayed/enforced capacity**
+for as long as the demo pitches exist and `useSpotView` is true — whether
+that flag was already `true` before this script ran, or this script is the
+one that flipped it. `--undo` deletes the 9 pitches and restores
+`useSpotView` to **exactly what it was before `--apply` ever touched this
+camp** — never a hardcoded `false` — so the capacity number always lowers
+back to exactly what it was, regardless of which camp (rule-picked or
+`--camp`-targeted, already in per-spot mode or not) this ran against. See
+"Reversible by construction" above for how the original value survives
+across the two separate CLI invocations.
 
 ## Idempotency
 
@@ -114,7 +129,8 @@ reachable **local** Postgres to migrate + seed against — and this ticket's
 hard prohibition ("never seed against a localhost URL / never touch the
 local dev database") blocks using it here, so the apply→undo round-trip is
 proven at the **plan/fake-Prisma level only** (see
-`__tests__/cam-663-seed-demo-spots.test.ts`, section (i)) — it is not a
+`__tests__/cam-663-seed-demo-spots.test.ts`, section (i), cases A and B —
+a camp starting `useSpotView=false` and one starting `true`) — it is not a
 real-database proof. The owner will observe the real round-trip directly
 when running `--dry-run` → `--apply` → (optionally) `--undo` against
 staging.

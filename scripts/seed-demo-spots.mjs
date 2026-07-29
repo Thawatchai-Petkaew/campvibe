@@ -46,26 +46,35 @@
  *   node scripts/seed-demo-spots.mjs --undo --camp <nameThSlug>   # remove what this script created
  *
  * CAMP SELECTION (rule-based, not hard-coded): published · deletedAt null ·
- * `useSpotView` currently false (see below) · >= MIN_LIVE_PITCHES live
- * spots (a signal of a substantial, real camp to attach demo pitches to) ·
- * >= MIN_CAMP_IMAGES camp-gallery images · >= MIN_ZONES live zones ·
- * highest completeness score (see COMPLETENESS_FIELDS), tie-broken by id
- * ascending for determinism. `--camp` overrides the rule entirely (and may
- * target a camp already in per-spot mode — see the useSpotView note below).
+ * `useSpotView` currently false (a selection PREFERENCE, not a correctness
+ * requirement — see below) · >= MIN_LIVE_PITCHES live spots (a signal of a
+ * substantial, real camp to attach demo pitches to) · >= MIN_CAMP_IMAGES
+ * camp-gallery images · >= MIN_ZONES live zones · highest completeness score
+ * (see COMPLETENESS_FIELDS), tie-broken by id ascending for determinism.
+ * `--camp` overrides the rule entirely, including the useSpotView
+ * preference — it may deliberately target a camp already in per-spot mode.
  *
- * WHY `useSpotView` must be false for rule-based selection: with
- * `useSpotView = true` a camp's effective capacity becomes the SUM of its
- * live spots' capacities (lib/campsite-availability.ts:44,
- * getEffectiveCapacity -> calculateSpotCapacity). Adding 9 demo pitches
- * therefore raises a REAL capacity number the moment this script flips the
- * flag on; undoing it (deleting the 9 pitches + resetting the flag) lowers
- * it back to exactly what it was. That symmetry only holds cleanly when
- * this script is the one who turned the flag on in the first place — hence
- * the rule excludes camps already running per-spot mode, so apply/undo is
- * always an unambiguous round-trip. `--camp` can still target one of those
- * 2 camps deliberately; in that case `--undo` will turn `useSpotView` off
- * even though this script did not turn it on — a printed warning covers
- * that case (see main()).
+ * `useSpotView` AND THE CAPACITY IT DRIVES ARE FULLY REVERSIBLE, REGARDLESS
+ * OF THE CHOSEN CAMP'S STARTING STATE. With `useSpotView = true` a camp's
+ * effective capacity becomes the SUM of its live spots' capacities
+ * (lib/campsite-availability.ts:44, getEffectiveCapacity ->
+ * calculateSpotCapacity), so creating 9 demo pitches raises a REAL capacity
+ * number the moment `useSpotView` is (or already is) true. `--undo` must
+ * restore the flag to whatever it was BEFORE this script ever touched this
+ * camp — not unconditionally `false` — because `--undo` always runs as a
+ * SEPARATE process from `--apply` (per the usage above), so by the time
+ * `--undo` reads the camp, the live `useSpotView` column may already equal
+ * either "started false, apply flipped it true" or "started true, apply
+ * left it alone" — both look identical (true) at that point, with no way to
+ * tell them apart from the CampSite row alone. The original value is
+ * recorded once, durably, in the demo BlockedDate's `reason` text at the
+ * moment it is first created (`DEMO_BLOCKED_REASON_ORIGIN_*` below) — the
+ * same "fixed value = identity marker" idiom already used for the demo
+ * image URLs / booking date range — and `undoPlan` reads it back before
+ * deleting that row. Rule-based selection preferring `useSpotView=false` is
+ * still a reasonable default (a "blank slate" camp for the auto-pick), but
+ * it is no longer required for correctness — `--camp` may target either
+ * kind of camp and the round-trip is exact either way.
  *
  * IDEMPOTENT BY CONSTRUCTION: buildPlan looks up any already-created demo
  * pitches by their exact `DEMO_NAME_PREFIX + role label` name (computed by
@@ -305,7 +314,18 @@ export const DEMO_BOOKING_GUESTS = 2;
 
 export const DEMO_BLOCKED_START = new Date('2027-04-01T00:00:00.000Z');
 export const DEMO_BLOCKED_END = new Date('2027-04-03T00:00:00.000Z');
-export const DEMO_BLOCKED_REASON = 'CAM-663 demo seed — host-blocked for maintenance';
+
+// Two fixed reason strings — not just flavour text. Whichever one apply
+// writes durably records the camp's useSpotView value at the moment this
+// BlockedDate is FIRST created (buildPlan only creates it once — a later
+// apply always finds `alreadyHasBlockedDate` true and never rewrites it), so
+// undoPlan (a separate process, run after useSpotView may have already been
+// flipped) can read it back and know what to restore — see the module
+// docstring's useSpotView section for the full reasoning.
+export const DEMO_BLOCKED_REASON_ORIGIN_WHOLE_CAMP =
+  'CAM-663 demo seed — host-blocked for maintenance (camp started in whole-camp capacity mode)';
+export const DEMO_BLOCKED_REASON_ORIGIN_PER_SPOT =
+  'CAM-663 demo seed — host-blocked for maintenance (camp started in per-spot capacity mode)';
 
 export function neededPhotoCount(role, existingPhotoCount) {
   const target = role.startsWith('multi-photo') ? 3 : role.startsWith('one-photo') ? 1 : 0;
@@ -401,6 +421,11 @@ export async function buildPlan(prisma, camp) {
       nearFacilities: sibling.nearFacilities,
       imagesToCreate,
       needsBlockedDate: isBlockedDateRole && !alreadyHasBlockedDate,
+      // Only meaningful when needsBlockedDate is true (i.e. the very first
+      // apply for this camp) — camp.useSpotView here is the CURRENT value at
+      // this exact moment, which is the true original precisely because
+      // nothing has mutated it yet this invocation.
+      blockedDateReason: camp.useSpotView ? DEMO_BLOCKED_REASON_ORIGIN_PER_SPOT : DEMO_BLOCKED_REASON_ORIGIN_WHOLE_CAMP,
       alreadyHasBlockedDate,
       needsBooking: isBookingRole && !alreadyHasNonCancelledBooking,
       alreadyHasNonCancelledBooking,
@@ -438,7 +463,7 @@ export function printPlan(plan, log = console.log) {
   log(
     `chosen camp: ${plan.camp.nameTh} (${plan.camp.nameThSlug})` +
       `${plan.camp.overridden ? ' [--camp override]' : ` completeness score=${plan.camp.score}`}` +
-      `${plan.camp.useSpotView ? ' [useSpotView already true — undo will still turn it off]' : ''}`
+      `${plan.camp.useSpotView ? ' [useSpotView currently true]' : ' [useSpotView currently false]'}`
   );
   const summary = summarizePlan(plan);
   for (const [label, count] of Object.entries(summary)) {
@@ -485,7 +510,7 @@ export async function applyPlan(prisma, plan) {
           spotId,
           startDate: DEMO_BLOCKED_START,
           endDate: DEMO_BLOCKED_END,
-          reason: DEMO_BLOCKED_REASON,
+          reason: row.blockedDateReason,
         },
       });
       created.blockedDates += 1;
@@ -557,24 +582,41 @@ export async function undoPlan(prisma, plan) {
   let removedBlocked = 0;
   let removedSpots = 0;
 
-  if (demoSpotIds.length > 0) {
-    removedBookings = (
-      await prisma.booking.deleteMany({
-        where: { spotId: { in: demoSpotIds }, checkInDate: DEMO_BOOKING_CHECK_IN, checkOutDate: DEMO_BOOKING_CHECK_OUT },
-      })
-    ).count;
-    removedBlocked = (
-      await prisma.blockedDate.deleteMany({
-        where: { spotId: { in: demoSpotIds }, startDate: DEMO_BLOCKED_START, endDate: DEMO_BLOCKED_END },
-      })
-    ).count;
-    removedImages = (
-      await prisma.image.deleteMany({ where: { spotId: { in: demoSpotIds } } })
-    ).count;
-    removedSpots = (await prisma.spot.deleteMany({ where: { id: { in: demoSpotIds } } })).count;
+  if (demoSpotIds.length === 0) {
+    // Nothing this script ever created exists — never touch useSpotView (a
+    // no-op undo must leave a real host's flag exactly as it found it).
+    return { spots: 0, images: 0, bookings: 0, blockedDates: 0 };
   }
 
-  await prisma.campSite.update({ where: { id: plan.camp.id }, data: { useSpotView: false } });
+  // Recover the camp's useSpotView value from BEFORE this script ever
+  // touched it, by reading the durable marker recorded in the demo
+  // BlockedDate's `reason` at apply time (see the module docstring's
+  // useSpotView section + the DEMO_BLOCKED_REASON_ORIGIN_* constants) —
+  // BEFORE deleting that row. Falls back to `false` only if no such row
+  // exists (e.g. apply crashed before creating it) — the same safe default
+  // rule-based selection already guarantees for its own picks.
+  const marker = await prisma.blockedDate.findFirst({
+    where: { spotId: { in: demoSpotIds }, startDate: DEMO_BLOCKED_START, endDate: DEMO_BLOCKED_END },
+    select: { reason: true },
+  });
+  const restoreUseSpotView = marker ? marker.reason === DEMO_BLOCKED_REASON_ORIGIN_PER_SPOT : false;
+
+  removedBookings = (
+    await prisma.booking.deleteMany({
+      where: { spotId: { in: demoSpotIds }, checkInDate: DEMO_BOOKING_CHECK_IN, checkOutDate: DEMO_BOOKING_CHECK_OUT },
+    })
+  ).count;
+  removedBlocked = (
+    await prisma.blockedDate.deleteMany({
+      where: { spotId: { in: demoSpotIds }, startDate: DEMO_BLOCKED_START, endDate: DEMO_BLOCKED_END },
+    })
+  ).count;
+  removedImages = (
+    await prisma.image.deleteMany({ where: { spotId: { in: demoSpotIds } } })
+  ).count;
+  removedSpots = (await prisma.spot.deleteMany({ where: { id: { in: demoSpotIds } } })).count;
+
+  await prisma.campSite.update({ where: { id: plan.camp.id }, data: { useSpotView: restoreUseSpotView } });
 
   return { spots: removedSpots, images: removedImages, bookings: removedBookings, blockedDates: removedBlocked };
 }
