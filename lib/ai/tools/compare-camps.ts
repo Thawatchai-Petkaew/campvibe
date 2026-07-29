@@ -57,6 +57,7 @@ import { distanceFromBangkokKm } from '@/lib/geo/distance';
 import type { CampAmenity } from '@/lib/ai/tools/get-camp-detail';
 import type { CancellationPolicyValue } from '@/lib/cancellation-policy';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
+import type { PricingUnit } from '@/lib/booking-pricing';
 
 /** Decision 4 — a comparison of more than this many camps is not a comparison; 2-3 is the sweet spot, 4 the ceiling. */
 export const MAX_COMPARE_CAMPS = 4;
@@ -97,12 +98,20 @@ export const compareCampsArgsSchema = z.object({
 
 export type CompareCampsArgs = z.infer<typeof compareCampsArgsSchema>;
 
-/** Decision 3 — atomic price cells (api.md rule 4): NEVER a merged "฿1,250" string. */
+/**
+ * Decision 3 — atomic price cells (api.md rule 4): NEVER a merged "฿1,250" string.
+ *
+ * CAM-656 (ADR-014) — `unit` is what `startingPrice`/`priceHigh` are charged
+ * per. Additive (api.md rule 12). `CampSite.priceUnit` is NOT NULL with a
+ * `@default(PER_SITE)` (prisma/schema.prisma), so this cell always carries a
+ * real value here — never invented, never absent.
+ */
 export interface ComparePrice {
   /** = priceLow, the "from" price (CAM-470 honesty label). */
   startingPrice: number | null;
   priceHigh: number | null;
   currency: string;
+  unit: PricingUnit;
   isFree: boolean;
   /** One-time additive fee (e.g. park entrance), same currency as above. */
   extraFeeAmount: number | null;
@@ -190,6 +199,8 @@ const compareCampsSelect = {
   priceLow: true,
   priceHigh: true,
   priceCurrency: true,
+  // CAM-656 (ADR-014) — what priceLow/priceHigh are charged per.
+  priceUnit: true,
   isFree: true,
   extraFeeAmount: true,
   extraFeeLabel: true,
@@ -232,6 +243,7 @@ const CRITERION_CELL_BUILDERS = {
       startingPrice: row.priceLow ? row.priceLow.toNumber() : null,
       priceHigh: row.priceHigh ? row.priceHigh.toNumber() : null,
       currency: row.priceCurrency,
+      unit: row.priceUnit,
       isFree: row.isFree,
       extraFeeAmount: row.extraFeeAmount ? row.extraFeeAmount.toNumber() : null,
       extraFeeLabel: row.extraFeeLabel,

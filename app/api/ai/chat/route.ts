@@ -194,6 +194,9 @@ function toShownResults(wire: ShownResultWire[] | undefined): ShownResult[] | un
     campId: entry.campSiteId,
     name: entry.name,
     priceLow: entry.priceLow,
+    // CAM-656 (ADR-014) — passes through unchanged, same shape-mapping-only
+    // treatment as priceLow above: undefined stays undefined (unit unrecorded).
+    priceUnit: entry.priceUnit,
   }));
 }
 
