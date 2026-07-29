@@ -14,6 +14,16 @@ interface SpotViewerProps {
     onOpenGallery: (urls: string[], index: number) => void;
     /** Opens the pan-strip viewer (CAM-354 BR-1) — `PanoramaViewer.tsx` itself is untouched. */
     onOpenPanorama: (url: string, alt: string, triggerEl: HTMLButtonElement) => void;
+    /**
+     * CAM-666: fired on every REAL selection (a tap/Enter/Space on a strip
+     * tab) so the booking widget one level up can read which pitch is
+     * picked — never fired on mount/default (the camper must actually
+     * choose before price/reserve reveal, story.md). `selectedSpotId`
+     * itself stays this component's OWN internal state (unchanged from
+     * CAM-664) — this is purely an additional notification, not a lift of
+     * the state itself, so SpotViewer's own behaviour stays identical.
+     */
+    onSelectSpot?: (spotId: string) => void;
 }
 
 /**
@@ -30,10 +40,17 @@ interface SpotViewerProps {
  * boundary") — it never touches price, the booking widget's totals, or
  * the reserve POST (that lands in CAM-666, after this one).
  */
-export function SpotViewer({ spots, onOpenGallery, onOpenPanorama }: SpotViewerProps) {
+export function SpotViewer({ spots, onOpenGallery, onOpenPanorama, onSelectSpot }: SpotViewerProps) {
     const { t, formatCurrency } = useLanguage();
     const idPrefix = useId();
     const [selectedSpotId, setSelectedSpotId] = useState(spots[0]?.id ?? "");
+
+    // CAM-666: a REAL selection (never the mount default above) also notifies
+    // the caller — see the onSelectSpot prop doc.
+    const handleSelectSpot = (spotId: string) => {
+        setSelectedSpotId(spotId);
+        onSelectSpot?.(spotId);
+    };
 
     const selectedSpot = useMemo(
         () => spots.find((s) => s.id === selectedSpotId) ?? spots[0],
@@ -70,7 +87,7 @@ export function SpotViewer({ spots, onOpenGallery, onOpenPanorama }: SpotViewerP
             <SpotStrip
                 spots={spots}
                 selectedSpotId={selectedSpot.id}
-                onSelect={setSelectedSpotId}
+                onSelect={handleSelectSpot}
                 formatCurrency={formatCurrency}
                 idPrefix={idPrefix}
                 panelId={panelId}

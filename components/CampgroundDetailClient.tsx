@@ -220,6 +220,26 @@ export default function CampgroundDetailClient({
     const [remainingCapacity, setRemainingCapacity] = useState<{ remaining: number | null; blockedByHost: boolean } | null>(null);
     const [loadingRemaining, setLoadingRemaining] = useState(false);
 
+    // CAM-666: the camper's picked pitch — null until a real tap/Enter/Space
+    // on the SpotStrip (SpotViewer's onSelectSpot, never fired on its own
+    // mount default). Moved up (alongside spots/showSpotSection just below,
+    // also lifted from their old spot further down this file) so
+    // buildBookingPriceArgs below can read the real selection instead of a
+    // hard-coded no-spot value.
+    const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+
+    // CAM-353 BR-1 (AC-1, AC-5, EC-2, EC-7): the spot section renders only for a
+    // PER-SPOT-mode camp (useSpotView) that has at least one live spot. Spots ride
+    // the payload pre-filtered to deletedAt: null by getCampBySlug (BR-2), so any
+    // row present here is already live. (CAM-666: lifted earlier so the price
+    // args below can read it.)
+    const spots: any[] = campground.spots || [];
+    const showSpotSection = !!campground.useSpotView && spots.length > 0;
+    const selectedSpot = showSpotSection ? spots.find((s) => s.id === selectedSpotId) ?? null : null;
+    // CAM-666: the reserve/price surface is "ready" the instant a non-per-spot
+    // camp renders (nothing to pick) — a per-spot camp needs a real pitch pick.
+    const hasPitchSelection = !showSpotSection || !!selectedSpot;
+
     // Calculate nights using date-fns
     const nights = (checkIn && checkOut && checkOut > checkIn)
         ? differenceInCalendarDays(checkOut, checkIn)
@@ -229,8 +249,12 @@ export default function CampgroundDetailClient({
     // CAM-615: the same honest "no price / genuinely 0" rule CampgroundCard.tsx
     // uses for the catalog card price badge — never a second divergent check.
     const isHeadlinePriceFree = campground.priceLow == null || Number(campground.priceLow) <= 0;
+    // CAM-666: mirrors SpotStrip.tsx's own `isFree` expression (byte-identical
+    // rule, not a new one) — the pitch's OWN raw price, independent of what
+    // resolveUnitPrice would actually end up charging (a price of exactly 0
+    // falls through to the camp's price there, unchanged engine behaviour).
+    const isSelectedSpotFree = !!selectedSpot && Number(selectedSpot.pricePerNight) === 0;
     // CAM-58: use the shared pricing module so displayed total matches what the API records.
-    // No spot-selection state in this component — spotPricePerNight is null (uses priceLow).
     // CAM-268 (PREP-2, AC-1): the camp's atomic one-time fee, via the same single
     // pricing source the real booking-creation API uses — so this preview's total
     // always equals what actually gets recorded.
@@ -247,7 +271,15 @@ export default function CampgroundDetailClient({
             priceUnit: (campground.priceUnit ?? null) as PricingUnit | null,
             extraFeeAmount: campground.extraFeeAmount != null ? campExtraFeeAmount : null,
         },
-        spot: null,
+        // CAM-666: the real selected pitch — this argument used to be
+        // hard-coded to no spot at all; SpotViewer/CAM-664 already owns the
+        // selection this now reads.
+        spot: selectedSpot
+            ? {
+                pricePerNight: selectedSpot.pricePerNight != null ? Number(selectedSpot.pricePerNight) : null,
+                priceUnit: (selectedSpot.priceUnit ?? null) as PricingUnit | null,
+            }
+            : null,
         party: { guests },
         nights: displayNights || 1,
         vatRate: 0,
@@ -318,6 +350,68 @@ export default function CampgroundDetailClient({
     useEffect(() => {
         fetchAvailability();
     }, [fetchAvailability]);
+
+    // CAM-666: per-pitch date availability — a SEPARATE state + effect from
+    // fetchAvailability above (never forked into it: that callback's deps
+    // stay [campground.id] only, CAM-616), fetched only once a real pitch is
+    // picked. Reuses the SAME /availability route CAM-665 already extended
+    // with an optional spotId — the response echoes which filter was
+    // actually applied (spotAvailable: null = no pitch filter, CAM-595/602:
+    // never guess "free" from an unapplied filter).
+    const [spotAvailability, setSpotAvailability] = useState<Record<string, boolean | null>>({});
+    const [spotAvailabilityError, setSpotAvailabilityError] = useState(false);
+
+    useEffect(() => {
+        if (!showSpotSection || !selectedSpotId) {
+            setSpotAvailability({});
+            setSpotAvailabilityError(false);
+            return;
+        }
+
+        let cancelled = false;
+        setSpotAvailabilityError(false);
+
+        const fetchSpotAvailability = async () => {
+            try {
+                const start = startOfMonth(new Date());
+                const end = endOfMonth(addMonths(new Date(), 3));
+
+                const response = await fetch(
+                    `/api/campsites/${campground.id}/availability?startDate=${start.toISOString()}&endDate=${end.toISOString()}&spotId=${selectedSpotId}`
+                );
+                const payload = await response.json().catch(() => null);
+
+                if (cancelled) return;
+
+                if (!response.ok) {
+                    console.error("Spot availability API error:", {
+                        status: response.status,
+                        statusText: response.statusText,
+                        payload,
+                    });
+                    setSpotAvailabilityError(true);
+                    return;
+                }
+
+                const list = payload?.data?.availability || payload?.availability || [];
+                const map: Record<string, boolean | null> = {};
+                if (Array.isArray(list)) {
+                    list.forEach((item: any) => {
+                        map[item.date] = item?.spotAvailable ?? null;
+                    });
+                }
+                setSpotAvailability(map);
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Failed to fetch spot availability:', error);
+                    setSpotAvailabilityError(true);
+                }
+            }
+        };
+
+        fetchSpotAvailability();
+        return () => { cancelled = true; };
+    }, [campground.id, showSpotSection, selectedSpotId]);
 
     // CAM-267 PREP-1: fetch remaining capacity for the EXACT stay once both dates are
     // picked (server-authoritative — reuses getRemainingCapacity, the same math the
@@ -411,12 +505,51 @@ export default function CampgroundDetailClient({
         }
     }, [guestCeiling]);
 
+    // CAM-666: layered on TOP of guestCeiling above (never a forked/second
+    // derivation) — once a pitch is picked, its own `maxCampers` further
+    // narrows the ceiling. computeGuestCeiling is called again with
+    // isPerSpot=false so this number IS trusted (unlike the whole-camp
+    // column that same helper deliberately excludes above) — the tighter of
+    // "whatever the whole-camp ceiling already allows" and "what this one
+    // pitch can physically hold" wins.
+    const selectedSpotMaxCampers = showSpotSection && selectedSpot && typeof selectedSpot.maxCampers === "number"
+        ? selectedSpot.maxCampers
+        : null;
+    const spotGuestCeiling = showSpotSection && selectedSpot
+        ? computeGuestCeiling(guestCeiling, selectedSpotMaxCampers, false)
+        : guestCeiling;
+
+    // Mirrors the guestCeiling clamp effect above, scoped to the pitch's own
+    // (tighter) ceiling — switching to a smaller pitch must not leave
+    // `guests` pointing at a count that pitch cannot hold.
+    useEffect(() => {
+        if (spotGuestCeiling !== null && guests > spotGuestCeiling) {
+            setGuests(Math.max(1, spotGuestCeiling));
+        }
+    }, [spotGuestCeiling]);
+
+    // CAM-666: the camper may have picked check-in/check-out BEFORE
+    // switching to (or landing on) a pitch that is not free for those exact
+    // dates — isDateDisabled below only stops a NEW pick, it never
+    // retroactively clears an already-chosen range. Walked the same way the
+    // dates themselves are keyed (yyyy-MM-dd).
+    const isSelectedSpotUnavailableForStay = (() => {
+        if (!showSpotSection || !selectedSpotId || !checkIn || !checkOut || checkOut <= checkIn) return false;
+        const cursor = new Date(checkIn);
+        while (cursor < checkOut) {
+            const key = format(cursor, 'yyyy-MM-dd');
+            if (spotAvailability[key] === false) return true;
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return false;
+    })();
+
     // Check if date is disabled (full or past)
     const isDateDisabled = (date: Date) => {
         const dateKey = format(date, 'yyyy-MM-dd');
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         // Disable past dates
         if (date < today) return true;
 
@@ -431,7 +564,18 @@ export default function CampgroundDetailClient({
         if (dayAvailability && !dayAvailability.available) {
             return true;
         }
-        
+
+        // CAM-666: once a pitch is selected, a date THAT pitch cannot cover
+        // is blocked too — only `false` (the filter WAS applied and this
+        // date is taken) blocks; `null`/undefined ("no filter applied yet")
+        // is never guessed as free (CAM-595/602). A load failure for the
+        // selected pitch is "unknown" too (same CAM-616 rule as the
+        // camp-wide availabilityError above) — block rather than trust an
+        // empty map.
+        if (selectedSpotId && (spotAvailabilityError || spotAvailability[dateKey] === false)) {
+            return true;
+        }
+
         return false;
     };
 
@@ -458,6 +602,21 @@ export default function CampgroundDetailClient({
             return;
         }
 
+        // CAM-666: defense-in-depth — a per-pitch camp hides the reserve
+        // control entirely until a pitch is picked (below); a direct
+        // dispatch must still not slip past that requirement.
+        if (showSpotSection && !selectedSpot) {
+            return;
+        }
+
+        // CAM-666: the reserve control stays visible once a pitch IS picked,
+        // but a pitch that is not free for the CHOSEN dates must still block
+        // — with a real message, not a silent no-op.
+        if (isSelectedSpotUnavailableForStay) {
+            import("sonner").then(({ toast }) => toast.error(t.booking.spotUnavailableForStay));
+            return;
+        }
+
         setIsReserving(true);
         try {
             const res = await fetch("/api/bookings", {
@@ -471,6 +630,8 @@ export default function CampgroundDetailClient({
                     // CAM-642: attribution only — omitted (server defaults to
                     // WEB) unless the page was opened via a chat handoff link.
                     ...(fromChat ? { source: 'CHAT' as const } : {}),
+                    // CAM-666: the selected pitch, when this is a per-spot camp.
+                    ...(selectedSpot ? { spotId: selectedSpot.id } : {}),
                 })
             });
 
@@ -584,13 +745,6 @@ export default function CampgroundDetailClient({
         : [placeholderSrc];
 
     const displayImages = images.slice(0, 5);
-
-    // CAM-353 BR-1 (AC-1, AC-5, EC-2, EC-7): the spot section renders only for a
-    // PER-SPOT-mode camp (useSpotView) that has at least one live spot. Spots ride
-    // the payload pre-filtered to deletedAt: null by getCampBySlug (BR-2), so any
-    // row present here is already live.
-    const spots: any[] = campground.spots || [];
-    const showSpotSection = !!campground.useSpotView && spots.length > 0;
 
     const openGallery = (index: number = 0) => {
         if (images.length === 0) return;
@@ -1000,6 +1154,7 @@ export default function CampgroundDetailClient({
                                     spots={spots}
                                     onOpenGallery={openSpotGallery}
                                     onOpenPanorama={openPanorama}
+                                    onSelectSpot={setSelectedSpotId}
                                 />
                             </div>
                         )}
@@ -1277,7 +1432,7 @@ export default function CampgroundDetailClient({
                                         catalog card, instead of a second divergent one. */}
                                     {isHeadlinePriceFree ? (
                                         <span className="text-2xl font-bold text-foreground">{t.common.free}</span>
-                                    ) : (
+                                    ) : !showSpotSection ? (
                                         <>
                                             <span className="text-2xl font-bold text-foreground">{formatCurrency(Number(campground.priceLow))} </span>
                                             {/* CAM-653 (ADR-014): unit-aware — reuses `bookingPricingUnit`,
@@ -1289,6 +1444,26 @@ export default function CampgroundDetailClient({
                                                 phrase instead (`priceUnitWord`, lib/price-unit-display.ts). */}
                                             <span className="text-muted-foreground">{priceUnitWord(t, bookingPricingUnit)}</span>
                                         </>
+                                    ) : selectedSpot ? (
+                                        // CAM-666: a pitch is picked — show what it actually resolves
+                                        // to (unitPrice/bookingPricingUnit already read the SELECTED
+                                        // spot via buildBookingPriceArgs above; own free-check mirrors
+                                        // SpotStrip's `isFree`, never the camp-level rule here).
+                                        isSelectedSpotFree ? (
+                                            <span className="text-2xl font-bold text-foreground">{t.common.free}</span>
+                                        ) : (
+                                            <>
+                                                <span className="text-2xl font-bold text-foreground">{formatCurrency(unitPrice)} </span>
+                                                <span className="text-muted-foreground">{priceUnitWord(t, bookingPricingUnit)}</span>
+                                            </>
+                                        )
+                                    ) : (
+                                        // CAM-666 AC: "from ฿X" until a pitch is chosen — camp-level
+                                        // priceLow (the existing "starting from" convention), no unit
+                                        // word (nothing charged per-anything has been picked yet).
+                                        <span className="text-2xl font-bold text-foreground">
+                                            {t.booking.priceFromPrefix} {formatCurrency(Number(campground.priceLow))}
+                                        </span>
                                     )}
                                 </div>
                                 {/* CAM-79 AC-1/AC-2: real rating in booking widget */}
@@ -1427,7 +1602,17 @@ export default function CampgroundDetailClient({
                                         </SelectTrigger>
                                         <SelectContent className="shadow-2xl">
                                             {guestOptions.map(num => (
-                                                <SelectItem key={num} value={num.toString()} className="cursor-pointer">
+                                                <SelectItem
+                                                    key={num}
+                                                    value={num.toString()}
+                                                    // CAM-666: once a pitch is picked, an option beyond
+                                                    // ITS OWN maxCampers (spotGuestCeiling, layered on
+                                                    // the whole-camp ceiling above) is unselectable —
+                                                    // never removed from the list, so the camper still
+                                                    // sees the camp-wide range while browsing pitches.
+                                                    disabled={spotGuestCeiling !== null && num > spotGuestCeiling}
+                                                    className="cursor-pointer"
+                                                >
                                                     {num} {num === 1 ? t.booking.guest : t.search.guests}
                                                 </SelectItem>
                                             ))}
@@ -1436,74 +1621,100 @@ export default function CampgroundDetailClient({
                                 </div>
                             </div>
 
-                            {/* CAM-267 PREP-1: live remaining capacity for the selected stay — เหลือ X ที่ / เต็มแล้ว. */}
-                            {!loadingRemaining && (showRemainingCount || isFullyBooked) && (
-                                <p
-                                    className={cn(
-                                        "text-xs text-center mb-3",
-                                        isFullyBooked ? "text-destructive font-semibold" : "text-muted-foreground"
+                            {/* CAM-666: at a per-pitch camp, price/totals/the reserve control
+                                stay absent until a pitch is picked (story.md) — the date/guest
+                                fields above stay usable regardless, so browsing pitches never
+                                loses a stay the camper already started picking. */}
+                            {hasPitchSelection ? (
+                                <>
+                                    {/* CAM-267 PREP-1: live remaining capacity for the selected stay — เหลือ X ที่ / เต็มแล้ว. */}
+                                    {!loadingRemaining && (showRemainingCount || isFullyBooked) && (
+                                        <p
+                                            className={cn(
+                                                "text-xs text-center mb-3",
+                                                isFullyBooked ? "text-destructive font-semibold" : "text-muted-foreground"
+                                            )}
+                                            data-testid="row--booking-remaining-capacity"
+                                            aria-live="polite"
+                                        >
+                                            {isFullyBooked
+                                                ? t.booking.fullyBooked
+                                                : t.booking.remainingSpots.replace('{n}', String(remainingCapacity?.remaining))}
+                                        </p>
                                     )}
-                                    data-testid="row--booking-remaining-capacity"
-                                    aria-live="polite"
-                                >
-                                    {isFullyBooked
-                                        ? t.booking.fullyBooked
-                                        : t.booking.remainingSpots.replace('{n}', String(remainingCapacity?.remaining))}
-                                </p>
-                            )}
 
-                            <Button
-                                onClick={handleReserve}
-                                size="lg"
-                                disabled={isReserving || isFullyBooked}
-                                aria-busy={isReserving}
-                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition mb-2 text-lg"
-                            >
-                                {isReserving ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                        {t.newCampground.reserving}
-                                    </>
-                                ) : t.common.reserve}
-                            </Button>
+                                    <Button
+                                        onClick={handleReserve}
+                                        size="lg"
+                                        disabled={isReserving || isFullyBooked}
+                                        aria-busy={isReserving}
+                                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition mb-2 text-lg"
+                                    >
+                                        {isReserving ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                                {t.newCampground.reserving}
+                                            </>
+                                        ) : t.common.reserve}
+                                    </Button>
 
-                            {hasAttemptedReserve && (!checkIn || !checkOut) && (
-                                <p className="text-destructive text-xs text-center mb-2">
-                                    {t.booking.selectDatesFirst}
-                                </p>
-                            )}
+                                    {hasAttemptedReserve && (!checkIn || !checkOut) && (
+                                        <p className="text-destructive text-xs text-center mb-2">
+                                            {t.booking.selectDatesFirst}
+                                        </p>
+                                    )}
 
-                            <p className="text-center text-xs text-muted-foreground mb-4">{t.booking.notChargedYet}</p>
+                                    {/* CAM-666: the picked pitch is not free for the CHOSEN dates —
+                                        blocks handleReserve (see the guard there) with a real message,
+                                        the same click-time pattern as the missing-dates message above. */}
+                                    {isSelectedSpotUnavailableForStay && (
+                                        <p
+                                            className="text-destructive text-xs text-center mb-2"
+                                            data-testid="alert--spot-dates-unavailable"
+                                        >
+                                            {t.booking.spotUnavailableForStay}
+                                        </p>
+                                    )}
 
-                            <div className="space-y-3 text-sm text-muted-foreground">
-                                <div className="flex justify-between" data-testid="row--booking-room-subtotal">
-                                    {/* CAM-652 (ADR-014): PER_PERSON adds the quantity term (x N guests) so the
-                                        breakdown's own math reads as `unit x guests x nights`, matching the
-                                        totalAmount the server records — never just `unit x nights` when a
-                                        party-size multiplier is actually being applied. */}
-                                    <span className="underline">
-                                        {formatCurrency(unitPrice)}
-                                        {bookingPricingUnit === "PER_PERSON" &&
-                                            ` x ${t.booking.guestsCount.replace("{count}", String(bookingQuantity))}`}
-                                        {` x ${displayNights} ${t.booking.nights}`}
-                                    </span>
-                                    <span>{formatCurrency(subtotalAmount)}</span>
-                                </div>
-                                {/* CAM-268 (PREP-2, AC-1): itemized breakdown — only rendered when the
-                                    camp actually has an atomic extra fee, so total always = base + this row. */}
-                                {extraFeeAmount > 0 && (
-                                    <div className="flex justify-between" data-testid="row--booking-extra-fee">
-                                        <span>{campground.extraFeeLabel || t.booking.fees}</span>
-                                        <span>{formatCurrency(extraFeeAmount)}</span>
+                                    <p className="text-center text-xs text-muted-foreground mb-4">{t.booking.notChargedYet}</p>
+
+                                    <div className="space-y-3 text-sm text-muted-foreground">
+                                        <div className="flex justify-between" data-testid="row--booking-room-subtotal">
+                                            {/* CAM-652 (ADR-014): PER_PERSON adds the quantity term (x N guests) so the
+                                                breakdown's own math reads as `unit x guests x nights`, matching the
+                                                totalAmount the server records — never just `unit x nights` when a
+                                                party-size multiplier is actually being applied. */}
+                                            <span className="underline">
+                                                {formatCurrency(unitPrice)}
+                                                {bookingPricingUnit === "PER_PERSON" &&
+                                                    ` x ${t.booking.guestsCount.replace("{count}", String(bookingQuantity))}`}
+                                                {` x ${displayNights} ${t.booking.nights}`}
+                                            </span>
+                                            <span>{formatCurrency(subtotalAmount)}</span>
+                                        </div>
+                                        {/* CAM-268 (PREP-2, AC-1): itemized breakdown — only rendered when the
+                                            camp actually has an atomic extra fee, so total always = base + this row. */}
+                                        {extraFeeAmount > 0 && (
+                                            <div className="flex justify-between" data-testid="row--booking-extra-fee">
+                                                <span>{campground.extraFeeLabel || t.booking.fees}</span>
+                                                <span>{formatCurrency(extraFeeAmount)}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
 
-                            <div className="mt-4 pt-4 border-t border-border/60 flex justify-between font-bold text-foreground" data-testid="row--booking-total">
-                                <span>{t.booking.total}</span>
-                                <span>{formatCurrency(totalAmount)}</span>
-                            </div>
-
+                                    <div className="mt-4 pt-4 border-t border-border/60 flex justify-between font-bold text-foreground" data-testid="row--booking-total">
+                                        <span>{t.booking.total}</span>
+                                        <span>{formatCurrency(totalAmount)}</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <p
+                                    className="text-center text-sm text-muted-foreground py-2"
+                                    data-testid="empty--booking-select-pitch"
+                                >
+                                    {t.booking.selectPitchToSeePrice}
+                                </p>
+                            )}
 
                         </div>
 
@@ -1657,19 +1868,31 @@ export default function CampgroundDetailClient({
                 already visible (single-column flow), this just removes the need
                 to scroll past everything to reach it. Reuses the SAME
                 handleReserve the desktop Reserve button calls (its own
-                missing-dates/fully-booked/login guards apply unchanged) — this
-                story never touches price, totals, or the reserve POST itself
-                (CAM-666 scope). */}
-            <StickyActionBar
-                primaryLabel={isHeadlinePriceFree ? t.common.free : formatCurrency(Number(campground.priceLow))}
-                secondaryLabel={!isHeadlinePriceFree ? priceUnitWord(t, bookingPricingUnit) : undefined}
-                actionLabel={t.common.reserve}
-                loadingLabel={t.newCampground.reserving}
-                onAction={handleReserve}
-                disabled={isFullyBooked}
-                loading={isReserving}
-                data-testid="section--mobile-booking-bar"
-            />
+                missing-dates/fully-booked/login/pitch guards apply unchanged).
+                CAM-666: same rule as the desktop widget — absent entirely until
+                a per-pitch camp has a picked pitch (hasPitchSelection); once
+                shown, its price mirrors the resolved unitPrice/bookingPricingUnit
+                (the SAME numbers the desktop breakdown/total already read). */}
+            {hasPitchSelection && (
+                <StickyActionBar
+                    primaryLabel={
+                        (showSpotSection && selectedSpot ? isSelectedSpotFree : isHeadlinePriceFree)
+                            ? t.common.free
+                            : formatCurrency(unitPrice)
+                    }
+                    secondaryLabel={
+                        (showSpotSection && selectedSpot ? isSelectedSpotFree : isHeadlinePriceFree)
+                            ? undefined
+                            : priceUnitWord(t, bookingPricingUnit)
+                    }
+                    actionLabel={t.common.reserve}
+                    loadingLabel={t.newCampground.reserving}
+                    onAction={handleReserve}
+                    disabled={isFullyBooked}
+                    loading={isReserving}
+                    data-testid="section--mobile-booking-bar"
+                />
+            )}
         </>
     );
 }

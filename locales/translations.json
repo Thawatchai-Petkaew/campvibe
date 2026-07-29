@@ -197,7 +197,10 @@
             "selectDatesFirst": "Please choose your check-in and check-out dates first.",
             "remainingSpots": "{n} spots left",
             "fullyBooked": "Fully booked",
-            "availabilityLoadError": "Couldn't load available dates. Please try again."
+            "availabilityLoadError": "Couldn't load available dates. Please try again.",
+            "priceFromPrefix": "From",
+            "selectPitchToSeePrice": "Select a pitch to see the price and reserve",
+            "spotUnavailableForStay": "This pitch is not available for the selected dates. Please choose another pitch or different dates."
         },
         "profile": {
             "title": "My Profile",
@@ -1352,7 +1355,10 @@
             "selectDatesFirst": "กรุณาเลือกวันเช็คอินและเช็คเอาท์ก่อน",
             "remainingSpots": "เหลือ {n} ที่",
             "fullyBooked": "เต็มแล้ว",
-            "availabilityLoadError": "โหลดวันว่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+            "availabilityLoadError": "โหลดวันว่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "priceFromPrefix": "เริ่มต้น",
+            "selectPitchToSeePrice": "เลือกจุดกางเต็นท์เพื่อดูราคาและจอง",
+            "spotUnavailableForStay": "จุดนี้ไม่ว่างในวันที่เลือก กรุณาเลือกจุดอื่นหรือเปลี่ยนวันที่"
         },
         "profile": {
             "title": "โปรไฟล์ของฉัน",
