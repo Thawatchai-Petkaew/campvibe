@@ -844,33 +844,47 @@ export default function CampgroundDetailClient({
                             <span className="font-semibold text-foreground">{campground.address || locationText}</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
+                    {/* CAM-671: on a per-pitch camp the OWNER-only Edit link makes this
+                        row 3 items wide (Edit + Share + Wishlist) with no flex-wrap,
+                        overflowing a 360px viewport by ~48px (measured, host view only
+                        — a camper only ever sees 2 items and never hit this). Fix is
+                        mobile-only (flex-col below md, matching the `flex-col
+                        md:flex-row` pattern the title row one level up already uses)
+                        and reuses the `w-full md:w-auto` idiom already on this same
+                        div: Edit gets its own full-width row on mobile, Share+Wishlist
+                        keep their existing justify-between row (unaffected whether
+                        isOwner or not). `md:contents` on the Share+Wishlist wrapper
+                        drops the wrapper box at md+, so Share/Wishlist rejoin this div
+                        as direct flex items exactly as before — desktop layout unchanged. */}
+                    <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
                         {isOwner && (
-                            <Button asChild variant="default" size="lg" className="gap-2 px-6">
+                            <Button asChild variant="default" size="lg" className="gap-2 px-6 w-full md:w-auto">
                                 <Link href={`/dashboard/campsites/${campground.id}/edit`}>
                                     <Edit className="w-4 h-4" /> <span>{t.newCampground.editCampground}</span>
                                 </Link>
                             </Button>
                         )}
-                        <Button variant="ghost" className="gap-2 px-4 hover:bg-muted font-medium underline">
-                            <Share className="w-4 h-4" /> <span>{t.common.share}</span>
-                        </Button>
-                        {/* AC-1..5, BR-1..5: wishlist toggle — mirrors CampgroundCard pattern. */}
-                        <Button
-                            data-testid="btn--wishlist-detail-toggle"
-                            variant="ghost"
-                            aria-pressed={saved}
-                            aria-label={wishlistAriaLabel}
-                            disabled={isWishlistLoading}
-                            onClick={handleWishlistToggle}
-                            className="gap-2 px-4 hover:bg-muted font-medium underline"
-                        >
-                            <Heart
-                                className={cn("w-4 h-4", saved && "fill-current text-primary")}
-                                aria-hidden="true"
-                            />
-                            <span>{saved ? t.wishlist.savedLabel : t.common.save}</span>
-                        </Button>
+                        <div className="flex items-center justify-between gap-4 w-full md:contents">
+                            <Button variant="ghost" className="gap-2 px-4 hover:bg-muted font-medium underline">
+                                <Share className="w-4 h-4" /> <span>{t.common.share}</span>
+                            </Button>
+                            {/* AC-1..5, BR-1..5: wishlist toggle — mirrors CampgroundCard pattern. */}
+                            <Button
+                                data-testid="btn--wishlist-detail-toggle"
+                                variant="ghost"
+                                aria-pressed={saved}
+                                aria-label={wishlistAriaLabel}
+                                disabled={isWishlistLoading}
+                                onClick={handleWishlistToggle}
+                                className="gap-2 px-4 hover:bg-muted font-medium underline"
+                            >
+                                <Heart
+                                    className={cn("w-4 h-4", saved && "fill-current text-primary")}
+                                    aria-hidden="true"
+                                />
+                                <span>{saved ? t.wishlist.savedLabel : t.common.save}</span>
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
