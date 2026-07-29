@@ -7,7 +7,12 @@
  * path cannot bypass (ADR-012 §4): a composite FK —
  * `Booking_spotId_campSiteId_fkey` — ties Booking(spotId, campSiteId) to
  * Spot(id, campSiteId), so `spotId` can only ever name a pitch on the SAME
- * camp as the booking.
+ * camp as the booking. This FK is ADDITIVE (Booking's original
+ * spotId->Spot.id FK is untouched) and uses Postgres 15+'s column-scoped
+ * `ON DELETE SET NULL ("spotId")` so deleting a referenced Spot nulls ONLY
+ * spotId, never the required campSiteId — preserving the existing delete
+ * behaviour `app/api/scrape-seed` and `app/api/bulk-seed` rely on
+ * (`prisma.spot.deleteMany()`, verified by this file's 4th test).
  *
  * This file proves the CONSTRAINT ITSELF, against a REAL Postgres — `prisma`
  * is NEVER mocked here (same pattern as
@@ -39,6 +44,7 @@ describe.skipIf(!hasRealDb)(
     let campBId: string;
     let spotOnCampAId: string; // lives on campA
     let spotOnCampBId: string; // lives on campB — the "foreign" pitch for campA's bookings
+    let spotToDeleteId: string; // a THIRD spot on campA, consumed by the delete test itself
     const bookingIds: string[] = [];
 
     beforeAll(async () => {
@@ -88,6 +94,11 @@ describe.skipIf(!hasRealDb)(
         data: { name: 'CAM-670 spot B', pricePerNight: 500, campSiteId: campBId },
       });
       spotOnCampBId = spotB.id;
+
+      const spotToDelete = await prisma.spot.create({
+        data: { name: 'CAM-670 spot to delete', pricePerNight: 500, campSiteId: campAId },
+      });
+      spotToDeleteId = spotToDelete.id;
     });
 
     afterAll(async () => {
@@ -164,6 +175,29 @@ describe.skipIf(!hasRealDb)(
 
       expect(booking.spotId).toBe(spotOnCampAId);
       expect(booking.campSiteId).toBe(campAId);
+    });
+
+    it('[normal, control] deleting a Spot that a Booking references succeeds and leaves the booking with spotId = NULL', async () => {
+      // The exact behaviour app/api/scrape-seed and app/api/bulk-seed rely on
+      // (`prisma.spot.deleteMany()` wiping every Spot) — this composite FK's
+      // column-scoped `ON DELETE SET NULL ("spotId")` must preserve it.
+      const booking = await prisma.booking.create({
+        data: {
+          checkInDate: new Date('2027-03-01'),
+          checkOutDate: new Date('2027-03-03'),
+          totalPrice: 1000,
+          userId,
+          campSiteId: campAId,
+          spotId: spotToDeleteId,
+        },
+      });
+      bookingIds.push(booking.id);
+
+      await prisma.spot.delete({ where: { id: spotToDeleteId } });
+
+      const reloaded = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      expect(reloaded.spotId).toBeNull();
+      expect(reloaded.campSiteId).toBe(campAId); // untouched — never nulled alongside spotId
     });
   }
 );

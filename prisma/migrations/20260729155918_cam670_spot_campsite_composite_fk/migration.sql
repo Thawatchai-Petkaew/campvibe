@@ -13,36 +13,38 @@
 -- Mechanism: Postgres requires a UNIQUE constraint on EXACTLY the referenced
 -- column set before a composite FK can point at it. Spot.id is already
 -- unique (PK) alone, so this adds (id, campSiteId) as a second unique
--- constraint, then repoints Booking's existing spotId FK at that composite
--- key instead of Spot.id alone. The old single-column
--- "Booking_spotId_fkey" is dropped and replaced — the new composite FK is a
--- strict superset of what it guaranteed (spotId still must reference a real
--- Spot row; it additionally must share campSiteId with the booking).
+-- constraint, then adds a NEW composite FK on top of it.
 --
--- spotId stays NULLABLE. Postgres FK MATCH SIMPLE (the default, and what
--- this migration uses — no MATCH FULL/PARTIAL specified) skips the
--- constraint check entirely when ANY referencing column is NULL. Booking's
--- campSiteId is NOT NULL, but spotId is nullable, so every ordinary
--- spotId=NULL booking (the overwhelming majority) is completely unaffected —
--- confirmed behaviorally by this story's DB-level test (a NULL spotId insert
--- succeeds unchanged).
+-- This is ADDITIVE, not a replacement: Booking's existing single-column
+-- "Booking_spotId_fkey" (spotId -> Spot.id, ON DELETE SET NULL) is left
+-- completely untouched. The new "Booking_spotId_campSiteId_fkey" is a
+-- second, independent constraint on the same spotId column — Postgres
+-- allows a column to participate in more than one FK constraint. Not
+-- modeled as a Prisma relation (see the comment on Spot's
+-- @@unique([id, campSiteId]) in schema.prisma) — this raw FK is
+-- Prisma-unmanaged, same pattern as the Zone partial unique index
+-- (prisma/migrations/20260705040333_cam362_zone_entity/migration.sql).
 --
--- onDelete changes from the old FK's SET NULL to RESTRICT (Prisma's default
--- for a relation with a required column, and the semantically correct
--- choice): SET NULL on this composite FK would require setting BOTH
--- referencing columns to NULL on a referenced-row delete, but campSiteId is
--- NOT NULL on Booking — a SET NULL constraint here could only ever fail at
--- delete-time with a NOT NULL violation. RESTRICT reports the same
--- protection cleanly and up front instead. No behavioral risk today: no
--- reader in app/lib/scripts hard-deletes a Spot row (Spot uses soft-delete
--- via deletedAt only, grep-verified: no `prisma.spot.delete(` call exists in
--- app/, lib/, or scripts/).
-
--- DropForeignKey (the old single-column FK this composite one supersedes)
-ALTER TABLE "Booking" DROP CONSTRAINT "Booking_spotId_fkey";
+-- spotId stays NULLABLE. Postgres FK MATCH SIMPLE (the default — no MATCH
+-- FULL/PARTIAL specified) skips the constraint check entirely when ANY
+-- referencing column is NULL. Booking's campSiteId is NOT NULL, but spotId
+-- is nullable, so every ordinary spotId=NULL booking (the overwhelming
+-- majority) is completely unaffected — confirmed behaviorally by this
+-- story's DB-level test (a NULL spotId insert succeeds unchanged).
+--
+-- onDelete uses Postgres 15+'s COLUMN-SCOPED `ON DELETE SET NULL ("spotId")`
+-- — nulls ONLY spotId on a referenced Spot's delete, never campSiteId
+-- (which is NOT NULL on Booking and would raise a not-null violation if a
+-- blanket, non-column-scoped SET NULL tried to null it too — verified
+-- behaviorally against a throwaway DB before writing this file). This
+-- preserves EXACTLY today's existing delete behaviour: app/api/scrape-seed
+-- and app/api/bulk-seed both run `prisma.spot.deleteMany()` (wipe every
+-- Spot) and rely on referencing bookings surviving with spotId nulled out
+-- — proven unaffected by this migration's 4th DB-level test.
 
 -- CreateIndex (composite unique — the referenced side the composite FK needs)
 CREATE UNIQUE INDEX "Spot_id_campSiteId_key" ON "Spot"("id", "campSiteId");
 
--- AddForeignKey (the composite FK itself)
-ALTER TABLE "Booking" ADD CONSTRAINT "Booking_spotId_campSiteId_fkey" FOREIGN KEY ("spotId", "campSiteId") REFERENCES "Spot"("id", "campSiteId") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- AddForeignKey (the NEW composite FK — additive, alongside the existing
+-- single-column Booking_spotId_fkey, which is untouched)
+ALTER TABLE "Booking" ADD CONSTRAINT "Booking_spotId_campSiteId_fkey" FOREIGN KEY ("spotId", "campSiteId") REFERENCES "Spot"("id", "campSiteId") ON DELETE SET NULL ("spotId") ON UPDATE CASCADE;
