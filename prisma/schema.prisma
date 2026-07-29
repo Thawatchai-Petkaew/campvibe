@@ -117,6 +117,33 @@ enum BookingSource {
   CHAT
 }
 
+// CAM-650 (epic CAM-648, ADR-014 in flight — CAM-649): what a listed price is
+// charged per. Host chooses this per camp/spot — the engine has always
+// charged unitPrice x nights with NO guest multiplier and no document ever
+// stated the unit (owner-reported: 3 guests x 1 night at THB 250 totalled
+// 250, not the expected 750). This story is schema-only, proven inert (see
+// CampSite.priceUnit / Spot.priceUnit @default(PER_SITE) below — today's math
+// IS per-site, so every existing row keeps costing exactly what it costs);
+// the follow-up story teaches booking-pricing.ts to actually multiply.
+//
+// THREE values created now though only PER_PERSON/PER_SITE are exposed
+// anywhere outside this enum in this story. Postgres supports
+// `ALTER TYPE ... ADD VALUE` but has NO `DROP VALUE`, and
+// Booking.snapshotPricingUnit below is a crystallized [Financial] column of
+// this exact type (ADR-005) — once it carries real rows, this enum can only
+// ever grow, never shrink cleanly (this migration's down.sql can only
+// `DROP TYPE` because `CREATE TYPE` is in the SAME migration — see the
+// precedent at prisma/migrations/20260704163511_image_kind_panorama).
+// PER_TENT is created now (safe: growing the type is additive) so a later
+// "per tent" story never needs an un-reversible ADD VALUE migration against a
+// live Booking column — but do NOT expose PER_TENT anywhere outside this enum
+// declaration in this story.
+enum PricingUnit {
+  PER_PERSON
+  PER_TENT // not exposed anywhere outside this enum in this story — see comment above
+  PER_SITE
+}
+
 // Field classification convention (Atomic Data Framework — docs/adr): sensitive fields tagged
 // inline [PII] / [Financial] / [Geo] (PDPA-sensitive ⊂ PII); untagged = [Public].
 // Business Sets carry deletedAt (soft-delete) + version (optimistic concurrency).
@@ -151,15 +178,15 @@ model User {
   deletedAt DateTime? // soft-delete
   version   Int       @default(1)
 
-  campSites       CampSite[] // Operator's camp sites (legacy - as owner)
-  teamMemberships CampSiteTeamMember[] // Team memberships across camp sites
-  reviews         Review[] // User's reviews
-  bookings        Booking[] // User's bookings
-  wishlists       Wishlist[] // User's wishlisted camp sites
-  payouts         Payout[] // Operator payouts (S7)
-  notifications   Notification[] // User notifications (S7)
-  auditLogs       AuditLog[] // Audit events where this user is the actor (S7)
-  createdHolds    InternalHold[]       @relation("HoldCreatedBy") // CAM-302: holds this user created (HostOS M1.2)
+  campSites         CampSite[] // Operator's camp sites (legacy - as owner)
+  teamMemberships   CampSiteTeamMember[] // Team memberships across camp sites
+  reviews           Review[] // User's reviews
+  bookings          Booking[] // User's bookings
+  wishlists         Wishlist[] // User's wishlisted camp sites
+  payouts           Payout[] // Operator payouts (S7)
+  notifications     Notification[] // User notifications (S7)
+  auditLogs         AuditLog[] // Audit events where this user is the actor (S7)
+  createdHolds      InternalHold[]       @relation("HoldCreatedBy") // CAM-302: holds this user created (HostOS M1.2)
   chatConversations ChatConversation[] // CAM-414: this user's persisted AI chat history (ADR-013)
 
   @@index([email])
@@ -303,6 +330,14 @@ model CampSite {
   priceHigh     Decimal? @db.Decimal(12, 2) // [Financial]
   priceCurrency String   @default("THB") // [Financial] ISO 4217
 
+  // CAM-650 (epic CAM-648): what priceLow/priceHigh are charged per. The host
+  // picks this per camp. @default(PER_SITE) is load-bearing — today's booking
+  // math (lib/booking-pricing.ts) is per-site with no guest multiplier, so
+  // every existing row keeps costing exactly what it costs until the
+  // follow-up engine story reads this field. Schema-only in this story; do
+  // NOT wire this into computeBookingPrice here.
+  priceUnit PricingUnit @default(PER_SITE) // [Financial]
+
   // PREP-2 (CAM-268): atomic price/fee/cancellation-policy pixels — additive, so the
   // AI assistant + detail page always show the FINAL price with no hidden add-ons
   // (M1 "Listing Truth" exit criterion). extraFeeAmount is a single, host-set,
@@ -427,14 +462,14 @@ model MasterData {
 }
 
 model Spot {
-  id     String  @id @default(uuid())
-  zone   String? // DEPRECATED (CAM-362) — legacy free-text label. Kept as a
-                 // fallback display string + the rollback anchor (tech.md §2.3).
-                 // New writes go through zoneId; do NOT add new readers of this
-                 // column. Retirement plan: api.md rule 12 — remove only after
-                 // every read consumer (tech.md §5) has switched to the Zone relation.
-  zoneId String? // CAM-362 — entity link; the source of truth for zone membership
-  zoneRef Zone?  @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  id            String    @id @default(uuid())
+  zone          String? // DEPRECATED (CAM-362) — legacy free-text label. Kept as a
+  // fallback display string + the rollback anchor (tech.md §2.3).
+  // New writes go through zoneId; do NOT add new readers of this
+  // column. Retirement plan: api.md rule 12 — remove only after
+  // every read consumer (tech.md §5) has switched to the Zone relation.
+  zoneId        String? // CAM-362 — entity link; the source of truth for zone membership
+  zoneRef       Zone?     @relation(fields: [zoneId], references: [id], onDelete: SetNull)
   // ^ named zoneRef (not `zone`) because `zone` is the existing string column.
   // onDelete: SetNull is a safety net only — soft-delete never fires it (the
   // app detaches explicitly, see the zones [zoneId] DELETE route).
@@ -444,8 +479,21 @@ model Spot {
   maxTents      Int? // Maximum tents
   environment   String?
   pricePerNight Decimal   @db.Decimal(12, 2) // Price per night [Financial]
-  pricePerSite  Decimal?  @db.Decimal(12, 2) // [Financial]
+  pricePerSite  Decimal?  @db.Decimal(12, 2) // [Financial] DEPRECATED (CAM-650) — NOT
+  // a pricing unit. Per docs/mock-data-generation-spec.md:252
+  // this is "ราคาเหมาทั้งจุด (ถ้ามี)" — a whole-pitch BUYOUT
+  // OFFER, unrelated to priceUnit below. Do NOT add new readers
+  // of this column and do NOT backfill/migrate its populated
+  // staging values. Future home: a SpotRate child (not
+  // designed by this story). Kept only as a rollback anchor,
+  // same treatment as the existing Spot.zone deprecation above.
   priceCurrency String    @default("THB") // [Financial] ISO 4217
+
+  // CAM-650 (epic CAM-648): what this spot's pricePerNight is charged per;
+  // overrides CampSite.priceUnit when this spot is booked. @default(PER_SITE)
+  // is load-bearing (today's math is per-site) — see the CampSite.priceUnit
+  // comment for the full rationale. Schema-only in this story.
+  priceUnit PricingUnit @default(PER_SITE) // [Financial]
 
   nearFacilities String? // CSV of Internal Facility codes
 
@@ -487,13 +535,13 @@ model Zone {
   version   Int       @default(1) // optimistic concurrency (business Set convention)
 
   spots Spot[]
-
-  @@index([campSiteId, deletedAt]) // list live zones per camp (matches the GET where-clause)
-  @@index([campSiteId, name]) // duplicate-name lookup on POST
   // NOTE: a UNIQUE index does NOT live here. The live-only uniqueness constraint
   // is `Zone_campSiteId_name_active_key` (partial, WHERE deletedAt IS NULL),
   // added by raw SQL in the migration (tech.md §2.1). Do not add
   // @@unique([campSiteId,name]) — it would burn a name after soft-delete.
+
+  @@index([campSiteId, deletedAt]) // list live zones per camp (matches the GET where-clause)
+  @@index([campSiteId, name]) // duplicate-name lookup on POST
 }
 
 model Review {
@@ -549,21 +597,31 @@ model Booking {
   snapshotCampName       String? // camp name (TH) at booking time
   snapshotCampNameEn     String? // camp name (EN) at booking time
   snapshotSpotName       String? // booked spot/unit name at booking time (spot-level bookings)
-  snapshotUnitAmount     Decimal? @db.Decimal(12, 2) // [Financial] per-night price charged
-  snapshotSubtotalAmount Decimal? @db.Decimal(12, 2) // [Financial]
+  snapshotUnitAmount     Decimal?     @db.Decimal(12, 2) // [Financial] per-night price charged
+  snapshotSubtotalAmount Decimal?     @db.Decimal(12, 2) // [Financial]
   // PREP-2 (CAM-268): the atomic CampSite.extraFeeAmount actually applied at booking
   // time, frozen so a later host edit/removal of the fee never rewrites this booking's
   // total (ADR-005 crystallization — every Pixel with financial meaning is snapshotted).
-  snapshotExtraFeeAmount Decimal? @db.Decimal(12, 2) // [Financial]
-  snapshotTaxRate        Decimal? @db.Decimal(5, 4) // [Financial] region VAT rate applied
-  snapshotTaxAmount      Decimal? @db.Decimal(12, 2) // [Financial]
+  snapshotExtraFeeAmount Decimal?     @db.Decimal(12, 2) // [Financial]
+  snapshotTaxRate        Decimal?     @db.Decimal(5, 4) // [Financial] region VAT rate applied
+  snapshotTaxAmount      Decimal?     @db.Decimal(12, 2) // [Financial]
   snapshotVatInclusive   Boolean? // was the recorded total VAT-inclusive (false until S5 wires Country.vatRate)
-  snapshotTotalAmount    Decimal? @db.Decimal(12, 2) // [Financial] legal amount owed
+  snapshotTotalAmount    Decimal?     @db.Decimal(12, 2) // [Financial] legal amount owed
   snapshotCurrency       String? // [Financial] ISO 4217 charged
   snapshotNights         Int?
   snapshotCheckInTime    String? // local wall-clock at booking time
   snapshotCheckOutTime   String?
   snapshotTimezone       String? // IANA (defaults Asia/Bangkok until S5 per-camp tz)
+  // CAM-650 (epic CAM-648): the pricing unit + multiplier actually applied at
+  // booking time (ADR-005 crystallization — a later host change to
+  // CampSite.priceUnit/Spot.priceUnit must never rewrite an old booking's
+  // total). Both NULLABLE and NOT backfilled: NULL means "booked before this
+  // change" (unitPrice x nights, no guest/tent multiplier) — writing a
+  // non-null value onto an old row would assert the host chose a unit that
+  // was never asked, which is false. The follow-up engine story is the first
+  // writer of a non-null value here; this story only adds the columns.
+  snapshotPricingUnit    PricingUnit? // [Financial] NULL = booked before this change
+  snapshotQuantity       Int? // [Financial] the multiplier actually applied (guests/tents/1)
 
   status BookingStatus @default(PENDING)
 
@@ -903,7 +961,7 @@ model ChatMessage {
 
   role        ChatRole
   seq         Int // monotonic per conversation — orders messages without relying on createdAt tie-breaks
-  contentText String @db.Text // sanitized display text only (never a raw tool/model error)
+  contentText String   @db.Text // sanitized display text only (never a raw tool/model error)
   blocks      Json? // the rendered UI blocks (cards/chips) the camper saw, or null when oversize/absent
 
   createdAt DateTime @default(now())
