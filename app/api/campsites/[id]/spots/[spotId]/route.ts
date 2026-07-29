@@ -100,6 +100,9 @@ export async function PUT(
         ...(data.environment !== undefined && { environment: data.environment }),
         ...(data.pricePerNight !== undefined && { pricePerNight: data.pricePerNight }),
         ...(data.pricePerSite !== undefined && { pricePerSite: data.pricePerSite }),
+        // CAM-654: no clear path (NOT NULL column, @default(PER_SITE)) — same
+        // presence-guarded, write-verbatim shape as CampSite.priceUnit above.
+        ...(data.priceUnit !== undefined && { priceUnit: data.priceUnit }),
         // CAM-615: `arrayToCsv([])` returns `undefined` on an explicit "clear
         // every facility" — same shape as CampSite.tags (app/api/campsites/
         // [id]/route.ts) — so map the empty case to an explicit null instead

@@ -208,6 +208,7 @@ Host (User, role=OPERATOR)  1 ──< CampSite ──< Spot
 | `priceLow` | number | ✓ | บาท/คืน ต่ำสุด เช่น `300` |
 | `priceHigh` | number | ✓ | บาท/คืน สูงสุด เช่น `1200` |
 | `priceCurrency` | string | ✓ | `"THB"` |
+| `priceUnit` | enum | ✓ | สิ่งที่ `priceLow`/`priceHigh` คิดราคาต่อ (CAM-654, ADR-014): `PER_PERSON` หรือ `PER_SITE` เท่านั้น (`PER_TENT` มีอยู่ใน Prisma enum เพื่อรองรับการย้ายข้อมูลในอนาคต แต่ยังไม่เปิดให้เลือก) — ไม่ระบุ = ใช้ค่า default ของคอลัมน์ `PER_SITE` |
 | `ownershipType` | enum | ✓ | §4 (ส่วนใหญ่ `PRIVATE`, ใส่ `NATIONAL_PARK` บ้าง) |
 | `isFree` | bool | ✓ | `true` สำหรับลานฟรี (1–2 แห่ง) |
 | `petFriendly` | bool | ✓ | `true`/`false` |
@@ -249,7 +250,8 @@ Host (User, role=OPERATOR)  1 ──< CampSite ──< Spot
 | `maxTents` | int | ✓ | เช่น `2` |
 | `environment` | string | ✓ | ไทยสั้น ๆ เช่น `ใต้ร่มไม้ ริมธาร` |
 | `pricePerNight` | number | 🔴 | บาท/คืน เช่น `350` |
-| `pricePerSite` | number | ✓ | ราคาเหมาทั้งจุด (ถ้ามี) |
+| `pricePerSite` | number | ✓ | ราคาเหมาทั้งจุด (ถ้ามี) — DEPRECATED เป็น rate plan ไม่ใช่หน่วยราคา (ADR-014 §5) |
+| `priceUnit` | enum | ✓ | สิ่งที่ `pricePerNight` คิดราคาต่อ (CAM-654, ADR-014): `PER_PERSON` หรือ `PER_SITE` — ยังไม่มีผลต่อการจอง (ไม่มี client ส่ง `spotId` มาที่ `POST /api/bookings` วันนี้) ไม่ระบุ = ใช้ค่า default `PER_SITE` |
 | `priceCurrency` | string | ✓ | `"THB"` |
 | `nearFacilities` | CSV | ✓ | §5.9 |
 
