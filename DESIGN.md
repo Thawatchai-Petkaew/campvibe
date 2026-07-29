@@ -370,7 +370,8 @@ hand-rolled `<button>` pill is a **Critical** gate violation and is caught by `c
 
 - 44px is the **touch floor** (§2.0) and never steps down, so breathing room comes from growing the pitch, never from shrinking the control.
 - Cells stay **edge-to-edge** (no gap between them). The three range states therefore take the whole cell (`size-full` on the day button) — that is what keeps the band unbroken between consecutive days; an inset middle would read as a dashed band. A range of one day has no band to connect and returns to the inset 44px control.
-- ❌ Never inset the range middle, and never set `--day-size` below 44px. Both are pinned by `__tests__/cam-657-calendar-cell-spacing.test.ts`.
+- **Width budget:** every consumer portals the calendar into a `PopoverContent` that is `w-auto p-0`, so the calendar's intrinsic width **is** the popover width. One month = `7 × --cell-size + 2 × root padding` = **352px** at `p-2`, leaving 8px of margin on a 360px phone. Raising the pitch again spends that margin — check this number before touching either value.
+- ❌ Never inset the range middle, and never set `--day-size` below 44px, and never let a month exceed 352px. All three are pinned by `__tests__/cam-657-calendar-cell-spacing.test.ts`.
 
 ### Composition (existing primitives and wrappers — reuse, do not rebuild)
 

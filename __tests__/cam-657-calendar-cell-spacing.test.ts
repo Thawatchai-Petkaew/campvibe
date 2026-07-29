@@ -101,6 +101,21 @@ describe("CAM-657 · BR-1/BR-2 the pitch and the control are two different numbe
     expect(sizeTokenPx("--day-size")).toBeGreaterThanOrEqual(44);
   });
 
+  it("keeps the whole month inside a 360px phone, with margin to spare", () => {
+    // Every consumer portals this into a `PopoverContent` that is `w-auto p-0`, so
+    // the calendar's intrinsic width IS the popover width. A month is 7 columns plus
+    // the root padding on both sides. 360px is the most common small-Android width,
+    // and the owner's report was about crowding against an edge — so the panel has
+    // to keep real margin there, not merely avoid overflowing.
+    const padStep = CALENDAR.match(/group\/calendar bg-background p-(\d+)/);
+    expect(padStep, "the calendar root must declare its own padding step").toBeTruthy();
+    const rootPadPx = Number(padStep![1]) * SPACING_BASE_PX;
+
+    const monthWidth = 7 * sizeTokenPx("--cell-size") + 2 * rootPadPx;
+    expect(monthWidth).toBe(352);
+    expect(360 - monthWidth).toBeGreaterThanOrEqual(8);
+  });
+
   it("keeps the month arrows on the control size, not the wider pitch", () => {
     expect(CALENDAR).toContain('"size-(--day-size) p-0 select-none');
     expect(CALENDAR).not.toContain("size-(--cell-size) p-0 select-none");

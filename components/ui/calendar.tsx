@@ -42,7 +42,17 @@ function Calendar({
         //     (DESIGN.md §2.0) and never steps down, so the breathing room has to
         //     come from growing the pitch, never from shrinking the control.
         // The 4px difference centres the control with 2px of air on all four sides.
-        "group/calendar bg-background p-3 [--cell-radius:var(--radius-full)] [--cell-size:--spacing(12)] [--day-size:--spacing(11)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
+        //
+        // `p-2` (was `p-3`): every consumer portals this into a `PopoverContent`
+        // that is `w-auto p-0`, so the calendar's own intrinsic width IS the popover
+        // width. Widening the pitch to 48px pushed that to 360px, which would sit
+        // flush against both edges of a 360px phone — the report was about crowding
+        // against an edge, so resolving it inside the cell and then parking the whole
+        // panel on the viewport edge would move the crowding, not remove it. Trading
+        // 4px of outer padding keeps 8px of margin on the most common small-Android
+        // width. The air moves from the panel edge to around each day, which is where
+        // the owner asked for it.
+        "group/calendar bg-background p-2 [--cell-radius:var(--radius-full)] [--cell-size:--spacing(12)] [--day-size:--spacing(11)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className
