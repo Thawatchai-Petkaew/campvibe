@@ -7,8 +7,15 @@
  * veil. Dialog additionally had no backdrop-blur at all.
  *
  * Fix: a theme-invariant `--overlay` token (registered as `bg-overlay`),
- * used identically (`bg-overlay/25 ... backdrop-blur-md`) across all three
+ * used identically (`bg-overlay/25 ... backdrop-blur-sm`) across all three
  * overlay components; `--foreground` is never used for a scrim again.
+ *
+ * Radius note: CAM-235 removed Dialog's blur entirely for modal open/close
+ * GPU cost (its AC-5/AC-7). CAM-661 restores it at `-sm` (NOT `-md`, which
+ * is strictly more GPU work) — the exact radius `sheet`/`alert-dialog` kept
+ * through CAM-235 with no complaint, i.e. the proven-affordable ceiling.
+ * See the updated AC-7 in cam-235-auth-modal-fixes.test.ts for the sibling
+ * pin this supersedes.
  *
  * Layer: source-inspection (static parse of real production files) —
  * project-established pattern (cam-220/cam-229/cam-537 etc).
@@ -49,19 +56,33 @@ describe("CAM-661 — overlay token + blur", () => {
     expect(globalsCss).toMatch(/--color-overlay:\s*var\(--overlay\)/);
   });
 
-  it("[unit] DialogOverlay uses bg-overlay and gains backdrop-blur", () => {
+  it("[unit] DialogOverlay uses bg-overlay and gains backdrop-blur-sm", () => {
     expect(dialogSrc).toMatch(/bg-overlay\/25/);
-    expect(dialogSrc).toMatch(/backdrop-blur-md/);
+    expect(dialogSrc).toMatch(/backdrop-blur-sm/);
   });
 
-  it("[unit] SheetOverlay uses bg-overlay and backdrop-blur-md", () => {
+  it("[unit] SheetOverlay uses bg-overlay and backdrop-blur-sm", () => {
     expect(sheetSrc).toMatch(/bg-overlay\/25/);
-    expect(sheetSrc).toMatch(/backdrop-blur-md/);
+    expect(sheetSrc).toMatch(/backdrop-blur-sm/);
   });
 
-  it("[unit] AlertDialogOverlay uses bg-overlay and backdrop-blur-md", () => {
+  it("[unit] AlertDialogOverlay uses bg-overlay and backdrop-blur-sm", () => {
     expect(alertDialogSrc).toMatch(/bg-overlay\/25/);
-    expect(alertDialogSrc).toMatch(/backdrop-blur-md/);
+    expect(alertDialogSrc).toMatch(/backdrop-blur-sm/);
+  });
+
+  it("[unit] no overlay component uses backdrop-blur-md (wrong direction vs CAM-235's GPU provenance)", () => {
+    for (const src of [dialogSrc, sheetSrc, alertDialogSrc]) {
+      expect(src).not.toMatch(/backdrop-blur-md/);
+    }
+  });
+
+  it("[unit] all three overlay files carry the identical blur token (backdrop-blur-sm)", () => {
+    const countBlurSm = (src: string) =>
+      (src.match(/supports-backdrop-filter:backdrop-blur-sm/g) ?? []).length;
+    expect(countBlurSm(dialogSrc)).toBe(1);
+    expect(countBlurSm(sheetSrc)).toBe(1);
+    expect(countBlurSm(alertDialogSrc)).toBe(1);
   });
 
   it("[unit] none of the three overlay components still use bg-foreground/15 (the theme-inverting bug)", () => {

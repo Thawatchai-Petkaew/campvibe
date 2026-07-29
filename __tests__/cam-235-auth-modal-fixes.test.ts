@@ -13,7 +13,7 @@
  *  AC-4  Navbar passes onSwitchToRegister to LoginModal + onSwitchToLogin to RegisterModal
  *  AC-5  /register page calls notFound() — standalone form removed
  *  AC-6  /login page footer register link points to "/" (not "/register")
- *  AC-7  DialogOverlay has NO supports-backdrop-filter:backdrop-blur-sm
+ *  AC-7  [SUPERSEDED by CAM-661] DialogOverlay uses bg-overlay + supports-backdrop-filter:backdrop-blur-sm
  *  AC-8  ModalHeader close Button has active:translate-y-[-50%] (bounce neutralized)
  *
  * Prove-It notes:
@@ -28,7 +28,8 @@
  *  AC-4: FAILS if onSwitchToLogin is not passed to RegisterModal in Navbar.
  *  AC-5: FAILS if notFound() is removed from register/page.tsx.
  *  AC-6: FAILS if login page footer register link is changed back to "/register".
- *  AC-7: FAILS if supports-backdrop-filter:backdrop-blur-sm is re-added to DialogOverlay.
+ *  AC-7: [SUPERSEDED by CAM-661] FAILS if backdrop-blur-sm or bg-overlay is removed from DialogOverlay,
+ *        or if bg-foreground/15 is re-added.
  *  AC-8: FAILS if active:not-aria-[haspopup]:translate-y-[-50%] is removed from ModalHeader close Button.
  */
 
@@ -244,17 +245,35 @@ describe('AC-6 — /login page footer register link does not point to /register'
 });
 
 // ===========================================================================
-// AC-7 — DialogOverlay: no backdrop-blur
+// AC-7 — DialogOverlay: blur + dim contract
+//
+// History: CAM-235 removed Dialog's backdrop-blur entirely for modal
+// open/close GPU cost ("เปิดไว ปิดไว ไม่ช้า", "GPU ลด, เปิดปิดไว ... ไม่มี
+// blur ค้าง") and this describe block originally pinned "no blur, keep
+// bg-foreground/15" as the regression guard for that decision.
+//
+// CAM-661 (owner-requested) reverses BOTH halves on purpose:
+//   1. Blur is restored, but at `-sm` — the same radius `sheet`/
+//      `alert-dialog` kept through CAM-235 with no GPU complaint — not the
+//      larger `-md`, so this does not regress the GPU cost CAM-235 fixed.
+//   2. `bg-foreground/15` is replaced with `bg-overlay/25`: `--foreground`
+//      flips per theme (near-black light / near-white dark), so that scrim
+//      rendered a WHITE film over the page in dark mode. `--overlay` is a
+//      fixed dark neutral with no `.dark` twin, so it stays a dim veil in
+//      both themes.
+// This block is intentionally kept (not deleted) so a future reader can see
+// both decisions and why the second overrode the first.
 // ===========================================================================
 
-describe('AC-7 — DialogOverlay: supports-backdrop-filter:backdrop-blur-sm removed', () => {
+describe('AC-7 [SUPERSEDED by CAM-661] — DialogOverlay: bg-overlay + backdrop-blur-sm', () => {
 
-    it('[no-blur] DialogOverlay className does NOT contain supports-backdrop-filter:backdrop-blur-sm', () => {
-        expect(dialogSrc).not.toContain('supports-backdrop-filter:backdrop-blur-sm');
+    it('[blur] DialogOverlay className contains supports-backdrop-filter:backdrop-blur-sm (restored at CAM-235\'s proven-affordable radius)', () => {
+        expect(dialogSrc).toContain('supports-backdrop-filter:backdrop-blur-sm');
     });
 
-    it('[dim] DialogOverlay still has bg-foreground/15 (dim is preserved)', () => {
-        expect(dialogSrc).toContain('bg-foreground/15');
+    it('[dim] DialogOverlay uses bg-overlay (theme-invariant), not bg-foreground/15 (theme-inverting)', () => {
+        expect(dialogSrc).toContain('bg-overlay');
+        expect(dialogSrc).not.toContain('bg-foreground/15');
     });
 
     it('[animation] DialogOverlay still has fade-in/fade-out animation classes', () => {
