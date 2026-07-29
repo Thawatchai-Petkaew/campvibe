@@ -20,6 +20,7 @@ import type {
 } from '@/lib/ai/tools/get-camp-detail';
 import type { ReviewListItem, ReviewSummary } from '@/lib/review-summary';
 import { isCancellationPolicyValue } from '@/lib/cancellation-policy';
+import type { PricingUnit } from '@/lib/booking-pricing';
 import { z } from 'zod';
 
 const API_BASE = '/api';
@@ -230,6 +231,14 @@ export interface AiChatCardResponse {
     nameThSlug: string;
     nameEnSlug: string;
     priceLow: number | null;
+    /**
+     * CAM-653 (ADR-014): what `priceLow` is charged per. Additive + optional
+     * (api.md rule 12) — `lib/ai/**` (out of this story's surface, CAM-656)
+     * does not populate this yet, so it is always `undefined` today; every
+     * consumer defaults the missing value to `PER_SITE` (`priceUnitSuffix`,
+     * lib/price-unit-display.ts), matching the column default.
+     */
+    priceUnit?: PricingUnit;
     createdAt: string;
     avgRating: number | null;
     reviewCount: number;
@@ -395,6 +404,11 @@ export function extractCardsBlock(blocks: AiChatBlock[]): AiChatCardResponse[] {
     return cardsBlock.data.filter(isAiChatCardResponse);
 }
 
+/** CAM-653 (ADR-014) — the wire value is well-formed only when it's a real `PricingUnit` member. */
+function isPricingUnit(value: unknown): value is PricingUnit {
+    return value === 'PER_PERSON' || value === 'PER_TENT' || value === 'PER_SITE';
+}
+
 /** CAM-427 — one `options` entry is well-formed only when both display names are strings. */
 function isCardTag(value: unknown): value is AiChatCardTag {
     if (!value || typeof value !== 'object') return false;
@@ -413,6 +427,8 @@ export function isAiChatCardResponse(value: unknown): value is AiChatCardRespons
         typeof v.nameThSlug === 'string' &&
         typeof v.nameEnSlug === 'string' &&
         (v.priceLow === null || typeof v.priceLow === 'number') &&
+        // CAM-653 additive field — same "absent or well-formed" contract.
+        (v.priceUnit === undefined || isPricingUnit(v.priceUnit)) &&
         typeof v.createdAt === 'string' &&
         (v.avgRating === null || typeof v.avgRating === 'number') &&
         typeof v.reviewCount === 'number' &&

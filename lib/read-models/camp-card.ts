@@ -98,6 +98,7 @@ export const campCardSelect = {
   nameEnSlug: true,
   priceLow: true,
   priceHigh: true,   // CAM-545: now rendered as a range on the card
+  priceUnit: true,   // CAM-653 (ADR-014): what priceLow is charged per — every price caption reads this
   createdAt: true,
   avgRating: true,   // PERF-5: Decimal(2,1)? column maintained by AGG-1
   reviewCount: true, // PERF-5: Int column maintained by AGG-1

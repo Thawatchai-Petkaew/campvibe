@@ -16,6 +16,11 @@ export type CancellationPolicy = 'FLEXIBLE' | 'MODERATE' | 'STRICT' | 'NON_REFUN
 // CAM-352 groundwork: mirrors the Prisma `ImageKind` enum. PANORAMA = wide-strip
 // pano (iPhone Pano), NOT an equirectangular sphere.
 export type ImageKind = 'PHOTO' | 'PANORAMA';
+// CAM-650/CAM-653 (ADR-014): mirrors the Prisma `PricingUnit` enum — what a
+// price is charged per. Kept as a local mirror (same convention as the other
+// enums on this page) rather than importing `@prisma/client`, since this
+// file is consumed by client code too.
+export type PricingUnit = 'PER_PERSON' | 'PER_TENT' | 'PER_SITE';
 
 // API Request/Response Types
 // Legacy CampgroundDTO (for backward compatibility)
@@ -61,6 +66,8 @@ export interface CampSiteDTO {
     bookingMethod: BookingMethod;
     priceLow?: number;
     priceHigh?: number;
+    // CAM-653 (ADR-014): additive — what priceLow is charged per.
+    priceUnit?: PricingUnit;
     // PREP-2 (CAM-268): additive — atomic one-time fee + closed cancellation policy.
     extraFeeAmount?: number | null;
     extraFeeLabel?: string | null;
@@ -83,6 +90,9 @@ export interface SpotDTO {
     maxCampers?: number;
     maxTents?: number;
     pricePerNight: number;
+    // CAM-653 (ADR-014): additive — what pricePerNight is charged per;
+    // overrides the camp's own priceUnit when this spot is booked.
+    priceUnit?: PricingUnit;
     pricePerSite?: number;
     nearFacilities?: string; // CSV
     campSiteId: string;

@@ -26,6 +26,7 @@ import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, parseISO, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { buildBookingPriceArgs, computeBookingPrice, type PricingUnit } from "@/lib/booking-pricing";
+import { priceUnitWord } from "@/lib/price-unit-display";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
 import { computeGuestCeiling, buildGuestOptions, clampGuestsToInitialCeiling } from "@/lib/guest-capacity";
 import type { BookingPrefill } from "@/lib/booking-prefill";
@@ -1011,7 +1012,11 @@ export default function CampgroundDetailClient({
                                                         <span className="font-semibold text-foreground">
                                                             {isFree ? t.common.free : formatCurrency(Number(spot.pricePerNight))}
                                                         </span>{" "}
-                                                        <span className="text-muted-foreground">{t.common.night}</span>
+                                                        {/* CAM-653 (ADR-014): THIS spot's own unit, never the camp's
+                                                            (a per-spot camp can show both on one screen —
+                                                            `resolveUnitPrice`'s "never re-pair a row's price with
+                                                            another row's unit" contract, lib/booking-pricing.ts). */}
+                                                        <span className="text-muted-foreground">{priceUnitWord(t, spot.priceUnit as PricingUnit | null | undefined)}</span>
                                                     </div>
                                                 </div>
 
@@ -1351,7 +1356,14 @@ export default function CampgroundDetailClient({
                                     ) : (
                                         <>
                                             <span className="text-2xl font-bold text-foreground">{formatCurrency(Number(campground.priceLow))} </span>
-                                            <span className="text-muted-foreground">{t.common.night}</span>
+                                            {/* CAM-653 (ADR-014): unit-aware — reuses `bookingPricingUnit`,
+                                                the SAME camp-level unit already resolved above for the
+                                                booking-preview total (never a second resolution). PER_SITE
+                                                keeps the exact pre-existing `common.night` word (zero visual
+                                                diff — every camp is still PER_SITE until CAM-654 ships the
+                                                host picker); another unit reads the shared `common.priceUnitLabel`
+                                                phrase instead (`priceUnitWord`, lib/price-unit-display.ts). */}
+                                            <span className="text-muted-foreground">{priceUnitWord(t, bookingPricingUnit)}</span>
                                         </>
                                     )}
                                 </div>

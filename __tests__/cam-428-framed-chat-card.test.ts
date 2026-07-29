@@ -41,9 +41,12 @@ describe("Decouple from CampgroundCard (BR-4 exception, design.md §4)", () => {
 });
 
 describe("Real fields only — priceLow / free / tag / rating / province / image (design.md §4 field map)", () => {
-  it("[unit] priceLow renders ฿ + th-TH formatted number + the perNight key; null/0 falls back to the free key (same convention CampgroundCard.tsx uses)", () => {
+  it("[unit] priceLow renders ฿ + th-TH formatted number + the unit-aware suffix; null/0 falls back to the free key (same convention CampgroundCard.tsx uses)", () => {
     expect(cardSrc).toContain("THB_FORMAT.format(card.priceLow)");
-    expect(cardSrc).toContain("t.aiChat.card.perNight");
+    // CAM-653: the private aiChat.card.perNight key is retired — every price
+    // caption now reads the ONE shared `common.priceUnitSuffix` group via
+    // this helper (lib/price-unit-display.ts).
+    expect(cardSrc).toContain("priceUnitSuffix(t, card.priceUnit)");
     expect(cardSrc).toContain("t.aiChat.card.free");
     expect(cardSrc).toContain("card.priceLow && card.priceLow > 0");
   });
@@ -117,7 +120,9 @@ describe("Copy — the card's own aiChat.card.* keys (TH verbatim + EN parity, d
   const en = (translations.en.aiChat as Record<string, unknown>).card as Record<string, string>;
 
   it("th.aiChat.card.* is verbatim", () => {
-    expect(th.perNight).toBe("/คืน");
+    // CAM-653: perNight retired from this group — see
+    // cam-653-price-captions-state-the-unit.test.ts for the shared
+    // common.priceUnitSuffix/priceUnitLabel copy this card now reads.
     expect(th.free).toBe("ฟรี");
     expect(th.noReviews).toBe("ยังไม่มีรีวิว");
     expect(th.reviews).toBe("{count} รีวิว");
