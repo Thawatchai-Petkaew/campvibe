@@ -509,6 +509,11 @@ model Spot {
   deletedAt DateTime? // soft-delete
   version   Int       @default(1)
 
+  // CAM-670: composite unique — Postgres requires a unique constraint on
+  // EXACTLY the referenced column set before a composite FK can point at it.
+  // id alone is already unique (PK); this adds (id, campSiteId) so
+  // Booking(spotId, campSiteId) can reference Spot(id, campSiteId) below.
+  @@unique([id, campSiteId])
   @@index([campSiteId])
   @@index([zoneId]) // CAM-362 — detach-on-delete UPDATE + zone-grouped reads
 }
@@ -637,7 +642,14 @@ model Booking {
   campSite   CampSite @relation(fields: [campSiteId], references: [id])
 
   spotId String?
-  spot   Spot?   @relation(fields: [spotId], references: [id])
+  // CAM-670: composite FK — ties spotId to a Spot belonging to the SAME
+  // campSiteId as this booking (references Spot's [id, campSiteId] unique
+  // constraint above). Postgres MATCH SIMPLE (default) skips the check
+  // entirely when ANY referencing column is NULL, so spotId=NULL (the
+  // overwhelming majority of bookings) is unaffected. campSiteId is shared
+  // with the `campSite` relation below — a scalar field may participate in
+  // more than one relation as long as each points at a different model.
+  spot   Spot?   @relation(fields: [spotId, campSiteId], references: [id, campSiteId])
 
   payments Payment[] // Payment ledger for this booking (S7)
 
