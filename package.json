@@ -41,6 +41,7 @@
     "reconcile:ratings": "node scripts/reconcile-ratings.mjs",
     "db:seed:demand": "node scripts/seed-demand.mjs",
     "seed:demo-spots": "node scripts/seed-demo-spots.mjs",
+    "backfill:cam-673-price-unit": "node scripts/backfill-cam-673-price-unit.mjs",
     "reviews:gen": "node scripts/gen-review-text.mjs",
     "delivery:generate": "prisma generate --schema prisma/delivery/schema.prisma",
     "delivery:migrate": "prisma migrate dev --schema prisma/delivery/schema.prisma --skip-seed",
