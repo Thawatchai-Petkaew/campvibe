@@ -139,6 +139,8 @@ next-env.d.ts
 !/scripts/dev-with-prisma-watch.mjs
 # CAM-663 — staging-only demo-pitch seed (creates demo Spot rows; --dry-run by default)
 !/scripts/seed-demo-spots.mjs
+# CAM-673 — moves the untouched PER_SITE default to ~95% PER_PERSON / ~5% PER_SITE (ADR-014); --dry-run by default
+!/scripts/backfill-cam-673-price-unit.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)
