@@ -149,6 +149,7 @@
             "verifiedListing": "Verified Listing",
             "verifiedDesc": "This campground has been verified by CampVibe.",
             "aboutPlace": "About the mountains",
+            "detailsHeading": "Camp details",
             "whatOffers": "What this place offers",
             "whereYouBe": "Where you'll be",
             "goodToKnow": "Good to know",
@@ -169,6 +170,8 @@
             "noImageAlt": "No camp photo available",
             "spotsHeading": "Camping spots at this camp",
             "spotCapacityLabel": "Fits {N} campers",
+            "spotStripLabel": "Choose a camping spot",
+            "spotMoreFacilitiesAriaLabel": "{N} more facilities",
             "cancellationPolicy": {
                 "title": "Cancellation Policy",
                 "notSet": "Cancellation policy not specified",
@@ -195,7 +198,10 @@
             "selectDatesFirst": "Please choose your check-in and check-out dates first.",
             "remainingSpots": "{n} spots left",
             "fullyBooked": "Fully booked",
-            "availabilityLoadError": "Couldn't load available dates. Please try again."
+            "availabilityLoadError": "Couldn't load available dates. Please try again.",
+            "priceFromPrefix": "From",
+            "selectPitchToSeePrice": "Select a pitch to see the price and reserve",
+            "spotUnavailableForStay": "This pitch is not available for the selected dates. Please choose another pitch or different dates."
         },
         "profile": {
             "title": "My Profile",
@@ -1302,6 +1308,7 @@
             "verifiedListing": "รายการที่ได้รับการยืนยัน",
             "verifiedDesc": "แคมป์กราวด์นี้ได้รับการยืนยันโดย CampVibe",
             "aboutPlace": "เกี่ยวกับภูเขา",
+            "detailsHeading": "รายละเอียดแคมป์",
             "whatOffers": "สิ่งที่สถานที่นี้มีให้",
             "whereYouBe": "สถานที่ที่คุณจะอยู่",
             "goodToKnow": "ข้อควรรู้",
@@ -1322,6 +1329,8 @@
             "noImageAlt": "ไม่มีรูปภาพแคมป์",
             "spotsHeading": "จุดกางเต็นท์ในแคมป์นี้",
             "spotCapacityLabel": "รองรับได้ {N} คน",
+            "spotStripLabel": "เลือกจุดกางเต็นท์",
+            "spotMoreFacilitiesAriaLabel": "อีก {N} สิ่งอำนวยความสะดวก",
             "cancellationPolicy": {
                 "title": "นโยบายการยกเลิก",
                 "notSet": "ยังไม่ระบุนโยบายการยกเลิก",
@@ -1348,7 +1357,10 @@
             "selectDatesFirst": "กรุณาเลือกวันเช็คอินและเช็คเอาท์ก่อน",
             "remainingSpots": "เหลือ {n} ที่",
             "fullyBooked": "เต็มแล้ว",
-            "availabilityLoadError": "โหลดวันว่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+            "availabilityLoadError": "โหลดวันว่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "priceFromPrefix": "เริ่มต้น",
+            "selectPitchToSeePrice": "เลือกจุดกางเต็นท์เพื่อดูราคาและจอง",
+            "spotUnavailableForStay": "จุดนี้ไม่ว่างในวันที่เลือก กรุณาเลือกจุดอื่นหรือเปลี่ยนวันที่"
         },
         "profile": {
             "title": "โปรไฟล์ของฉัน",

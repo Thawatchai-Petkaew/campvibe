@@ -112,11 +112,22 @@ export function AiChatLauncher() {
             own compositing layer, the standard guard against iOS Safari
             leaving a `position:fixed` element behind during an active touch
             scroll (same fix applied to the chat panel itself,
-            AiChatPanel.tsx, via its own `max-sm:transform-gpu`). */}
+            AiChatPanel.tsx, via its own `max-sm:transform-gpu`).
+
+            CAM-669: the Y term also subtracts `var(--bottom-bar-height, 0px)`
+            — the real rendered height `StickyActionBar` publishes on the root
+            element while it is mounted (0px when no bar is mounted, or at
+            `md:` widths where the bar collapses to `display:none`). This
+            stacks with the outer div's own `bottom-10`: that 40px was always
+            this FAB's clearance from whatever sits below it, so on a page
+            with the bar it becomes the same 40px gap above the bar's top
+            edge instead of the viewport edge — no separate gap constant to
+            keep in sync, and a page with no bar renders byte-identically to
+            before (DESIGN.md "Bottom-docked elements" contract). */}
         <div
           style={{
             transform:
-              "translate(calc(-1 * env(safe-area-inset-right)), calc(-1 * env(safe-area-inset-bottom))) translateZ(0)",
+              "translate(calc(-1 * env(safe-area-inset-right)), calc(-1 * env(safe-area-inset-bottom) - var(--bottom-bar-height, 0px))) translateZ(0)",
           }}
         >
           {/* CAM-432 fire aura: visible radial halo behind the FAB (DESIGN.md

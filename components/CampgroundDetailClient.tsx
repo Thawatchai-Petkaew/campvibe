@@ -10,19 +10,20 @@ import { ImageGallery } from "@/components/ImageGallery";
 import { AmenitiesModal } from "@/components/AmenitiesModal";
 import { LoginModal } from "@/components/LoginModal";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { wishlistAPI } from "@/lib/api-client";
 import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, HelpCircle, Users, Smartphone, Plug, Loader2, LayoutGrid, MoveHorizontal, PawPrint, AlertCircle, RotateCcw } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, HelpCircle, Users, Smartphone, Plug, Loader2, LayoutGrid, PawPrint, AlertCircle, RotateCcw } from "lucide-react";
 import { getFacilityIcon } from "@/lib/facility-icon-map";
 import { OptionGroupSection } from "@/components/ui/option-group-section";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { SpotViewer } from "@/components/spot-viewer/SpotViewer";
+import { StickyActionBar } from "@/components/ui/sticky-action-bar";
 import { format, parseISO, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { buildBookingPriceArgs, computeBookingPrice, type PricingUnit } from "@/lib/booking-pricing";
@@ -219,6 +220,26 @@ export default function CampgroundDetailClient({
     const [remainingCapacity, setRemainingCapacity] = useState<{ remaining: number | null; blockedByHost: boolean } | null>(null);
     const [loadingRemaining, setLoadingRemaining] = useState(false);
 
+    // CAM-666: the camper's picked pitch — null until a real tap/Enter/Space
+    // on the SpotStrip (SpotViewer's onSelectSpot, never fired on its own
+    // mount default). Moved up (alongside spots/showSpotSection just below,
+    // also lifted from their old spot further down this file) so
+    // buildBookingPriceArgs below can read the real selection instead of a
+    // hard-coded no-spot value.
+    const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+
+    // CAM-353 BR-1 (AC-1, AC-5, EC-2, EC-7): the spot section renders only for a
+    // PER-SPOT-mode camp (useSpotView) that has at least one live spot. Spots ride
+    // the payload pre-filtered to deletedAt: null by getCampBySlug (BR-2), so any
+    // row present here is already live. (CAM-666: lifted earlier so the price
+    // args below can read it.)
+    const spots: any[] = campground.spots || [];
+    const showSpotSection = !!campground.useSpotView && spots.length > 0;
+    const selectedSpot = showSpotSection ? spots.find((s) => s.id === selectedSpotId) ?? null : null;
+    // CAM-666: the reserve/price surface is "ready" the instant a non-per-spot
+    // camp renders (nothing to pick) — a per-spot camp needs a real pitch pick.
+    const hasPitchSelection = !showSpotSection || !!selectedSpot;
+
     // Calculate nights using date-fns
     const nights = (checkIn && checkOut && checkOut > checkIn)
         ? differenceInCalendarDays(checkOut, checkIn)
@@ -228,8 +249,12 @@ export default function CampgroundDetailClient({
     // CAM-615: the same honest "no price / genuinely 0" rule CampgroundCard.tsx
     // uses for the catalog card price badge — never a second divergent check.
     const isHeadlinePriceFree = campground.priceLow == null || Number(campground.priceLow) <= 0;
+    // CAM-666: mirrors SpotStrip.tsx's own `isFree` expression (byte-identical
+    // rule, not a new one) — the pitch's OWN raw price, independent of what
+    // resolveUnitPrice would actually end up charging (a price of exactly 0
+    // falls through to the camp's price there, unchanged engine behaviour).
+    const isSelectedSpotFree = !!selectedSpot && Number(selectedSpot.pricePerNight) === 0;
     // CAM-58: use the shared pricing module so displayed total matches what the API records.
-    // No spot-selection state in this component — spotPricePerNight is null (uses priceLow).
     // CAM-268 (PREP-2, AC-1): the camp's atomic one-time fee, via the same single
     // pricing source the real booking-creation API uses — so this preview's total
     // always equals what actually gets recorded.
@@ -246,7 +271,15 @@ export default function CampgroundDetailClient({
             priceUnit: (campground.priceUnit ?? null) as PricingUnit | null,
             extraFeeAmount: campground.extraFeeAmount != null ? campExtraFeeAmount : null,
         },
-        spot: null,
+        // CAM-666: the real selected pitch — this argument used to be
+        // hard-coded to no spot at all; SpotViewer/CAM-664 already owns the
+        // selection this now reads.
+        spot: selectedSpot
+            ? {
+                pricePerNight: selectedSpot.pricePerNight != null ? Number(selectedSpot.pricePerNight) : null,
+                priceUnit: (selectedSpot.priceUnit ?? null) as PricingUnit | null,
+            }
+            : null,
         party: { guests },
         nights: displayNights || 1,
         vatRate: 0,
@@ -317,6 +350,68 @@ export default function CampgroundDetailClient({
     useEffect(() => {
         fetchAvailability();
     }, [fetchAvailability]);
+
+    // CAM-666: per-pitch date availability — a SEPARATE state + effect from
+    // fetchAvailability above (never forked into it: that callback's deps
+    // stay [campground.id] only, CAM-616), fetched only once a real pitch is
+    // picked. Reuses the SAME /availability route CAM-665 already extended
+    // with an optional spotId — the response echoes which filter was
+    // actually applied (spotAvailable: null = no pitch filter, CAM-595/602:
+    // never guess "free" from an unapplied filter).
+    const [spotAvailability, setSpotAvailability] = useState<Record<string, boolean | null>>({});
+    const [spotAvailabilityError, setSpotAvailabilityError] = useState(false);
+
+    useEffect(() => {
+        if (!showSpotSection || !selectedSpotId) {
+            setSpotAvailability({});
+            setSpotAvailabilityError(false);
+            return;
+        }
+
+        let cancelled = false;
+        setSpotAvailabilityError(false);
+
+        const fetchSpotAvailability = async () => {
+            try {
+                const start = startOfMonth(new Date());
+                const end = endOfMonth(addMonths(new Date(), 3));
+
+                const response = await fetch(
+                    `/api/campsites/${campground.id}/availability?startDate=${start.toISOString()}&endDate=${end.toISOString()}&spotId=${selectedSpotId}`
+                );
+                const payload = await response.json().catch(() => null);
+
+                if (cancelled) return;
+
+                if (!response.ok) {
+                    console.error("Spot availability API error:", {
+                        status: response.status,
+                        statusText: response.statusText,
+                        payload,
+                    });
+                    setSpotAvailabilityError(true);
+                    return;
+                }
+
+                const list = payload?.data?.availability || payload?.availability || [];
+                const map: Record<string, boolean | null> = {};
+                if (Array.isArray(list)) {
+                    list.forEach((item: any) => {
+                        map[item.date] = item?.spotAvailable ?? null;
+                    });
+                }
+                setSpotAvailability(map);
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Failed to fetch spot availability:', error);
+                    setSpotAvailabilityError(true);
+                }
+            }
+        };
+
+        fetchSpotAvailability();
+        return () => { cancelled = true; };
+    }, [campground.id, showSpotSection, selectedSpotId]);
 
     // CAM-267 PREP-1: fetch remaining capacity for the EXACT stay once both dates are
     // picked (server-authoritative — reuses getRemainingCapacity, the same math the
@@ -410,12 +505,51 @@ export default function CampgroundDetailClient({
         }
     }, [guestCeiling]);
 
+    // CAM-666: layered on TOP of guestCeiling above (never a forked/second
+    // derivation) — once a pitch is picked, its own `maxCampers` further
+    // narrows the ceiling. computeGuestCeiling is called again with
+    // isPerSpot=false so this number IS trusted (unlike the whole-camp
+    // column that same helper deliberately excludes above) — the tighter of
+    // "whatever the whole-camp ceiling already allows" and "what this one
+    // pitch can physically hold" wins.
+    const selectedSpotMaxCampers = showSpotSection && selectedSpot && typeof selectedSpot.maxCampers === "number"
+        ? selectedSpot.maxCampers
+        : null;
+    const spotGuestCeiling = showSpotSection && selectedSpot
+        ? computeGuestCeiling(guestCeiling, selectedSpotMaxCampers, false)
+        : guestCeiling;
+
+    // Mirrors the guestCeiling clamp effect above, scoped to the pitch's own
+    // (tighter) ceiling — switching to a smaller pitch must not leave
+    // `guests` pointing at a count that pitch cannot hold.
+    useEffect(() => {
+        if (spotGuestCeiling !== null && guests > spotGuestCeiling) {
+            setGuests(Math.max(1, spotGuestCeiling));
+        }
+    }, [spotGuestCeiling]);
+
+    // CAM-666: the camper may have picked check-in/check-out BEFORE
+    // switching to (or landing on) a pitch that is not free for those exact
+    // dates — isDateDisabled below only stops a NEW pick, it never
+    // retroactively clears an already-chosen range. Walked the same way the
+    // dates themselves are keyed (yyyy-MM-dd).
+    const isSelectedSpotUnavailableForStay = (() => {
+        if (!showSpotSection || !selectedSpotId || !checkIn || !checkOut || checkOut <= checkIn) return false;
+        const cursor = new Date(checkIn);
+        while (cursor < checkOut) {
+            const key = format(cursor, 'yyyy-MM-dd');
+            if (spotAvailability[key] === false) return true;
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return false;
+    })();
+
     // Check if date is disabled (full or past)
     const isDateDisabled = (date: Date) => {
         const dateKey = format(date, 'yyyy-MM-dd');
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         // Disable past dates
         if (date < today) return true;
 
@@ -430,7 +564,18 @@ export default function CampgroundDetailClient({
         if (dayAvailability && !dayAvailability.available) {
             return true;
         }
-        
+
+        // CAM-666: once a pitch is selected, a date THAT pitch cannot cover
+        // is blocked too — only `false` (the filter WAS applied and this
+        // date is taken) blocks; `null`/undefined ("no filter applied yet")
+        // is never guessed as free (CAM-595/602). A load failure for the
+        // selected pitch is "unknown" too (same CAM-616 rule as the
+        // camp-wide availabilityError above) — block rather than trust an
+        // empty map.
+        if (selectedSpotId && (spotAvailabilityError || spotAvailability[dateKey] === false)) {
+            return true;
+        }
+
         return false;
     };
 
@@ -457,6 +602,21 @@ export default function CampgroundDetailClient({
             return;
         }
 
+        // CAM-666: defense-in-depth — a per-pitch camp hides the reserve
+        // control entirely until a pitch is picked (below); a direct
+        // dispatch must still not slip past that requirement.
+        if (showSpotSection && !selectedSpot) {
+            return;
+        }
+
+        // CAM-666: the reserve control stays visible once a pitch IS picked,
+        // but a pitch that is not free for the CHOSEN dates must still block
+        // — with a real message, not a silent no-op.
+        if (isSelectedSpotUnavailableForStay) {
+            import("sonner").then(({ toast }) => toast.error(t.booking.spotUnavailableForStay));
+            return;
+        }
+
         setIsReserving(true);
         try {
             const res = await fetch("/api/bookings", {
@@ -470,6 +630,8 @@ export default function CampgroundDetailClient({
                     // CAM-642: attribution only — omitted (server defaults to
                     // WEB) unless the page was opened via a chat handoff link.
                     ...(fromChat ? { source: 'CHAT' as const } : {}),
+                    // CAM-666: the selected pitch, when this is a per-spot camp.
+                    ...(selectedSpot ? { spotId: selectedSpot.id } : {}),
                 })
             });
 
@@ -584,13 +746,6 @@ export default function CampgroundDetailClient({
 
     const displayImages = images.slice(0, 5);
 
-    // CAM-353 BR-1 (AC-1, AC-5, EC-2, EC-7): the spot section renders only for a
-    // PER-SPOT-mode camp (useSpotView) that has at least one live spot. Spots ride
-    // the payload pre-filtered to deletedAt: null by getCampBySlug (BR-2), so any
-    // row present here is already live.
-    const spots: any[] = campground.spots || [];
-    const showSpotSection = !!campground.useSpotView && spots.length > 0;
-
     const openGallery = (index: number = 0) => {
         if (images.length === 0) return;
         const safe = Math.min(Math.max(index, 0), images.length - 1);
@@ -650,9 +805,38 @@ export default function CampgroundDetailClient({
         return descMap[code] || "";
     };
 
+    // CAM-667 (S5): nine taxonomy groups used to each carry their own
+    // full-width `text-2xl` heading + `border-b` (nine "chapters" of equal
+    // visual weight, measured as the length driver on ~792/795 camps that
+    // have no per-spot pitch section, CAM-664, to shorten instead). They now
+    // share ONE heading + light h3 sub-labels below. These two class strings
+    // are byte-identical to the ones the pre-existing "Stay connected" /
+    // "Marking method" / "Driveway" sub-groups already used (token-only,
+    // no new value — DESIGN.md §2/§5).
+    const TAXONOMY_SUBLABEL_CLASS = "text-sm font-semibold text-muted-foreground mb-3";
+    const TAXONOMY_GRID_CLASS = "grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4";
+    // Gates the WHOLE folded section — a camp with zero of the nine groups
+    // must not render a naked heading with nothing under it (every child
+    // below still self-gates on its own codes, same as before the fold).
+    const hasTaxonomyDetails = !!campSiteTypeCode
+        || accommodationCodes.length > 0
+        || terrainCodes.length > 0
+        || activityCodes.length > 0
+        || facilityCodes.length > 0
+        || externalCodes.length > 0
+        || equipmentCodes.length > 0
+        || annotatedCodes.length > 0
+        || camperStyleCodes.length > 0
+        || stayConnectedCodes.length > 0
+        || markingMethodCodes.length > 0
+        || drivewayCodes.length > 0;
+
     return (
         <>
-            <div className="container mx-auto px-6 pt-6">
+            {/* CAM-664 (S2): pb-24 clears the fixed mobile StickyActionBar below
+                (md:hidden) so it never covers the map section's last content;
+                desktop keeps its original pb-0 (the bar itself is hidden there). */}
+            <div className="container mx-auto px-6 pt-6 pb-24 md:pb-0">
                 {/* Header - Title & Actions */}
                 <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4 md:gap-0">
                     <div>
@@ -686,33 +870,47 @@ export default function CampgroundDetailClient({
                             <span className="font-semibold text-foreground">{campground.address || locationText}</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
+                    {/* CAM-671: on a per-pitch camp the OWNER-only Edit link makes this
+                        row 3 items wide (Edit + Share + Wishlist) with no flex-wrap,
+                        overflowing a 360px viewport by ~48px (measured, host view only
+                        — a camper only ever sees 2 items and never hit this). Fix is
+                        mobile-only (flex-col below md, matching the `flex-col
+                        md:flex-row` pattern the title row one level up already uses)
+                        and reuses the `w-full md:w-auto` idiom already on this same
+                        div: Edit gets its own full-width row on mobile, Share+Wishlist
+                        keep their existing justify-between row (unaffected whether
+                        isOwner or not). `md:contents` on the Share+Wishlist wrapper
+                        drops the wrapper box at md+, so Share/Wishlist rejoin this div
+                        as direct flex items exactly as before — desktop layout unchanged. */}
+                    <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
                         {isOwner && (
-                            <Button asChild variant="default" size="lg" className="gap-2 px-6">
+                            <Button asChild variant="default" size="lg" className="gap-2 px-6 w-full md:w-auto">
                                 <Link href={`/dashboard/campsites/${campground.id}/edit`}>
                                     <Edit className="w-4 h-4" /> <span>{t.newCampground.editCampground}</span>
                                 </Link>
                             </Button>
                         )}
-                        <Button variant="ghost" className="gap-2 px-4 hover:bg-muted font-medium underline">
-                            <Share className="w-4 h-4" /> <span>{t.common.share}</span>
-                        </Button>
-                        {/* AC-1..5, BR-1..5: wishlist toggle — mirrors CampgroundCard pattern. */}
-                        <Button
-                            data-testid="btn--wishlist-detail-toggle"
-                            variant="ghost"
-                            aria-pressed={saved}
-                            aria-label={wishlistAriaLabel}
-                            disabled={isWishlistLoading}
-                            onClick={handleWishlistToggle}
-                            className="gap-2 px-4 hover:bg-muted font-medium underline"
-                        >
-                            <Heart
-                                className={cn("w-4 h-4", saved && "fill-current text-primary")}
-                                aria-hidden="true"
-                            />
-                            <span>{saved ? t.wishlist.savedLabel : t.common.save}</span>
-                        </Button>
+                        <div className="flex items-center justify-between gap-4 w-full md:contents">
+                            <Button variant="ghost" className="gap-2 px-4 hover:bg-muted font-medium underline">
+                                <Share className="w-4 h-4" /> <span>{t.common.share}</span>
+                            </Button>
+                            {/* AC-1..5, BR-1..5: wishlist toggle — mirrors CampgroundCard pattern. */}
+                            <Button
+                                data-testid="btn--wishlist-detail-toggle"
+                                variant="ghost"
+                                aria-pressed={saved}
+                                aria-label={wishlistAriaLabel}
+                                disabled={isWishlistLoading}
+                                onClick={handleWishlistToggle}
+                                className="gap-2 px-4 hover:bg-muted font-medium underline"
+                            >
+                                <Heart
+                                    className={cn("w-4 h-4", saved && "fill-current text-primary")}
+                                    aria-hidden="true"
+                                />
+                                <span>{saved ? t.wishlist.savedLabel : t.common.save}</span>
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
@@ -982,101 +1180,22 @@ export default function CampgroundDetailClient({
                             </p>
                         </div>
 
-                        {/* CAM-353: per-spot gallery section — PER-SPOT camps with >=1 live
-                            spot only (BR-1); absent entirely otherwise (AC-5, EC-2, EC-7). */}
+                        {/* CAM-664 (S2): the per-spot gallery `<ul>` (~200px/pitch, ~3,200px
+                            for a 16-pitch camp) is replaced by one fixed-height viewport +
+                            a selectable strip — see components/spot-viewer/SpotViewer.tsx.
+                            Same gating as before: PER-SPOT camps with >=1 live spot only
+                            (BR-1); absent entirely otherwise (AC-5, EC-2, EC-7). */}
                         {showSpotSection && (
                             <div className="pb-8 border-b border-border/60" data-testid="section--campground-spots">
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">
                                     {t.campground.spotsHeading}
                                 </h2>
-                                <ul className="space-y-4" data-testid="list--campground-spots">
-                                    {spots.map((spot: any) => {
-                                        const spotImages: string[] = (spot.images || []).map((img: { url: string }) => img.url);
-                                        const hasCapacity = typeof spot.maxCampers === 'number' && spot.maxCampers >= 1;
-                                        const isFree = Number(spot.pricePerNight) === 0;
-
-                                        return (
-                                            <li
-                                                key={spot.id}
-                                                className="rounded-2xl border border-border p-4 md:p-6"
-                                                data-testid={`item--campground-spot-${spot.id}`}
-                                            >
-                                                <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                                                    <div>
-                                                        <h3 className="text-lg font-bold text-foreground">{spot.name}</h3>
-                                                        {spot.zone && (
-                                                            <p className="text-sm text-muted-foreground">{spot.zone}</p>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-right shrink-0">
-                                                        <span className="font-semibold text-foreground">
-                                                            {isFree ? t.common.free : formatCurrency(Number(spot.pricePerNight))}
-                                                        </span>{" "}
-                                                        {/* CAM-653 (ADR-014): THIS spot's own unit, never the camp's
-                                                            (a per-spot camp can show both on one screen —
-                                                            `resolveUnitPrice`'s "never re-pair a row's price with
-                                                            another row's unit" contract, lib/booking-pricing.ts). */}
-                                                        <span className="text-muted-foreground">{priceUnitWord(t, spot.priceUnit as PricingUnit | null | undefined)}</span>
-                                                    </div>
-                                                </div>
-
-                                                {hasCapacity && (
-                                                    <p className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                                                        <Users className="w-4 h-4" aria-hidden="true" />
-                                                        {t.campground.spotCapacityLabel.replace("{N}", String(spot.maxCampers))}
-                                                    </p>
-                                                )}
-
-                                                {spotImages.length > 0 && (
-                                                    <div className="flex gap-2 overflow-x-auto">
-                                                        {spot.images.map((img: { url: string; kind?: string; alt?: string | null }, i: number) => (
-                                                            <button
-                                                                key={`${spot.id}-${i}`}
-                                                                type="button"
-                                                                className="relative flex-shrink-0 w-20 h-20 rounded-2xl overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                                                aria-label={
-                                                                    img.kind === "PANORAMA"
-                                                                        ? t.panorama.openLabel
-                                                                        : t.gallery.viewImage.replace("{n}", String(i + 1))
-                                                                }
-                                                                onClick={(e) => {
-                                                                    // CAM-354 BR-1: kind branch — PANORAMA opens the
-                                                                    // pan-strip viewer; PHOTO keeps the flat lightbox
-                                                                    // path byte-for-byte (AC-1, AC-2, EC-1, EC-2).
-                                                                    if (img.kind === "PANORAMA") {
-                                                                        openPanorama(img.url, img.alt || t.panorama.title, e.currentTarget);
-                                                                    } else {
-                                                                        openSpotGallery(spotImages, i);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <ImageWithFallback
-                                                                    src={img.url}
-                                                                    alt=""
-                                                                    width={80}
-                                                                    height={80}
-                                                                    loading="lazy"
-                                                                    className="w-full h-full"
-                                                                    imgClassName="object-cover"
-                                                                />
-                                                                {img.kind === "PANORAMA" && (
-                                                                    <Badge
-                                                                        variant="overlay"
-                                                                        className="absolute bottom-0.5 left-0.5 gap-1"
-                                                                        data-testid={`badge--campground-spot-panorama-${spot.id}`}
-                                                                    >
-                                                                        <MoveHorizontal aria-hidden="true" />
-                                                                        {t.spotManagement.panoramaBadge}
-                                                                    </Badge>
-                                                                )}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
+                                <SpotViewer
+                                    spots={spots}
+                                    onOpenGallery={openSpotGallery}
+                                    onOpenPanorama={openPanorama}
+                                    onSelectSpot={setSelectedSpotId}
+                                />
                             </div>
                         )}
 
@@ -1104,197 +1223,226 @@ export default function CampgroundDetailClient({
                             </div>
                         )}
 
-                        {/* 3a. CAM-528 (S1) AC-2/BR-2 — campSiteType gets its OWN labeled
-                            section (was an unlabeled tile mixed into "Site Types" below).
-                            Scalar column, so it's a single-code array. */}
-                        {campSiteTypeCode && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--campground-type">
-                                <OptionGroupSection
-                                    heading={t.filter["Campground type"]}
-                                    codes={[campSiteTypeCode]}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
+                        {/* CAM-667 (S5): the nine taxonomy groups below (campSiteType,
+                            Accommodation type, Terrain, Activity, facilities, Equipment for
+                            rent, Annotated features, Camper style, Additional info) used to
+                            each be their own `pb-8 border-b` block with a `text-2xl` h2 — nine
+                            chapters of equal visual weight for a single "what does this place
+                            have" answer. Folded into ONE section: one heading, light h3
+                            sub-labels, every value still reachable (each group keeps its own
+                            gate; "ดูเพิ่ม" -> AmenitiesModal is unchanged, per story.md — no
+                            new disclosure pattern invented). hasTaxonomyDetails (above) covers
+                            every group so a camp with none of them renders nothing here at all. */}
+                        {hasTaxonomyDetails && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--camp-details">
+                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">
+                                    {t.campground.detailsHeading}
+                                </h2>
+                                <div className="space-y-8">
+                                    {/* campSiteType — scalar column, own labeled sub-group,
+                                        separate from Terrain (CAM-528 AC-2/BR-2). */}
+                                    {campSiteTypeCode && (
+                                        <OptionGroupSection
+                                            headingTag="h3"
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.filter["Campground type"]}
+                                            codes={[campSiteTypeCode]}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                            testId="section--campground-type"
+                                        />
+                                    )}
 
-                        {/* 3a-2. CAM-526 (S10) AC-2/BR-4 — Accommodation type: a scalar CSV
-                            `String` column (not part of the `options` relation), parsed via
-                            csvToArray. Was fully wired end-to-end except this display section
-                            and the (until now unseeded) host-form group. */}
-                        {accommodationCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--accommodation-types">
-                                <OptionGroupSection
-                                    heading={t.filter["Accommodation type"]}
-                                    codes={accommodationCodes}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
+                                    {/* Accommodation type — scalar CSV column, parsed via csvToArray (CAM-526). */}
+                                    {accommodationCodes.length > 0 && (
+                                        <OptionGroupSection
+                                            headingTag="h3"
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.filter["Accommodation type"]}
+                                            codes={accommodationCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                            testId="section--accommodation-types"
+                                        />
+                                    )}
 
-                        {/* 3b. Site Types (Terrain) — CAM-528 (S1) BR-1: migrated onto the
-                            shared OptionGroupSection primitive, zero visual change. */}
-                        {terrainCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60">
-                                <OptionGroupSection
-                                    heading={t.campground.siteTypes}
-                                    codes={terrainCodes}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
+                                    {/* Terrain (Site Types). */}
+                                    {terrainCodes.length > 0 && (
+                                        <OptionGroupSection
+                                            headingTag="h3"
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.campground.siteTypes}
+                                            codes={terrainCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                            testId="section--site-types"
+                                        />
+                                    )}
 
-                        {/* 3c. CAM-528 (S1) AC-1/BR-4 — Activity: never bucketed on this
-                            page before, even though the AI-chat detail card already showed
-                            it. Icons + i18n landed in CAM-525 (S9). */}
-                        {activityCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--activities">
-                                <OptionGroupSection
-                                    heading={t.filter["Activity"]}
-                                    codes={activityCodes}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
+                                    {/* Activity (CAM-528 AC-1/BR-4). */}
+                                    {activityCodes.length > 0 && (
+                                        <OptionGroupSection
+                                            headingTag="h3"
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.filter["Activity"]}
+                                            codes={activityCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                            testId="section--activities"
+                                        />
+                                    )}
 
-                        {/* 4. What this place offers (Features) */}
-                        <div className="pb-8 border-b border-border/60">
-                            <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.whatOffers}</h2>
+                                    {/* What this place offers (facilities) — Internal/External
+                                        columns + the pre-existing "ดูเพิ่ม" -> AmenitiesModal
+                                        disclosure are unchanged; only the wrapping heading
+                                        drops from its own h2/border-b to a shared h3 sub-label.
+                                        The two column headings step down to h4 to keep the
+                                        heading hierarchy nested correctly under that h3. */}
+                                    {(facilityCodes.length > 0 || externalCodes.length > 0) && (
+                                        <div data-testid="section--what-offers">
+                                            <h3 className={TAXONOMY_SUBLABEL_CLASS}>{t.campground.whatOffers}</h3>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-                                {/* Internal */}
-                                <div>
-                                    <h3 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.internalFacilities}</h3>
-                                    <div className="grid grid-cols-1 gap-y-5">
-                                        {facilityCodes.slice(0, 8).map((facility: string) => (
-                                            <div key={facility} className="flex items-center gap-4">
-                                                {getIcon(facility)}
-                                                <span className="font-normal text-base capitalize text-foreground/80">
-                                                    {t.filter[facility as keyof typeof t.filter] || facility}
-                                                </span>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                                                {facilityCodes.length > 0 && (
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.internalFacilities}</h4>
+                                                        <div className="grid grid-cols-1 gap-y-5">
+                                                            {facilityCodes.slice(0, 8).map((facility: string) => (
+                                                                <div key={facility} className="flex items-center gap-4">
+                                                                    {getIcon(facility)}
+                                                                    <span className="font-normal text-base capitalize text-foreground/80">
+                                                                        {t.filter[facility as keyof typeof t.filter] || facility}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {externalCodes.length > 0 && (
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.externalFacilities}</h4>
+                                                        <div className="grid grid-cols-1 gap-y-5">
+                                                            {externalCodes.slice(0, 6).map((facility: string) => (
+                                                                <div key={facility} className="flex items-center gap-4">
+                                                                    {getIcon(facility)}
+                                                                    <span className="font-normal text-base capitalize text-foreground/80">
+                                                                        {t.filter[facility as keyof typeof t.filter] || facility}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                {/* External */}
-                                {externalCodes.length > 0 && (
-                                    <div>
-                                        <h3 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.externalFacilities}</h3>
-                                        <div className="grid grid-cols-1 gap-y-5">
-                                            {externalCodes.slice(0, 6).map((facility: string) => (
-                                                <div key={facility} className="flex items-center gap-4">
-                                                    {getIcon(facility)}
-                                                    <span className="font-normal text-base capitalize text-foreground/80">
-                                                        {t.filter[facility as keyof typeof t.filter] || facility}
-                                                    </span>
-                                                </div>
-                                            ))}
+                                            {facilityCodes.length > 8 && (
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => setIsAmenitiesOpen(true)}
+                                                    className="mt-8 px-8 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
+                                                >
+                                                    {t.common.showAll} {facilityCodes.length} {t.common.amenities}
+                                                </Button>
+                                            )}
                                         </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
 
-                            {facilityCodes.length > 8 && (
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setIsAmenitiesOpen(true)}
-                                    className="mt-8 px-8 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
-                                >
-                                    {t.common.showAll} {facilityCodes.length} {t.common.amenities}
-                                </Button>
-                            )}
-                        </div>
-
-                        {/* 5. Equipment for Rent */}
-                        {equipmentCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60">
-                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.equipmentRent}</h2>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4">
-                                    {equipmentCodes.map((item: string) => (
-                                        <div key={item} className="flex items-center gap-4">
-                                            {getIcon(item)}
-                                            <span className="font-normal text-base capitalize text-foreground/80">
-                                                {t.filter[item as keyof typeof t.filter] || item}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 6. CAM-515 (S3) — Annotated features (คุณลักษณะ): rules/rights
-                            the camp carries (alcohol/fire/firewood/accessible/reservable),
-                            the FIRST new MasterData group added post-launch. */}
-                        {annotatedCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--annotated-features">
-                                <OptionGroupSection
-                                    heading={t.filter["Annotated features"]}
-                                    codes={annotatedCodes}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
-
-                        {/* 7. CAM-516 (S4) — Camper style (รูปแบบแคมป์): host-declared
-                            vibe/style (chic/general/difficult/indomitable), the SECOND new
-                            MasterData group added post-launch. */}
-                        {camperStyleCodes.length > 0 && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--camper-style">
-                                <OptionGroupSection
-                                    heading={t.filter["Camper style"]}
-                                    codes={camperStyleCodes}
-                                    getLabel={getLabel}
-                                    getIcon={getIcon}
-                                />
-                            </div>
-                        )}
-
-                        {/* 8. CAM-521 (S8) — final taxonomy slice: a small "ข้อมูลเพิ่มเติม"
-                            (additional info) block for the 3 metadata-only groups (phone
-                            signal / spot-marking method / driveway type) — host-input +
-                            camper-detail-display ONLY, deliberately NOT a filter/search
-                            dimension (BR-4). */}
-                        {(stayConnectedCodes.length > 0 || markingMethodCodes.length > 0 || drivewayCodes.length > 0) && (
-                            <div className="pb-8 border-b border-border/60" data-testid="section--additional-info">
-                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.additionalInfo}</h2>
-                                <div className="space-y-6">
-                                    {stayConnectedCodes.length > 0 && (
+                                    {/* Equipment for rent — migrated onto OptionGroupSection
+                                        (was hand-rolled) so it reads as the same light sub-label
+                                        as every other group here; gridClassName preserves the
+                                        exact pre-existing 2/3-col layout (zero visual change). */}
+                                    {equipmentCodes.length > 0 && (
                                         <OptionGroupSection
-                                            heading={t.filter["Stay connected"]}
                                             headingTag="h3"
-                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
-                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
-                                            codes={stayConnectedCodes}
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4"
+                                            heading={t.campground.equipmentRent}
+                                            codes={equipmentCodes}
                                             getLabel={getLabel}
                                             getIcon={getIcon}
+                                            testId="section--equipment-rent"
                                         />
                                     )}
-                                    {markingMethodCodes.length > 0 && (
+
+                                    {/* Annotated features (คุณลักษณะ) — CAM-515. */}
+                                    {annotatedCodes.length > 0 && (
                                         <OptionGroupSection
-                                            heading={t.filter["Marking method"]}
                                             headingTag="h3"
-                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
-                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
-                                            codes={markingMethodCodes}
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.filter["Annotated features"]}
+                                            codes={annotatedCodes}
                                             getLabel={getLabel}
                                             getIcon={getIcon}
+                                            testId="section--annotated-features"
                                         />
                                     )}
-                                    {drivewayCodes.length > 0 && (
+
+                                    {/* Camper style (รูปแบบแคมป์) — CAM-516. */}
+                                    {camperStyleCodes.length > 0 && (
                                         <OptionGroupSection
-                                            heading={t.filter["Driveway"]}
                                             headingTag="h3"
-                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
-                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
-                                            codes={drivewayCodes}
+                                            headingClassName={TAXONOMY_SUBLABEL_CLASS}
+                                            gridClassName={TAXONOMY_GRID_CLASS}
+                                            heading={t.filter["Camper style"]}
+                                            codes={camperStyleCodes}
                                             getLabel={getLabel}
                                             getIcon={getIcon}
+                                            testId="section--camper-style"
                                         />
+                                    )}
+
+                                    {/* Additional info (ข้อมูลเพิ่มเติม) — CAM-521 (S8): the 3
+                                        metadata-only groups (phone signal / spot-marking method /
+                                        driveway type), host-input + camper-detail-display ONLY,
+                                        deliberately not a filter/search dimension (BR-4). Inner
+                                        OptionGroupSection headingTag stays "h3" unchanged (the
+                                        primitive has no "h4" option) — a pre-existing, cosmetic-
+                                        only heading-level flat spot, not introduced by this story. */}
+                                    {(stayConnectedCodes.length > 0 || markingMethodCodes.length > 0 || drivewayCodes.length > 0) && (
+                                        <div data-testid="section--additional-info">
+                                            <h3 className={TAXONOMY_SUBLABEL_CLASS}>{t.campground.additionalInfo}</h3>
+                                            <div className="space-y-6">
+                                                {stayConnectedCodes.length > 0 && (
+                                                    <OptionGroupSection
+                                                        heading={t.filter["Stay connected"]}
+                                                        headingTag="h3"
+                                                        headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                                        gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                                        codes={stayConnectedCodes}
+                                                        getLabel={getLabel}
+                                                        getIcon={getIcon}
+                                                    />
+                                                )}
+                                                {markingMethodCodes.length > 0 && (
+                                                    <OptionGroupSection
+                                                        heading={t.filter["Marking method"]}
+                                                        headingTag="h3"
+                                                        headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                                        gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                                        codes={markingMethodCodes}
+                                                        getLabel={getLabel}
+                                                        getIcon={getIcon}
+                                                    />
+                                                )}
+                                                {drivewayCodes.length > 0 && (
+                                                    <OptionGroupSection
+                                                        heading={t.filter["Driveway"]}
+                                                        headingTag="h3"
+                                                        headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                                        gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                                        codes={drivewayCodes}
+                                                        getLabel={getLabel}
+                                                        getIcon={getIcon}
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -1353,7 +1501,7 @@ export default function CampgroundDetailClient({
                                         catalog card, instead of a second divergent one. */}
                                     {isHeadlinePriceFree ? (
                                         <span className="text-2xl font-bold text-foreground">{t.common.free}</span>
-                                    ) : (
+                                    ) : !showSpotSection ? (
                                         <>
                                             <span className="text-2xl font-bold text-foreground">{formatCurrency(Number(campground.priceLow))} </span>
                                             {/* CAM-653 (ADR-014): unit-aware — reuses `bookingPricingUnit`,
@@ -1365,6 +1513,26 @@ export default function CampgroundDetailClient({
                                                 phrase instead (`priceUnitWord`, lib/price-unit-display.ts). */}
                                             <span className="text-muted-foreground">{priceUnitWord(t, bookingPricingUnit)}</span>
                                         </>
+                                    ) : selectedSpot ? (
+                                        // CAM-666: a pitch is picked — show what it actually resolves
+                                        // to (unitPrice/bookingPricingUnit already read the SELECTED
+                                        // spot via buildBookingPriceArgs above; own free-check mirrors
+                                        // SpotStrip's `isFree`, never the camp-level rule here).
+                                        isSelectedSpotFree ? (
+                                            <span className="text-2xl font-bold text-foreground">{t.common.free}</span>
+                                        ) : (
+                                            <>
+                                                <span className="text-2xl font-bold text-foreground">{formatCurrency(unitPrice)} </span>
+                                                <span className="text-muted-foreground">{priceUnitWord(t, bookingPricingUnit)}</span>
+                                            </>
+                                        )
+                                    ) : (
+                                        // CAM-666 AC: "from ฿X" until a pitch is chosen — camp-level
+                                        // priceLow (the existing "starting from" convention), no unit
+                                        // word (nothing charged per-anything has been picked yet).
+                                        <span className="text-2xl font-bold text-foreground">
+                                            {t.booking.priceFromPrefix} {formatCurrency(Number(campground.priceLow))}
+                                        </span>
                                     )}
                                 </div>
                                 {/* CAM-79 AC-1/AC-2: real rating in booking widget */}
@@ -1503,7 +1671,17 @@ export default function CampgroundDetailClient({
                                         </SelectTrigger>
                                         <SelectContent className="shadow-2xl">
                                             {guestOptions.map(num => (
-                                                <SelectItem key={num} value={num.toString()} className="cursor-pointer">
+                                                <SelectItem
+                                                    key={num}
+                                                    value={num.toString()}
+                                                    // CAM-666: once a pitch is picked, an option beyond
+                                                    // ITS OWN maxCampers (spotGuestCeiling, layered on
+                                                    // the whole-camp ceiling above) is unselectable —
+                                                    // never removed from the list, so the camper still
+                                                    // sees the camp-wide range while browsing pitches.
+                                                    disabled={spotGuestCeiling !== null && num > spotGuestCeiling}
+                                                    className="cursor-pointer"
+                                                >
                                                     {num} {num === 1 ? t.booking.guest : t.search.guests}
                                                 </SelectItem>
                                             ))}
@@ -1512,74 +1690,100 @@ export default function CampgroundDetailClient({
                                 </div>
                             </div>
 
-                            {/* CAM-267 PREP-1: live remaining capacity for the selected stay — เหลือ X ที่ / เต็มแล้ว. */}
-                            {!loadingRemaining && (showRemainingCount || isFullyBooked) && (
-                                <p
-                                    className={cn(
-                                        "text-xs text-center mb-3",
-                                        isFullyBooked ? "text-destructive font-semibold" : "text-muted-foreground"
+                            {/* CAM-666: at a per-pitch camp, price/totals/the reserve control
+                                stay absent until a pitch is picked (story.md) — the date/guest
+                                fields above stay usable regardless, so browsing pitches never
+                                loses a stay the camper already started picking. */}
+                            {hasPitchSelection ? (
+                                <>
+                                    {/* CAM-267 PREP-1: live remaining capacity for the selected stay — เหลือ X ที่ / เต็มแล้ว. */}
+                                    {!loadingRemaining && (showRemainingCount || isFullyBooked) && (
+                                        <p
+                                            className={cn(
+                                                "text-xs text-center mb-3",
+                                                isFullyBooked ? "text-destructive font-semibold" : "text-muted-foreground"
+                                            )}
+                                            data-testid="row--booking-remaining-capacity"
+                                            aria-live="polite"
+                                        >
+                                            {isFullyBooked
+                                                ? t.booking.fullyBooked
+                                                : t.booking.remainingSpots.replace('{n}', String(remainingCapacity?.remaining))}
+                                        </p>
                                     )}
-                                    data-testid="row--booking-remaining-capacity"
-                                    aria-live="polite"
-                                >
-                                    {isFullyBooked
-                                        ? t.booking.fullyBooked
-                                        : t.booking.remainingSpots.replace('{n}', String(remainingCapacity?.remaining))}
-                                </p>
-                            )}
 
-                            <Button
-                                onClick={handleReserve}
-                                size="lg"
-                                disabled={isReserving || isFullyBooked}
-                                aria-busy={isReserving}
-                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition mb-2 text-lg"
-                            >
-                                {isReserving ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                        {t.newCampground.reserving}
-                                    </>
-                                ) : t.common.reserve}
-                            </Button>
+                                    <Button
+                                        onClick={handleReserve}
+                                        size="lg"
+                                        disabled={isReserving || isFullyBooked}
+                                        aria-busy={isReserving}
+                                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition mb-2 text-lg"
+                                    >
+                                        {isReserving ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                                {t.newCampground.reserving}
+                                            </>
+                                        ) : t.common.reserve}
+                                    </Button>
 
-                            {hasAttemptedReserve && (!checkIn || !checkOut) && (
-                                <p className="text-destructive text-xs text-center mb-2">
-                                    {t.booking.selectDatesFirst}
-                                </p>
-                            )}
+                                    {hasAttemptedReserve && (!checkIn || !checkOut) && (
+                                        <p className="text-destructive text-xs text-center mb-2">
+                                            {t.booking.selectDatesFirst}
+                                        </p>
+                                    )}
 
-                            <p className="text-center text-xs text-muted-foreground mb-4">{t.booking.notChargedYet}</p>
+                                    {/* CAM-666: the picked pitch is not free for the CHOSEN dates —
+                                        blocks handleReserve (see the guard there) with a real message,
+                                        the same click-time pattern as the missing-dates message above. */}
+                                    {isSelectedSpotUnavailableForStay && (
+                                        <p
+                                            className="text-destructive text-xs text-center mb-2"
+                                            data-testid="alert--spot-dates-unavailable"
+                                        >
+                                            {t.booking.spotUnavailableForStay}
+                                        </p>
+                                    )}
 
-                            <div className="space-y-3 text-sm text-muted-foreground">
-                                <div className="flex justify-between" data-testid="row--booking-room-subtotal">
-                                    {/* CAM-652 (ADR-014): PER_PERSON adds the quantity term (x N guests) so the
-                                        breakdown's own math reads as `unit x guests x nights`, matching the
-                                        totalAmount the server records — never just `unit x nights` when a
-                                        party-size multiplier is actually being applied. */}
-                                    <span className="underline">
-                                        {formatCurrency(unitPrice)}
-                                        {bookingPricingUnit === "PER_PERSON" &&
-                                            ` x ${t.booking.guestsCount.replace("{count}", String(bookingQuantity))}`}
-                                        {` x ${displayNights} ${t.booking.nights}`}
-                                    </span>
-                                    <span>{formatCurrency(subtotalAmount)}</span>
-                                </div>
-                                {/* CAM-268 (PREP-2, AC-1): itemized breakdown — only rendered when the
-                                    camp actually has an atomic extra fee, so total always = base + this row. */}
-                                {extraFeeAmount > 0 && (
-                                    <div className="flex justify-between" data-testid="row--booking-extra-fee">
-                                        <span>{campground.extraFeeLabel || t.booking.fees}</span>
-                                        <span>{formatCurrency(extraFeeAmount)}</span>
+                                    <p className="text-center text-xs text-muted-foreground mb-4">{t.booking.notChargedYet}</p>
+
+                                    <div className="space-y-3 text-sm text-muted-foreground">
+                                        <div className="flex justify-between" data-testid="row--booking-room-subtotal">
+                                            {/* CAM-652 (ADR-014): PER_PERSON adds the quantity term (x N guests) so the
+                                                breakdown's own math reads as `unit x guests x nights`, matching the
+                                                totalAmount the server records — never just `unit x nights` when a
+                                                party-size multiplier is actually being applied. */}
+                                            <span className="underline">
+                                                {formatCurrency(unitPrice)}
+                                                {bookingPricingUnit === "PER_PERSON" &&
+                                                    ` x ${t.booking.guestsCount.replace("{count}", String(bookingQuantity))}`}
+                                                {` x ${displayNights} ${t.booking.nights}`}
+                                            </span>
+                                            <span>{formatCurrency(subtotalAmount)}</span>
+                                        </div>
+                                        {/* CAM-268 (PREP-2, AC-1): itemized breakdown — only rendered when the
+                                            camp actually has an atomic extra fee, so total always = base + this row. */}
+                                        {extraFeeAmount > 0 && (
+                                            <div className="flex justify-between" data-testid="row--booking-extra-fee">
+                                                <span>{campground.extraFeeLabel || t.booking.fees}</span>
+                                                <span>{formatCurrency(extraFeeAmount)}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
 
-                            <div className="mt-4 pt-4 border-t border-border/60 flex justify-between font-bold text-foreground" data-testid="row--booking-total">
-                                <span>{t.booking.total}</span>
-                                <span>{formatCurrency(totalAmount)}</span>
-                            </div>
-
+                                    <div className="mt-4 pt-4 border-t border-border/60 flex justify-between font-bold text-foreground" data-testid="row--booking-total">
+                                        <span>{t.booking.total}</span>
+                                        <span>{formatCurrency(totalAmount)}</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <p
+                                    className="text-center text-sm text-muted-foreground py-2"
+                                    data-testid="empty--booking-select-pitch"
+                                >
+                                    {t.booking.selectPitchToSeePrice}
+                                </p>
+                            )}
 
                         </div>
 
@@ -1728,6 +1932,36 @@ export default function CampgroundDetailClient({
                 onClose={() => setLoginOpen(false)}
                 subtitle={t.wishlist.loginPromptGuest}
             />
+
+            {/* CAM-664 (S2): mobile-only — the desktop booking widget above is
+                already visible (single-column flow), this just removes the need
+                to scroll past everything to reach it. Reuses the SAME
+                handleReserve the desktop Reserve button calls (its own
+                missing-dates/fully-booked/login/pitch guards apply unchanged).
+                CAM-666: same rule as the desktop widget — absent entirely until
+                a per-pitch camp has a picked pitch (hasPitchSelection); once
+                shown, its price mirrors the resolved unitPrice/bookingPricingUnit
+                (the SAME numbers the desktop breakdown/total already read). */}
+            {hasPitchSelection && (
+                <StickyActionBar
+                    primaryLabel={
+                        (showSpotSection && selectedSpot ? isSelectedSpotFree : isHeadlinePriceFree)
+                            ? t.common.free
+                            : formatCurrency(unitPrice)
+                    }
+                    secondaryLabel={
+                        (showSpotSection && selectedSpot ? isSelectedSpotFree : isHeadlinePriceFree)
+                            ? undefined
+                            : priceUnitWord(t, bookingPricingUnit)
+                    }
+                    actionLabel={t.common.reserve}
+                    loadingLabel={t.newCampground.reserving}
+                    onAction={handleReserve}
+                    disabled={isFullyBooked}
+                    loading={isReserving}
+                    data-testid="section--mobile-booking-bar"
+                />
+            )}
         </>
     );
 }

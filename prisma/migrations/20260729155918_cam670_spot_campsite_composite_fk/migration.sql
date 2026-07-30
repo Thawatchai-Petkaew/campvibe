@@ -1,0 +1,50 @@
+-- CAM-670 (ADR-012 §4): the database-level guarantee that a booking's spotId
+-- can only ever name a pitch that belongs to that SAME booking's campSiteId.
+-- CAM-668 closed this hole at the application layer (the booking route
+-- rejects a foreign spotId inside its Serializable transaction); this
+-- migration adds the DB constraint so a future code path that skips that
+-- check still cannot write a mismatched row.
+--
+-- Verified against staging on 2026-07-29 (orchestrator, not re-derived here):
+-- bookings total 2,618 · non-null spotId 2,529 · rows whose spotId points at
+-- a DIFFERENT camp: 0 · rows whose spotId points at a soft-deleted pitch: 0.
+-- The constraint applies cleanly — no backfill, no data rewrite needed.
+--
+-- Mechanism: Postgres requires a UNIQUE constraint on EXACTLY the referenced
+-- column set before a composite FK can point at it. Spot.id is already
+-- unique (PK) alone, so this adds (id, campSiteId) as a second unique
+-- constraint, then adds a NEW composite FK on top of it.
+--
+-- This is ADDITIVE, not a replacement: Booking's existing single-column
+-- "Booking_spotId_fkey" (spotId -> Spot.id, ON DELETE SET NULL) is left
+-- completely untouched. The new "Booking_spotId_campSiteId_fkey" is a
+-- second, independent constraint on the same spotId column — Postgres
+-- allows a column to participate in more than one FK constraint. Not
+-- modeled as a Prisma relation (see the comment on Spot's
+-- @@unique([id, campSiteId]) in schema.prisma) — this raw FK is
+-- Prisma-unmanaged, same pattern as the Zone partial unique index
+-- (prisma/migrations/20260705040333_cam362_zone_entity/migration.sql).
+--
+-- spotId stays NULLABLE. Postgres FK MATCH SIMPLE (the default — no MATCH
+-- FULL/PARTIAL specified) skips the constraint check entirely when ANY
+-- referencing column is NULL. Booking's campSiteId is NOT NULL, but spotId
+-- is nullable, so every ordinary spotId=NULL booking (the overwhelming
+-- majority) is completely unaffected — confirmed behaviorally by this
+-- story's DB-level test (a NULL spotId insert succeeds unchanged).
+--
+-- onDelete uses Postgres 15+'s COLUMN-SCOPED `ON DELETE SET NULL ("spotId")`
+-- — nulls ONLY spotId on a referenced Spot's delete, never campSiteId
+-- (which is NOT NULL on Booking and would raise a not-null violation if a
+-- blanket, non-column-scoped SET NULL tried to null it too — verified
+-- behaviorally against a throwaway DB before writing this file). This
+-- preserves EXACTLY today's existing delete behaviour: app/api/scrape-seed
+-- and app/api/bulk-seed both run `prisma.spot.deleteMany()` (wipe every
+-- Spot) and rely on referencing bookings surviving with spotId nulled out
+-- — proven unaffected by this migration's 4th DB-level test.
+
+-- CreateIndex (composite unique — the referenced side the composite FK needs)
+CREATE UNIQUE INDEX "Spot_id_campSiteId_key" ON "Spot"("id", "campSiteId");
+
+-- AddForeignKey (the NEW composite FK — additive, alongside the existing
+-- single-column Booking_spotId_fkey, which is untouched)
+ALTER TABLE "Booking" ADD CONSTRAINT "Booking_spotId_campSiteId_fkey" FOREIGN KEY ("spotId", "campSiteId") REFERENCES "Spot"("id", "campSiteId") ON DELETE SET NULL ("spotId") ON UPDATE CASCADE;

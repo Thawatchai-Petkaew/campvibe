@@ -509,6 +509,22 @@ model Spot {
   deletedAt DateTime? // soft-delete
   version   Int       @default(1)
 
+  // CAM-670: composite unique — Postgres requires a unique constraint on
+  // EXACTLY the referenced column set before a composite FK can point at it.
+  // id alone is already unique (PK); this adds (id, campSiteId) so a
+  // composite FK can point at Spot(id, campSiteId).
+  //
+  // The FK itself — Booking(spotId, campSiteId) -> this — is NOT modeled as
+  // a Prisma relation (same pattern as Zone_campSiteId_name_active_key
+  // below): it is hand-written raw SQL in
+  // prisma/migrations/20260729155918_cam670_spot_campsite_composite_fk/migration.sql,
+  // added ALONGSIDE Booking's existing spotId->Spot.id FK (never dropped),
+  // using Postgres's column-scoped `ON DELETE SET NULL ("spotId")` (PG 15+)
+  // so a Spot delete nulls ONLY spotId, never touching the required
+  // campSiteId column — the one thing Prisma's onDelete DSL cannot express.
+  // Will NOT appear in `prisma migrate diff`; a `db push`/reset-from-schema
+  // would lose it unless this migration file stays committed.
+  @@unique([id, campSiteId])
   @@index([campSiteId])
   @@index([zoneId]) // CAM-362 — detach-on-delete UPDATE + zone-grouped reads
 }
@@ -637,7 +653,21 @@ model Booking {
   campSite   CampSite @relation(fields: [campSiteId], references: [id])
 
   spotId String?
-  spot   Spot?   @relation(fields: [spotId], references: [id])
+  // Unchanged from before CAM-670 — this relation still models only the
+  // single-column spotId->Spot.id FK. CAM-670's composite guarantee
+  // (spotId must belong to THIS booking's campSiteId) is added as a SECOND,
+  // Prisma-unmanaged raw FK constraint — see the comment on
+  // Spot's @@unique([id, campSiteId]) below for why, and
+  // prisma/migrations/20260729155918_cam670_spot_campsite_composite_fk/migration.sql
+  // for the actual DDL. Kept out of the Prisma DSL deliberately: Prisma has
+  // no way to express Postgres's column-scoped `ON DELETE SET NULL (col)`
+  // (PG 15+), which this composite FK needs — a blanket SetNull (the only
+  // form Prisma can emit) would try to null BOTH spotId AND campSiteId on a
+  // Spot delete, and campSiteId is NOT NULL, so it would ERROR instead of
+  // behaving like today's `app/api/scrape-seed` / `app/api/bulk-seed`
+  // `prisma.spot.deleteMany()` (which rely on the existing FK below silently
+  // nulling spotId only).
+  spot Spot? @relation(fields: [spotId], references: [id])
 
   payments Payment[] // Payment ledger for this booking (S7)
 

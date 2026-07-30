@@ -372,9 +372,9 @@ describe("CampgroundDetailClient.tsx — Accommodation-type section wiring (AC-2
     expect(detailSrc).toContain("csvToArray(campground.accommodationTypes)");
   });
 
-  it("[normal] the section is gated on accommodationCodes.length > 0, uses OptionGroupSection + t.filter[\"Accommodation type\"]", () => {
+  it("[normal] the sub-group is gated on accommodationCodes.length > 0, uses OptionGroupSection + t.filter[\"Accommodation type\"] (CAM-667: testId moved onto the primitive itself, folded under the shared \"camp details\" heading)", () => {
     expect(detailSrc).toContain("{accommodationCodes.length > 0 && (");
-    expect(detailSrc).toContain('data-testid="section--accommodation-types"');
+    expect(detailSrc).toContain('testId="section--accommodation-types"');
     expect(detailSrc).toContain('heading={t.filter["Accommodation type"]}');
     expect(detailSrc).toContain("codes={accommodationCodes}");
   });
