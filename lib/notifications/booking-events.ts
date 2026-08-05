@@ -5,13 +5,17 @@ import {
   buildBookingCreatedCopy,
   bookingHighlightLink,
 } from '@/lib/notifications/copy';
+import { sendHostEmail } from '@/lib/notifications/host-email';
 
 /**
  * lib/notifications/booking-events.ts — CAM-681, the FIRST writer of the
  * `Notification` table (prisma/schema.prisma:857-873 — zero writers before
  * this story). CAM-682 adds a second event (booking cancelled) to the SAME
  * module — same never-throw shape, same kill-switch-in-copy-layer pattern,
- * same no-guest-PII rule; see notifyBookingCancelled below.
+ * same no-guest-PII rule; see notifyBookingCancelled below. CAM-685 adds a
+ * host EMAIL decision to both events (lib/notifications/host-email.ts),
+ * reusing the SAME listBookingViewRecipients() result already fetched here
+ * — never a second query, never a second call site.
  *
  * notifyBookingCreated is called ONCE, from app/api/bookings/route.ts,
  * strictly AFTER withBookingTransaction has already committed a real
@@ -67,19 +71,36 @@ export async function notifyBookingCreated(booking: BookingCreatedEventInput): P
 
     const recipients = await listBookingViewRecipients(booking.campSiteId);
     const targets = recipients.filter((r) => r.userId !== booking.userId);
-    if (targets.length === 0) return;
+    if (targets.length > 0) {
+      const link = bookingHighlightLink(booking.id);
 
-    const link = bookingHighlightLink(booking.id);
+      await prisma.notification.createMany({
+        data: targets.map((r) => ({
+          userId: r.userId,
+          type: 'BOOKING' as const,
+          title: copy.title,
+          body: copy.body,
+          link,
+          isRead: false,
+        })),
+      });
+    }
 
-    await prisma.notification.createMany({
-      data: targets.map((r) => ({
-        userId: r.userId,
-        type: 'BOOKING' as const,
-        title: copy.title,
-        body: copy.body,
-        link,
-        isRead: false,
-      })),
+    // CAM-685 — host EMAIL is a separate, narrower channel (operator only,
+    // gated behind its own EMAIL_HOST_NOTIFICATIONS switch — see
+    // lib/notifications/host-email.ts's module doc). Decided from the SAME
+    // `recipients` fetch above — never a second query. sendHostEmail never
+    // throws (its own internal try/catch), so this call needs no extra
+    // guard here.
+    await sendHostEmail({
+      kind: 'bookingCreated',
+      bookingId: booking.id,
+      campName: booking.snapshotCampName,
+      checkInDate: booking.checkInDate,
+      checkOutDate: booking.checkOutDate,
+      guests: booking.guests,
+      actorUserId: booking.userId,
+      recipients,
     });
   } catch (e) {
     console.error(
@@ -139,19 +160,34 @@ export async function notifyBookingCancelled(booking: BookingCancelledEventInput
 
     const recipients = await listBookingViewRecipients(booking.campSiteId);
     const targets = recipients.filter((r) => r.userId !== booking.userId);
-    if (targets.length === 0) return;
+    if (targets.length > 0) {
+      const link = bookingHighlightLink(booking.id);
 
-    const link = bookingHighlightLink(booking.id);
+      await prisma.notification.createMany({
+        data: targets.map((r) => ({
+          userId: r.userId,
+          type: 'BOOKING' as const,
+          title: copy.title,
+          body: copy.body,
+          link,
+          isRead: false,
+        })),
+      });
+    }
 
-    await prisma.notification.createMany({
-      data: targets.map((r) => ({
-        userId: r.userId,
-        type: 'BOOKING' as const,
-        title: copy.title,
-        body: copy.body,
-        link,
-        isRead: false,
-      })),
+    // CAM-685 — host EMAIL, same rules as notifyBookingCreated above: the
+    // caller of THIS function only ever fires it for a camper-initiated
+    // cancel (see this function's own doc comment), so `booking.userId` here
+    // is always the camper who cancelled, never a host.
+    await sendHostEmail({
+      kind: 'bookingCancelled',
+      bookingId: booking.id,
+      campName: booking.snapshotCampName,
+      checkInDate: booking.checkInDate,
+      checkOutDate: booking.checkOutDate,
+      guests: booking.guests,
+      actorUserId: booking.userId,
+      recipients,
     });
   } catch (e) {
     console.error(

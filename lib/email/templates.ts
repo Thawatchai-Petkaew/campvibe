@@ -41,6 +41,26 @@ function formatDate(date: Date | string): string {
   }).format(d);
 }
 
+/**
+ * CAM-685 — host-facing templates receive a deep link that is a relative
+ * path (e.g. lib/notifications/copy.ts's bookingHighlightLink, already used
+ * for the in-app Notification row's `link` field). An email needs an
+ * absolute URL to be clickable from an inbox. Reuses the EXISTING
+ * `APP_BASE_URL` convention (already used 11x in this repo, including from
+ * the app itself — app/layout.tsx:33, lib/notify-messages.ts:80/87) rather
+ * than a new env var. Read at CALL TIME (not module load), matching that
+ * same precedent, and falling back to the real staging deployment origin —
+ * a domain this repo has no evidence resolves to anything is the wrong
+ * fallback for a link a host will click; an unconfigured env must land on a
+ * URL that exists. A path that is already absolute (e.g. a future caller
+ * passes a full URL) is left untouched.
+ */
+function absoluteAppUrl(path: string): string {
+  if (/^https?:\/\//.test(path)) return path;
+  const base = process.env.APP_BASE_URL ?? 'https://campvibe-staging.vercel.app';
+  return `${base}${path}`;
+}
+
 function layout(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html lang="th">
@@ -145,7 +165,17 @@ export interface HostNewBookingParams {
   checkIn: Date | string;
   checkOut: Date | string;
   guests: number;
-  guestName: string;
+  /**
+   * Optional — omitted from the email body when absent. lib/notifications/
+   * host-email.ts (CAM-685) does not plumb guest identity into this event by
+   * design, matching the PDPA-minimal-disclosure pattern already established
+   * for the in-app Notification copy layer (lib/notifications/copy.ts).
+   */
+  guestName?: string;
+  /** Deep link to the booking, e.g. lib/notifications/copy.ts's
+   *  bookingHighlightLink('/dashboard/bookings?highlight=<id>'); rendered as
+   *  a CTA button (CAM-74 AC#2/AC#4 — the email must link to the booking). */
+  bookingUrl: string;
 }
 
 export function hostNewBookingEmail(params: HostNewBookingParams): EmailTemplate {
@@ -162,10 +192,56 @@ export function hostNewBookingEmail(params: HostNewBookingParams): EmailTemplate
     <p style="${styles.value}">${formatDate(params.checkOut)}</p>
     <p style="${styles.label}">จำนวนผู้เข้าพัก</p>
     <p style="${styles.value}">${params.guests} คน</p>
-    <p style="${styles.label}">ชื่อผู้เข้าพัก</p>
-    <p style="${styles.value}">${params.guestName}</p>
+    ${
+      params.guestName
+        ? `<p style="${styles.label}">ชื่อผู้เข้าพัก</p>
+    <p style="${styles.value}">${params.guestName}</p>`
+        : ''
+    }
     <hr style="${styles.divider}">
-    <p style="${styles.p}">กรุณาเข้าสู่ระบบ CampVibe เพื่อดูรายละเอียดและยืนยันการจอง</p>
+    <p style="${styles.p}">กรุณาตรวจสอบและยืนยันการจองผ่านลิงก์ด้านล่าง</p>
+    <p style="margin: 24px 0;">
+      <a href="${absoluteAppUrl(params.bookingUrl)}" style="display: inline-block; background: #1a6b3c; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; text-decoration: none;">ดูรายละเอียดการจอง</a>
+    </p>
+  `;
+  return { subject, html: layout(subject, content) };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Template: Booking cancelled (to host)                                       */
+/* -------------------------------------------------------------------------- */
+
+export interface HostBookingCancelledParams {
+  campName: string;
+  checkIn: Date | string;
+  checkOut: Date | string;
+  /** Deep link to the booking — see HostNewBookingParams.bookingUrl. */
+  bookingUrl: string;
+}
+
+/**
+ * CAM-685 — the HOST-facing sibling of bookingCancelledEmail (:121, sent to
+ * the camper). Fired only when a CAMPER cancels their own booking (never a
+ * host-initiated cancel — see lib/notifications/host-email.ts's
+ * decideHostEmail, CAM-74 AC#5).
+ */
+export function hostBookingCancelledEmail(params: HostBookingCancelledParams): EmailTemplate {
+  const subject = `มีการยกเลิกการจองที่ ${params.campName}`;
+  const content = `
+    <h2 style="${styles.h2}">มีการยกเลิกการจอง</h2>
+    <p style="${styles.p}">ผู้เข้าพักได้ยกเลิกการจองที่แคมป์ของคุณผ่าน CampVibe</p>
+    <hr style="${styles.divider}">
+    <p style="${styles.label}">สถานที่แคมป์</p>
+    <p style="${styles.value}">${params.campName}</p>
+    <p style="${styles.label}">วันเช็กอิน</p>
+    <p style="${styles.value}">${formatDate(params.checkIn)}</p>
+    <p style="${styles.label}">วันเช็กเอาต์</p>
+    <p style="${styles.value}">${formatDate(params.checkOut)}</p>
+    <hr style="${styles.divider}">
+    <p style="${styles.p}">กรุณาตรวจสอบรายละเอียดผ่านลิงก์ด้านล่าง</p>
+    <p style="margin: 24px 0;">
+      <a href="${absoluteAppUrl(params.bookingUrl)}" style="display: inline-block; background: #1a6b3c; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; text-decoration: none;">ดูรายละเอียดการจอง</a>
+    </p>
   `;
   return { subject, html: layout(subject, content) };
 }

@@ -9,13 +9,18 @@
  *   - accessibility: html is semantic (contains expected structure)
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   bookingConfirmationEmail,
   bookingCancelledEmail,
   hostNewBookingEmail,
+  hostBookingCancelledEmail,
   kycResultEmail,
 } from "@/lib/email/templates";
+
+afterEach(() => {
+  vi.unstubAllEnvs(); // never leak an APP_BASE_URL stub into another test file
+});
 
 const CHECK_IN = new Date("2026-08-01T00:00:00.000Z");
 const CHECK_OUT = new Date("2026-08-03T00:00:00.000Z");
@@ -133,6 +138,7 @@ describe("hostNewBookingEmail", () => {
     checkOut: CHECK_OUT,
     guests: 2,
     guestName: "สมชาย มั่นคง",
+    bookingUrl: "/dashboard/bookings?highlight=bk-1",
   };
 
   it("subject contains the camp name", () => {
@@ -160,8 +166,95 @@ describe("hostNewBookingEmail", () => {
     expect(html).toContain("2");
   });
 
+  it("html contains a link to /dashboard/bookings (CAM-74 AC#2)", () => {
+    const { html } = hostNewBookingEmail(params);
+    expect(html).toContain("/dashboard/bookings");
+    expect(html).toContain(params.bookingUrl);
+  });
+
+  it("[boundary] omits the guest-name line when guestName is absent", () => {
+    const { html } = hostNewBookingEmail({ ...params, guestName: undefined });
+    expect(html).not.toContain("ชื่อผู้เข้าพัก");
+    // still renders the rest without crashing
+    expect(html).toContain("ริมน้ำ แคมป์");
+  });
+
   it("is a pure function", () => {
     expect(hostNewBookingEmail(params)).toEqual(hostNewBookingEmail(params));
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* hostBookingCancelledEmail                                                   */
+/* -------------------------------------------------------------------------- */
+
+describe("hostBookingCancelledEmail", () => {
+  const params = {
+    campName: "ริมน้ำ แคมป์",
+    checkIn: CHECK_IN,
+    checkOut: CHECK_OUT,
+    bookingUrl: "/dashboard/bookings?highlight=bk-2",
+  };
+
+  it("subject contains the camp name", () => {
+    const { subject } = hostBookingCancelledEmail(params);
+    expect(subject).toContain("ริมน้ำ แคมป์");
+  });
+
+  it("html contains Thai cancellation copy for host", () => {
+    const { html } = hostBookingCancelledEmail(params);
+    expect(html).toContain("มีการยกเลิกการจอง");
+  });
+
+  it("html contains the camp name", () => {
+    const { html } = hostBookingCancelledEmail(params);
+    expect(html).toContain("ริมน้ำ แคมป์");
+  });
+
+  it("html contains a link to /dashboard/bookings (CAM-74 AC#4)", () => {
+    const { html } = hostBookingCancelledEmail(params);
+    expect(html).toContain("/dashboard/bookings");
+    expect(html).toContain(params.bookingUrl);
+  });
+
+  it("html has no em-dash separator", () => {
+    const { html } = hostBookingCancelledEmail(params);
+    expect(html).not.toContain("—");
+  });
+
+  it("is a pure function", () => {
+    expect(hostBookingCancelledEmail(params)).toEqual(hostBookingCancelledEmail(params));
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Deep-link origin (CAM-685) — honours APP_BASE_URL, falls back to staging   */
+/* -------------------------------------------------------------------------- */
+
+describe("host-facing deep-link origin honours APP_BASE_URL", () => {
+  const linkParams = {
+    campName: "ริมน้ำ แคมป์",
+    checkIn: CHECK_IN,
+    checkOut: CHECK_OUT,
+    guests: 2,
+    bookingUrl: "/dashboard/bookings?highlight=bk-3",
+  };
+
+  it("[normal] APP_BASE_URL set -> the link resolves against it", () => {
+    vi.stubEnv("APP_BASE_URL", "https://example-custom-origin.test");
+    const { html } = hostNewBookingEmail(linkParams);
+    expect(html).toContain("https://example-custom-origin.test/dashboard/bookings?highlight=bk-3");
+  });
+
+  it("[boundary] APP_BASE_URL unset -> falls back to the real staging deployment origin, never an unverified domain", () => {
+    const { html } = hostNewBookingEmail(linkParams);
+    expect(html).toContain("https://campvibe-staging.vercel.app/dashboard/bookings?highlight=bk-3");
+  });
+
+  it("[normal] hostBookingCancelledEmail also honours APP_BASE_URL", () => {
+    vi.stubEnv("APP_BASE_URL", "https://example-custom-origin.test");
+    const { html } = hostBookingCancelledEmail(linkParams);
+    expect(html).toContain("https://example-custom-origin.test/dashboard/bookings?highlight=bk-3");
   });
 });
 
