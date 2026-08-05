@@ -127,7 +127,11 @@
             "loadError": "Couldn't load notifications",
             "booking": {
                 "title": "New booking",
-                "body": "{campName} has a new booking from {checkInDate} to {checkOutDate} for {guests} guests"
+                "body": "{campName} has a new booking from {checkInDate} to {checkOutDate} for {guests} guests",
+                "cancelled": {
+                    "title": "Booking cancelled",
+                    "body": "{campName} had a booking cancelled from {checkInDate} to {checkOutDate} for {guests} guests"
+                }
             }
         },
         "categories": {
@@ -1290,7 +1294,11 @@
             "loadError": "โหลดการแจ้งเตือนไม่สำเร็จ",
             "booking": {
                 "title": "มีการจองใหม่",
-                "body": "{campName} มีการจองใหม่ วันที่ {checkInDate} ถึง {checkOutDate} จำนวน {guests} คน"
+                "body": "{campName} มีการจองใหม่ วันที่ {checkInDate} ถึง {checkOutDate} จำนวน {guests} คน",
+                "cancelled": {
+                    "title": "มีการยกเลิกการจอง",
+                    "body": "{campName} มีการยกเลิกการจอง วันที่ {checkInDate} ถึง {checkOutDate} จำนวน {guests} คน"
+                }
             }
         },
         "categories": {

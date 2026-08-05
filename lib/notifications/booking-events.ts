@@ -1,17 +1,23 @@
 import { prisma } from '@/lib/prisma';
 import { listBookingViewRecipients } from '@/lib/camp-access';
-import { buildBookingCreatedCopy, bookingHighlightLink } from '@/lib/notifications/copy';
+import {
+  buildBookingCancelledCopy,
+  buildBookingCreatedCopy,
+  bookingHighlightLink,
+} from '@/lib/notifications/copy';
 
 /**
  * lib/notifications/booking-events.ts — CAM-681, the FIRST writer of the
  * `Notification` table (prisma/schema.prisma:857-873 — zero writers before
- * this story).
+ * this story). CAM-682 adds a second event (booking cancelled) to the SAME
+ * module — same never-throw shape, same kill-switch-in-copy-layer pattern,
+ * same no-guest-PII rule; see notifyBookingCancelled below.
  *
- * Called ONCE, from app/api/bookings/route.ts, strictly AFTER
- * withBookingTransaction has already committed a real `Booking` row — never
- * from inside that transaction. Two reasons, both about
- * withBookingTransaction's Serializable retry (route.ts:59-280, up to 4
- * attempts on P2034):
+ * notifyBookingCreated is called ONCE, from app/api/bookings/route.ts,
+ * strictly AFTER withBookingTransaction has already committed a real
+ * `Booking` row — never from inside that transaction. Two reasons, both
+ * about withBookingTransaction's Serializable retry (route.ts:59-280, up to
+ * 4 attempts on P2034):
  *
  *   1. Writing via the tx client INSIDE the transaction would fire once per
  *      retry attempt — up to 4 notification rows for one booking.
@@ -80,6 +86,78 @@ export async function notifyBookingCreated(booking: BookingCreatedEventInput): P
       JSON.stringify({
         level: 'error',
         event: 'booking_notify_failed',
+        bookingId: booking.id,
+        campSiteId: booking.campSiteId,
+        reason: e instanceof Error ? e.message : String(e),
+      })
+    );
+  }
+}
+
+/**
+ * CAM-682 — same input shape as BookingCreatedEventInput (both carry the
+ * fields buildBookingCancelledCopy/buildBookingCreatedCopy need plus the
+ * booking's owning userId for the self-notify exclusion below); kept as its
+ * own named type so the two events can diverge independently later.
+ */
+export interface BookingCancelledEventInput {
+  id: string;
+  /** The booking's owner (the camper) — excluded from recipients (never
+   *  notify yourself), same rule as notifyBookingCreated. */
+  userId: string;
+  campSiteId: string;
+  checkInDate: Date;
+  checkOutDate: Date;
+  guests: number;
+  /** Booking.snapshotCampName (TH), frozen at booking time — ADR-005. */
+  snapshotCampName: string | null;
+}
+
+/**
+ * Notifies the host/team recipients that a CAMPER cancelled their own
+ * booking. The call site (app/api/bookings/[id]/route.ts PATCH) is
+ * responsible for only calling this when the cancelling actor is the camper
+ * and NOT also someone who can act as host on this camp (`isCamper &&
+ * !canHostUpdate`) — a host who booked their own camp and then cancels is a
+ * HOST action, and notifying them about themselves is noise (CAM-74 AC#5).
+ * This function does not re-derive that condition; it assumes the caller
+ * already decided to fire.
+ *
+ * Same never-throw shape as notifyBookingCreated — see this module's doc
+ * comment above. A notification failure here must never turn a successfully
+ * committed cancellation into a 500 for the camper who just cancelled.
+ */
+export async function notifyBookingCancelled(booking: BookingCancelledEventInput): Promise<void> {
+  try {
+    const copy = buildBookingCancelledCopy({
+      campName: booking.snapshotCampName,
+      checkInDate: booking.checkInDate,
+      checkOutDate: booking.checkOutDate,
+      guests: booking.guests,
+    });
+    if (!copy) return; // kill switch off — write nothing, not an error
+
+    const recipients = await listBookingViewRecipients(booking.campSiteId);
+    const targets = recipients.filter((r) => r.userId !== booking.userId);
+    if (targets.length === 0) return;
+
+    const link = bookingHighlightLink(booking.id);
+
+    await prisma.notification.createMany({
+      data: targets.map((r) => ({
+        userId: r.userId,
+        type: 'BOOKING' as const,
+        title: copy.title,
+        body: copy.body,
+        link,
+        isRead: false,
+      })),
+    });
+  } catch (e) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'booking_cancel_notify_failed',
         bookingId: booking.id,
         campSiteId: booking.campSiteId,
         reason: e instanceof Error ? e.message : String(e),
