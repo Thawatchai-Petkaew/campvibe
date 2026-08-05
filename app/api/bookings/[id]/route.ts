@@ -7,6 +7,7 @@ import type { TeamRole } from '@/lib/team-permissions';
 import { getEffectivePermissions, hasPermission } from '@/lib/team-permissions';
 import { getOwnedBooking } from '@/lib/bookings';
 import type { BookingStatus } from '@/lib/booking-status';
+import { notifyBookingCancelled } from '@/lib/notifications/booking-events';
 
 // CAM-618: this is a deliberate ALLOWLIST of the statuses a caller (camper/host/admin) may
 // set directly through this generic PATCH — not a mirror of the full `BookingStatus` enum,
@@ -90,6 +91,31 @@ export async function PATCH(
       where: { id },
       data: { status }
     });
+
+    // CAM-682: notify the host/team only when a CAMPER cancels their OWN
+    // booking — never when a host cancels (isCamper alone is not enough: a
+    // host who booked their own camp is both camper and host on this row,
+    // and a host-initiated cancel notifying them about themselves is noise,
+    // CAM-74 AC#5). CONFIRMED/COMPLETED notify nobody this round.
+    if (status === 'CANCELLED' && isCamper && !canHostUpdate) {
+      // Same 500-trap defence as app/api/bookings/route.ts's notifyBookingCreated
+      // call site: notifyBookingCancelled() never throws by design, but this
+      // try/catch is a second line of defence against a bad import throwing
+      // synchronously before the function's own internal catch can run — a
+      // notify failure must never turn a successful cancel into a 500.
+      try {
+        await notifyBookingCancelled(updatedBooking);
+      } catch (notifyError) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            event: 'booking_cancel_notify_call_site_failed',
+            bookingId: updatedBooking.id,
+            reason: notifyError instanceof Error ? notifyError.message : String(notifyError),
+          })
+        );
+      }
+    }
 
     return apiSuccess(updatedBooking);
   } catch (error) {

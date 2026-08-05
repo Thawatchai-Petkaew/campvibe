@@ -22,10 +22,11 @@ import translations from '@/locales/translations.json';
  * (.claude/rules/code.md #4).
  */
 
-export type NotificationEventKind = 'bookingCreated';
+export type NotificationEventKind = 'bookingCreated' | 'bookingCancelled';
 
 export const NOTIFICATION_EVENTS: Record<NotificationEventKind, boolean> = {
   bookingCreated: true,
+  bookingCancelled: true,
 };
 
 export interface BookingCreatedCopyInput {
@@ -36,6 +37,10 @@ export interface BookingCreatedCopyInput {
   checkOutDate: Date;
   guests: number;
 }
+
+/** CAM-682 — identical shape to BookingCreatedCopyInput (camp name, dates,
+ *  guest count only; see the module doc's PDPA note — no guest identity). */
+export type BookingCancelledCopyInput = BookingCreatedCopyInput;
 
 export interface NotificationCopy {
   title: string;
@@ -54,6 +59,8 @@ function formatThaiDate(date: Date): string {
 
 /** Thai copy templates, single source in locales/translations.json (`notifications.booking.*`). */
 const TH_TEMPLATE = translations.th.notifications.booking;
+/** CAM-682 — cancellation copy, same locale file, `notifications.booking.cancelled.*`. */
+const TH_TEMPLATE_CANCELLED = translations.th.notifications.booking.cancelled;
 
 /**
  * Builds the Thai title/body for a "new booking" notification pushed to a
@@ -75,6 +82,30 @@ export function buildBookingCreatedCopy(input: BookingCreatedCopyInput): Notific
     .replace('{guests}', String(input.guests));
 
   return { title: TH_TEMPLATE.title, body };
+}
+
+/**
+ * Builds the Thai title/body for a "booking cancelled" notification pushed to
+ * a host/team member. Returns null when NOTIFICATION_EVENTS.bookingCancelled
+ * is off — the caller (lib/notifications/booking-events.ts) must treat null
+ * as "write nothing", not as an error. CAM-682: fired only when a CAMPER
+ * cancels their own booking (never when a host cancels their own — see that
+ * module's notifyBookingCancelled doc for the full rule).
+ */
+export function buildBookingCancelledCopy(input: BookingCancelledCopyInput): NotificationCopy | null {
+  if (!NOTIFICATION_EVENTS.bookingCancelled) return null;
+
+  const campName = input.campName ?? FALLBACK_CAMP_NAME;
+  const checkIn = formatThaiDate(input.checkInDate);
+  const checkOut = formatThaiDate(input.checkOutDate);
+
+  const body = TH_TEMPLATE_CANCELLED.body
+    .replace('{campName}', campName)
+    .replace('{checkInDate}', checkIn)
+    .replace('{checkOutDate}', checkOut)
+    .replace('{guests}', String(input.guests));
+
+  return { title: TH_TEMPLATE_CANCELLED.title, body };
 }
 
 /** Deep link target — re-checks BOOKING_VIEW on every load (see module doc). */
