@@ -196,6 +196,41 @@ export interface WishlistIdsResponse {
     campSiteIds: string[];
 }
 
+// Notification types (CAM-683)
+
+// CAM-683: mirrors the Prisma `NotificationType` enum (prisma/schema.prisma:753).
+// Kept as a local mirror rather than importing `@prisma/client` — same
+// convention as the other enums on this page — since this file is consumed
+// by client code too. Do not add a value here without a matching migration
+// (`ALTER TYPE ... ADD VALUE` is irreversible in Postgres — .claude/rules/api.md #6).
+export type NotificationType = 'BOOKING' | 'PAYMENT' | 'REVIEW' | 'SYSTEM' | 'KYC';
+
+/**
+ * A single notification row, scoped to its owner (never returned across users).
+ * Superseded CAM-73's `href` field name — the shipped column is `link`.
+ */
+export interface NotificationDTO {
+    id: string;
+    type: NotificationType;
+    title: string;
+    body?: string | null;
+    link?: string | null;
+    isRead: boolean;
+    createdAt: string; // ISO datetime
+}
+
+/** Response shape for PATCH /api/notifications/[id] (mark one notification read). */
+export interface NotificationMarkReadResponse {
+    id: string;
+    isRead: true;
+    readAt: string; // ISO datetime
+}
+
+/** Response shape for PATCH /api/notifications (mark all of the caller's unread rows read). */
+export interface NotificationMarkAllReadResponse {
+    count: number;
+}
+
 // API Response Wrappers
 export interface ApiResponse<T> {
     data?: T;
