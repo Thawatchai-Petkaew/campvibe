@@ -9,7 +9,7 @@
  *   - accessibility: html is semantic (contains expected structure)
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   bookingConfirmationEmail,
   bookingCancelledEmail,
@@ -17,6 +17,10 @@ import {
   hostBookingCancelledEmail,
   kycResultEmail,
 } from "@/lib/email/templates";
+
+afterEach(() => {
+  vi.unstubAllEnvs(); // never leak an APP_BASE_URL stub into another test file
+});
 
 const CHECK_IN = new Date("2026-08-01T00:00:00.000Z");
 const CHECK_OUT = new Date("2026-08-03T00:00:00.000Z");
@@ -220,6 +224,37 @@ describe("hostBookingCancelledEmail", () => {
 
   it("is a pure function", () => {
     expect(hostBookingCancelledEmail(params)).toEqual(hostBookingCancelledEmail(params));
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Deep-link origin (CAM-685) — honours APP_BASE_URL, falls back to staging   */
+/* -------------------------------------------------------------------------- */
+
+describe("host-facing deep-link origin honours APP_BASE_URL", () => {
+  const linkParams = {
+    campName: "ริมน้ำ แคมป์",
+    checkIn: CHECK_IN,
+    checkOut: CHECK_OUT,
+    guests: 2,
+    bookingUrl: "/dashboard/bookings?highlight=bk-3",
+  };
+
+  it("[normal] APP_BASE_URL set -> the link resolves against it", () => {
+    vi.stubEnv("APP_BASE_URL", "https://example-custom-origin.test");
+    const { html } = hostNewBookingEmail(linkParams);
+    expect(html).toContain("https://example-custom-origin.test/dashboard/bookings?highlight=bk-3");
+  });
+
+  it("[boundary] APP_BASE_URL unset -> falls back to the real staging deployment origin, never an unverified domain", () => {
+    const { html } = hostNewBookingEmail(linkParams);
+    expect(html).toContain("https://campvibe-staging.vercel.app/dashboard/bookings?highlight=bk-3");
+  });
+
+  it("[normal] hostBookingCancelledEmail also honours APP_BASE_URL", () => {
+    vi.stubEnv("APP_BASE_URL", "https://example-custom-origin.test");
+    const { html } = hostBookingCancelledEmail(linkParams);
+    expect(html).toContain("https://example-custom-origin.test/dashboard/bookings?highlight=bk-3");
   });
 });
 

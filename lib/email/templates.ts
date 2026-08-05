@@ -45,17 +45,20 @@ function formatDate(date: Date | string): string {
  * CAM-685 — host-facing templates receive a deep link that is a relative
  * path (e.g. lib/notifications/copy.ts's bookingHighlightLink, already used
  * for the in-app Notification row's `link` field). An email needs an
- * absolute URL to be clickable from an inbox; this repo has no per-env
- * base-URL config yet (CAM-685's scope is exactly RESEND_API_KEY /
- * EMAIL_FROM / EMAIL_HOST_NOTIFICATIONS — see env.example), so this mirrors
- * lib/email/client.ts's existing fallback-domain precedent
- * ("noreply@campvibe.app") rather than inventing a new env var out of scope.
- * A path that is already absolute (e.g. a future caller passes a full URL)
- * is left untouched.
+ * absolute URL to be clickable from an inbox. Reuses the EXISTING
+ * `APP_BASE_URL` convention (already used 11x in this repo, including from
+ * the app itself — app/layout.tsx:33, lib/notify-messages.ts:80/87) rather
+ * than a new env var. Read at CALL TIME (not module load), matching that
+ * same precedent, and falling back to the real staging deployment origin —
+ * a domain this repo has no evidence resolves to anything is the wrong
+ * fallback for a link a host will click; an unconfigured env must land on a
+ * URL that exists. A path that is already absolute (e.g. a future caller
+ * passes a full URL) is left untouched.
  */
-const APP_ORIGIN = 'https://campvibe.app';
 function absoluteAppUrl(path: string): string {
-  return /^https?:\/\//.test(path) ? path : `${APP_ORIGIN}${path}`;
+  if (/^https?:\/\//.test(path)) return path;
+  const base = process.env.APP_BASE_URL ?? 'https://campvibe-staging.vercel.app';
+  return `${base}${path}`;
 }
 
 function layout(title: string, content: string): string {
