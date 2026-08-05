@@ -14,6 +14,7 @@ import {
   bookingConfirmationEmail,
   bookingCancelledEmail,
   hostNewBookingEmail,
+  hostBookingCancelledEmail,
   kycResultEmail,
 } from "@/lib/email/templates";
 
@@ -133,6 +134,7 @@ describe("hostNewBookingEmail", () => {
     checkOut: CHECK_OUT,
     guests: 2,
     guestName: "สมชาย มั่นคง",
+    bookingUrl: "/dashboard/bookings?highlight=bk-1",
   };
 
   it("subject contains the camp name", () => {
@@ -160,8 +162,64 @@ describe("hostNewBookingEmail", () => {
     expect(html).toContain("2");
   });
 
+  it("html contains a link to /dashboard/bookings (CAM-74 AC#2)", () => {
+    const { html } = hostNewBookingEmail(params);
+    expect(html).toContain("/dashboard/bookings");
+    expect(html).toContain(params.bookingUrl);
+  });
+
+  it("[boundary] omits the guest-name line when guestName is absent", () => {
+    const { html } = hostNewBookingEmail({ ...params, guestName: undefined });
+    expect(html).not.toContain("ชื่อผู้เข้าพัก");
+    // still renders the rest without crashing
+    expect(html).toContain("ริมน้ำ แคมป์");
+  });
+
   it("is a pure function", () => {
     expect(hostNewBookingEmail(params)).toEqual(hostNewBookingEmail(params));
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* hostBookingCancelledEmail                                                   */
+/* -------------------------------------------------------------------------- */
+
+describe("hostBookingCancelledEmail", () => {
+  const params = {
+    campName: "ริมน้ำ แคมป์",
+    checkIn: CHECK_IN,
+    checkOut: CHECK_OUT,
+    bookingUrl: "/dashboard/bookings?highlight=bk-2",
+  };
+
+  it("subject contains the camp name", () => {
+    const { subject } = hostBookingCancelledEmail(params);
+    expect(subject).toContain("ริมน้ำ แคมป์");
+  });
+
+  it("html contains Thai cancellation copy for host", () => {
+    const { html } = hostBookingCancelledEmail(params);
+    expect(html).toContain("มีการยกเลิกการจอง");
+  });
+
+  it("html contains the camp name", () => {
+    const { html } = hostBookingCancelledEmail(params);
+    expect(html).toContain("ริมน้ำ แคมป์");
+  });
+
+  it("html contains a link to /dashboard/bookings (CAM-74 AC#4)", () => {
+    const { html } = hostBookingCancelledEmail(params);
+    expect(html).toContain("/dashboard/bookings");
+    expect(html).toContain(params.bookingUrl);
+  });
+
+  it("html has no em-dash separator", () => {
+    const { html } = hostBookingCancelledEmail(params);
+    expect(html).not.toContain("—");
+  });
+
+  it("is a pure function", () => {
+    expect(hostBookingCancelledEmail(params)).toEqual(hostBookingCancelledEmail(params));
   });
 });
 
