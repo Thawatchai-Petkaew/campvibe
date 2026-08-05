@@ -51,8 +51,7 @@ export function Navbar() {
     const [isRegisterOpen, setIsRegisterOpen] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [hostEntryHref, setHostEntryHref] = useState<string>("/dashboard");
-    const [canAccessDashboard, setCanAccessDashboard] = useState(false);
-    
+
     const isDashboard = pathname?.startsWith('/dashboard');
 
     useEffect(() => {
@@ -76,7 +75,6 @@ export function Navbar() {
                 if (!res.ok) return;
                 const data = await res.json();
                 const allowed = !!data?.canAccessDashboard;
-                setCanAccessDashboard(allowed);
                 setHostEntryHref(allowed ? "/dashboard" : "/host");
             } catch {
                 // ignore
@@ -227,10 +225,9 @@ export function Navbar() {
                             </Link>
                         )}
 
-                        {/* Notifications (Camper context): booking status updates (no required action) + team invites */}
+                        {/* Notifications: persisted rows (CAM-684) + booking status updates (no required action) + team invites */}
                         {navUser && (
                             <NotificationCenter
-                                showHostBookings={canAccessDashboard}
                                 showCamperBookingUpdates
                                 showInvites
                             />

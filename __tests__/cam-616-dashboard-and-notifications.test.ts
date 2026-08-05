@@ -125,13 +125,18 @@ describe("app/dashboard/campsites/page.tsx — a load failure must not render as
 
 import { NotificationCenter } from "@/components/NotificationCenter";
 
+// CAM-684: the host-booking source is no longer derived from
+// /api/operator/bookings?status=PENDING (the `showHostBookings` prop is
+// gone) — it is always the caller's own persisted rows from
+// GET /api/notifications, the FIRST call fetchAll issues. These tests were
+// updated in place (same CAM-362/616 independence invariant, new endpoint)
+// per CAM-684's instruction to extend cam-616-* rather than fork it.
 function renderCenter(props: Partial<React.ComponentProps<typeof NotificationCenter>> = {}) {
   return render(
     React.createElement(
       LanguageProvider,
       null,
       React.createElement(NotificationCenter, {
-        showHostBookings: true,
         showCamperBookingUpdates: false,
         showInvites: false,
         pollMs: 999999,
@@ -152,12 +157,12 @@ async function openBell() {
   });
 }
 
-describe("NotificationCenter — three independent sources must not share one fate (CAM-362 anti-pattern, CAM-616)", () => {
+describe("NotificationCenter — three independent sources must not share one fate (CAM-362 anti-pattern, CAM-616/684)", () => {
   beforeEach(() => {
     global.fetch = vi.fn();
   });
 
-  it("[error/teeth] a host-bookings failure with a real pending booking must show an error+retry, never 'no new notifications'", async () => {
+  it("[error/teeth] a /api/notifications failure with no other source must show an error+retry, never 'no new notifications'", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false, json: async () => ({}) });
     renderCenter();
     await openBell();
@@ -165,26 +170,26 @@ describe("NotificationCenter — three independent sources must not share one fa
     expect(screen.queryByText(/no new notifications/i)).toBeNull();
   });
 
-  it("[normal] a successful host-bookings load renders the real pending booking (sanity)", async () => {
+  it("[normal] a successful /api/notifications load renders the real persisted row (sanity)", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
-      json: async () => ([{ id: "b1", campSite: { nameEn: "River Camp" }, status: "PENDING" }]),
+      json: async () => ([{ id: "b1", type: "BOOKING", title: "River Camp", body: null, link: null, isRead: false, createdAt: new Date().toISOString() }]),
     });
     renderCenter();
     await openBell();
     await screen.findByText("River Camp");
   });
 
-  it("[concurrent/ordering] an invites failure does NOT wipe a sibling host-bookings list that already loaded (the CAM-362 independence property)", async () => {
+  it("[concurrent/ordering] an invites failure does NOT wipe a sibling notifications list that already loaded (the CAM-362 independence property)", async () => {
     (global.fetch as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ([{ id: "b1", campSite: { nameEn: "River Camp" }, status: "PENDING" }]),
+        json: async () => ([{ id: "b1", type: "BOOKING", title: "River Camp", body: null, link: null, isRead: false, createdAt: new Date().toISOString() }]),
       })
       .mockResolvedValueOnce({ ok: false, json: async () => ({}) }); // invites fails
-    renderCenter({ showHostBookings: true, showInvites: true });
+    renderCenter({ showInvites: true });
     await openBell();
-    // The host booking that DID load must still render — a sibling source's
+    // The notification that DID load must still render — a sibling source's
     // failure must never erase data that already succeeded.
     await screen.findByText("River Camp");
   });
@@ -206,7 +211,7 @@ describe("NotificationCenter — three independent sources must not share one fa
 
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
-      json: async () => ([{ id: "b1", campSite: { nameEn: "River Camp" }, status: "PENDING" }]),
+      json: async () => ([{ id: "b1", type: "BOOKING", title: "River Camp", body: null, link: null, isRead: false, createdAt: new Date().toISOString() }]),
     });
     await act(async () => {
       fireEvent.click(screen.getByTestId("btn--notifications-retry"));
