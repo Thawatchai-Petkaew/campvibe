@@ -1112,24 +1112,38 @@ export default function CampgroundDetailClient({
                                     />
                                 </button>
                             ))}
-                            <button
-                                type="button"
-                                className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                aria-label={t.gallery.viewImage.replace("{n}", "5")}
-                                onClick={() => openGallery(4)}
-                            >
-                                <ImageWithFallback
-                                    src={images[4]}
-                                    alt=""
-                                    className="w-full h-full"
-                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
-                                    sizes="(max-width: 1024px) 50vw, 25vw"
-                                />
+                            <div className="relative">
+                                {/* CAM-674: this used to be a <button> wrapping the "Show all
+                                    photos" Button below, which HTML forbids (button-in-button)
+                                    and React's hydration check rejects. The image area is now a
+                                    div with role="button" + keyboard support, and the overlay
+                                    button is a sibling positioned over it instead of a child. */}
+                                <div
+                                    role="button"
+                                    tabIndex={0}
+                                    className="relative w-full h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={t.gallery.viewImage.replace("{n}", "5")}
+                                    onClick={() => openGallery(4)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            e.preventDefault();
+                                            openGallery(4);
+                                        }
+                                    }}
+                                >
+                                    <ImageWithFallback
+                                        src={images[4]}
+                                        alt=""
+                                        className="w-full h-full"
+                                        imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                        sizes="(max-width: 1024px) 50vw, 25vw"
+                                    />
+                                </div>
                                 {images.length > 5 && (
                                     <div className="absolute bottom-4 right-4">
                                         <Button
                                             variant="secondary"
-                                            onClick={(e) => { e.stopPropagation(); openGallery(0); }}
+                                            onClick={() => openGallery(0)}
                                             className="gap-2 text-sm font-semibold rounded-full border border-border shadow-sm transition h-11 bg-background/90 text-foreground hover:bg-background backdrop-blur-md"
                                         >
                                             <LayoutGrid className="w-4 h-4" aria-hidden="true" />
@@ -1137,7 +1151,7 @@ export default function CampgroundDetailClient({
                                         </Button>
                                     </div>
                                 )}
-                            </button>
+                            </div>
                         </div>
                     )}
                 </div>
