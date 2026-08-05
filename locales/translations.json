@@ -124,7 +124,11 @@
         },
         "notifications": {
             "unreadCountAria": "{count} unread notifications",
-            "loadError": "Couldn't load notifications"
+            "loadError": "Couldn't load notifications",
+            "booking": {
+                "title": "New booking",
+                "body": "{campName} has a new booking from {checkInDate} to {checkOutDate} for {guests} guests"
+            }
         },
         "categories": {
             "all": "All",
@@ -1283,7 +1287,11 @@
         },
         "notifications": {
             "unreadCountAria": "มี {count} การแจ้งเตือนที่ยังไม่ได้อ่าน",
-            "loadError": "โหลดการแจ้งเตือนไม่สำเร็จ"
+            "loadError": "โหลดการแจ้งเตือนไม่สำเร็จ",
+            "booking": {
+                "title": "มีการจองใหม่",
+                "body": "{campName} มีการจองใหม่ วันที่ {checkInDate} ถึง {checkOutDate} จำนวน {guests} คน"
+            }
         },
         "categories": {
             "all": "ทั้งหมด",

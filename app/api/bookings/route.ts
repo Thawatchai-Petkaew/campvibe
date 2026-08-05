@@ -8,6 +8,7 @@ import { checkDateAvailabilityInTx, isSpotBookedForStay } from '@/lib/campsite-a
 import { serializeDecimals } from '@/lib/serialize';
 import { buildBookingPriceArgs, computeBookingPrice } from '@/lib/booking-pricing';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { notifyBookingCreated } from '@/lib/notifications/booking-events';
 
 // RISK-12: cap the list query so it never does a full-table scan as data grows.
 // Returns the most recent N bookings (orderBy createdAt desc).
@@ -333,6 +334,24 @@ export async function POST(request: NextRequest) {
       return apiError('Invalid spotId parameter', 400);
     }
     if (result.type === 'ok') {
+      // CAM-681: post-commit only — the booking already committed above, so
+      // a notification failure (including the recipient lookup rejecting)
+      // must never turn this successful booking into a 500 for the camper.
+      // notifyBookingCreated() never throws by design; this try/catch is a
+      // second line of defence against a bad import throwing synchronously
+      // before the function's own internal catch can run.
+      try {
+        await notifyBookingCreated(result.booking);
+      } catch (notifyError) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            event: 'booking_notify_call_site_failed',
+            bookingId: result.booking.id,
+            reason: notifyError instanceof Error ? notifyError.message : String(notifyError),
+          })
+        );
+      }
       return apiSuccess(serializeDecimals(result.booking), 201);
     }
 
