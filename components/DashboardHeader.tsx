@@ -93,7 +93,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                 </DropdownMenu>
 
                 {/* Right: Notifications (extensible: bookings + invites + future) */}
-                <NotificationCenter showHostBookings showCamperBookingUpdates showInvites />
+                <NotificationCenter showCamperBookingUpdates showInvites />
             </div>
         </header>
     );
