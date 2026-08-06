@@ -55,16 +55,26 @@ import { NextRequest } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    booking: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
+vi.mock('@/lib/prisma', () => {
+  const bookingMock = {
+    findUnique: vi.fn(),
+    updateMany: vi.fn(),
+    findUniqueOrThrow: vi.fn(),
+  };
+  const auditLogMock = { create: vi.fn() };
+  const campSiteTeamMemberMock = { findFirst: vi.fn() };
+  const notificationMock = { createMany: vi.fn().mockResolvedValue({ count: 0 }) };
+  const tx = { booking: bookingMock, auditLog: auditLogMock };
+  return {
+    prisma: {
+      booking: bookingMock,
+      campSiteTeamMember: campSiteTeamMemberMock,
+      notification: notificationMock,
+      auditLog: auditLogMock,
+      $transaction: vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx)),
     },
-    campSiteTeamMember: { findFirst: vi.fn() },
-    notification: { createMany: vi.fn().mockResolvedValue({ count: 0 }) },
-  },
-}));
+  };
+});
 vi.mock('@/lib/auth-utils', () => ({ requireAuth: vi.fn() }));
 vi.mock('@/lib/camp-access', () => ({ listBookingViewRecipients: vi.fn() }));
 
@@ -147,6 +157,7 @@ function mockRecipients(recipients: Recipient[]) {
 beforeEach(() => {
   vi.clearAllMocks();
   (prisma.notification.createMany as Mock).mockResolvedValue({ count: 0 });
+  (prisma.auditLog.create as Mock).mockResolvedValue({ id: 'audit-1' });
   NOTIFICATION_EVENTS.bookingCreated = true;
   NOTIFICATION_EVENTS.bookingCancelled = true;
 });
@@ -167,7 +178,8 @@ describe('PATCH /api/bookings/[id] — notifies host/team on CAMPER cancel, neve
       findUniqueFixture({ userId: CAMPER_ID, operatorId: HOST_ID })
     );
     (prisma.campSiteTeamMember.findFirst as Mock).mockResolvedValueOnce(null); // camper holds no team row
-    (prisma.booking.update as Mock).mockResolvedValueOnce(
+    (prisma.booking.updateMany as Mock).mockResolvedValueOnce({ count: 1 });
+    (prisma.booking.findUniqueOrThrow as Mock).mockResolvedValueOnce(
       updateFixture({ userId: CAMPER_ID, status: 'CANCELLED' })
     );
     mockRecipients([
@@ -197,7 +209,8 @@ describe('PATCH /api/bookings/[id] — notifies host/team on CAMPER cancel, neve
     (prisma.booking.findUnique as Mock).mockResolvedValueOnce(
       findUniqueFixture({ userId: SELF_HOST_ID, operatorId: SELF_HOST_ID })
     );
-    (prisma.booking.update as Mock).mockResolvedValueOnce(
+    (prisma.booking.updateMany as Mock).mockResolvedValueOnce({ count: 1 });
+    (prisma.booking.findUniqueOrThrow as Mock).mockResolvedValueOnce(
       updateFixture({ userId: SELF_HOST_ID, status: 'CANCELLED' })
     );
 
@@ -219,7 +232,8 @@ describe('PATCH /api/bookings/[id] — notifies host/team on CAMPER cancel, neve
       role: 'STAFF', // default STAFF permissions include BOOKING_UPDATE
       permissions: [],
     });
-    (prisma.booking.update as Mock).mockResolvedValueOnce(
+    (prisma.booking.updateMany as Mock).mockResolvedValueOnce({ count: 1 });
+    (prisma.booking.findUniqueOrThrow as Mock).mockResolvedValueOnce(
       updateFixture({ userId: CAMPER_ID, status: 'CANCELLED' })
     );
 
@@ -235,7 +249,8 @@ describe('PATCH /api/bookings/[id] — notifies host/team on CAMPER cancel, neve
       findUniqueFixture({ userId: CAMPER_ID, operatorId: HOST_ID })
     );
     (prisma.campSiteTeamMember.findFirst as Mock).mockResolvedValueOnce(null); // admin holds no team row here
-    (prisma.booking.update as Mock).mockResolvedValueOnce(
+    (prisma.booking.updateMany as Mock).mockResolvedValueOnce({ count: 1 });
+    (prisma.booking.findUniqueOrThrow as Mock).mockResolvedValueOnce(
       updateFixture({ userId: CAMPER_ID, status: 'CANCELLED' })
     );
 
@@ -252,7 +267,8 @@ describe('PATCH /api/bookings/[id] — notifies host/team on CAMPER cancel, neve
       (prisma.booking.findUnique as Mock).mockResolvedValueOnce(
         findUniqueFixture({ userId: CAMPER_ID, operatorId: HOST_ID })
       );
-      (prisma.booking.update as Mock).mockResolvedValueOnce(updateFixture({ userId: CAMPER_ID, status }));
+      (prisma.booking.updateMany as Mock).mockResolvedValueOnce({ count: 1 });
+      (prisma.booking.findUniqueOrThrow as Mock).mockResolvedValueOnce(updateFixture({ userId: CAMPER_ID, status }));
 
       const res = await PATCH(makePatchRequest({ status }), makeContext());
 
@@ -268,7 +284,8 @@ describe('PATCH /api/bookings/[id] — notifies host/team on CAMPER cancel, neve
       findUniqueFixture({ userId: CAMPER_ID, operatorId: HOST_ID })
     );
     (prisma.campSiteTeamMember.findFirst as Mock).mockResolvedValueOnce(null);
-    (prisma.booking.update as Mock).mockResolvedValueOnce(
+    (prisma.booking.updateMany as Mock).mockResolvedValueOnce({ count: 1 });
+    (prisma.booking.findUniqueOrThrow as Mock).mockResolvedValueOnce(
       updateFixture({ userId: CAMPER_ID, status: 'CANCELLED' })
     );
     (listBookingViewRecipients as Mock).mockRejectedValueOnce(new Error('camp-access down'));
@@ -291,7 +308,8 @@ describe('PATCH /api/bookings/[id] — notifies host/team on CAMPER cancel, neve
       findUniqueFixture({ userId: CAMPER_ID, operatorId: HOST_ID })
     );
     (prisma.campSiteTeamMember.findFirst as Mock).mockResolvedValueOnce(null);
-    (prisma.booking.update as Mock).mockResolvedValueOnce(
+    (prisma.booking.updateMany as Mock).mockResolvedValueOnce({ count: 1 });
+    (prisma.booking.findUniqueOrThrow as Mock).mockResolvedValueOnce(
       updateFixture({ userId: CAMPER_ID, status: 'CANCELLED' })
     );
     mockRecipients([{ userId: HOST_ID, email: `${HOST_ID}@campvibe.com`, isOwner: true }]);
@@ -308,7 +326,8 @@ describe('PATCH /api/bookings/[id] — notifies host/team on CAMPER cancel, neve
     (prisma.booking.findUnique as Mock).mockResolvedValueOnce(
       findUniqueFixture({ userId: SELF_HOST_ID, operatorId: SELF_HOST_ID })
     );
-    (prisma.booking.update as Mock).mockResolvedValueOnce(
+    (prisma.booking.updateMany as Mock).mockResolvedValueOnce({ count: 1 });
+    (prisma.booking.findUniqueOrThrow as Mock).mockResolvedValueOnce(
       updateFixture({ userId: SELF_HOST_ID, status: 'CANCELLED' })
     );
 
@@ -324,7 +343,8 @@ describe('PATCH /api/bookings/[id] — notifies host/team on CAMPER cancel, neve
       findUniqueFixture({ userId: CAMPER_ID, operatorId: HOST_ID })
     );
     (prisma.campSiteTeamMember.findFirst as Mock).mockResolvedValueOnce(null);
-    (prisma.booking.update as Mock).mockResolvedValueOnce(
+    (prisma.booking.updateMany as Mock).mockResolvedValueOnce({ count: 1 });
+    (prisma.booking.findUniqueOrThrow as Mock).mockResolvedValueOnce(
       updateFixture({ userId: CAMPER_ID, status: 'CANCELLED' })
     );
     mockRecipients([{ userId: HOST_ID, email: `${HOST_ID}@campvibe.com`, isOwner: true }]);
@@ -354,7 +374,13 @@ describe('[source] the notify condition gates on canHostUpdate (CAM-682)', () =>
 
   it('notifyBookingCancelled is called behind a canHostUpdate check, not isCamper alone', () => {
     expect(routeSrc).toContain('notifyBookingCancelled');
-    const guardMatch = routeSrc.match(/if\s*\(status === 'CANCELLED' && isCamper && !canHostUpdate\)/);
+    // Widened (CAM-646) to tolerate incidental whitespace reflow around the
+    // same three-term boolean shape, so a formatting-only touch to this line
+    // doesn't fail this pin the way hoisting a NEW term into the condition
+    // still correctly would.
+    const guardMatch = routeSrc.match(
+      /if\s*\(\s*status === 'CANCELLED'\s*&&\s*isCamper\s*&&\s*!canHostUpdate\s*\)/
+    );
     expect(guardMatch).not.toBeNull();
   });
 });
