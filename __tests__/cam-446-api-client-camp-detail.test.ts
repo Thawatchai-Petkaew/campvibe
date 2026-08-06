@@ -28,6 +28,8 @@ function fullOkBody() {
     nameTh: 'ลานกางเต็นท์ริมน้ำ',
     nameEn: 'Riverside Camp',
     description: 'ลานกางเต็นท์ริมแม่น้ำ วิวสวย',
+    // CAM-700 additive field.
+    useSpotView: false,
     amenities: [
       { code: 'RIVE', group: 'Terrain', nameTh: 'แม่น้ำ ลำธาร คลองเล็ก', nameEn: 'River, stream, or creek', icon: 'Waves' },
     ],

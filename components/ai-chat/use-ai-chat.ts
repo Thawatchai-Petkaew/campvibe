@@ -45,16 +45,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { aiChatAPI } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { currentStep, type BookingStepId } from "@/components/ai-chat/booking-flow";
+import { currentStep, type BookingFlowInput, type BookingStepId } from "@/components/ai-chat/booking-flow";
 import {
   processBookingCancel,
   processBookingControl,
   processBookingTurn,
+  resolveSpotSelection,
+  resolveSpotStep,
   startBookingTurn,
   type BookingSession,
+  type BookingTurnResult,
+  type SpotFetchOutcome,
 } from "@/components/ai-chat/booking-turn";
-import { addOneDayIso, formatDateEcho, formatGuestsEcho, formatNightsEcho, type BookingCampContext } from "@/components/ai-chat/booking-view";
+import { addOneDayIso, formatDateEcho, formatGuestsEcho, formatNightsEcho, formatSpotEcho, type BookingCampContext } from "@/components/ai-chat/booking-view";
+import type { BookingCheckFailedView } from "@/components/ai-chat/AiChatBookingStep";
 import {
+  appendBookingEntry,
   appendOutcome,
   appendOrStartStreamingDelta,
   appendUserQuestion,
@@ -67,6 +73,23 @@ import {
   restoreEntriesFromMessages,
   type ChatEntry,
 } from "@/components/ai-chat/conversation";
+
+/**
+ * CAM-700 — the `resolveSpotStep`/`resolveSpotSelection` injection point:
+ * raw `/spots` fetch + guest-capacity filter (cheapest-first, the caller's
+ * job per `booking-turn.ts`'s own doc), NEVER `/spots` occupancy itself —
+ * that stays per-selection (`aiChatAPI.checkSpotAvailability`, passed
+ * straight through, matching its own signature exactly).
+ */
+async function fetchSpotsForFlow(campId: string, guests: number): Promise<SpotFetchOutcome> {
+  const spots = await aiChatAPI.getCampSpots(campId);
+  if (!spots || spots.length === 0) return { ok: false };
+  const candidates = spots
+    .filter((s) => s.maxCampers === null || s.maxCampers >= guests)
+    .map((s) => ({ id: s.id, name: s.name, pricePerNight: s.pricePerNight }))
+    .sort((a, b) => a.pricePerNight - b.pricePerNight);
+  return { ok: true, candidates };
+}
 
 export interface UseAiChatResult {
   entries: ChatEntry[];
@@ -170,25 +193,112 @@ export function useAiChat(): UseAiChatResult {
     [authed]
   );
 
+  /**
+   * CAM-700 — applies a synchronous `booking-turn.ts` result, THEN checks
+   * whether it just landed on `spot` with no candidates cached yet (a fresh
+   * `guests` → `spot` transition); if so, runs `resolveSpotStep` (the /spots
+   * fetch + guest filter) and applies ITS result on top. Every existing
+   * date/nights/guests/back/cancel call site routes through this so a future
+   * step insertion never needs its own bespoke "did I just enter `spot`"
+   * check — the guard here is a no-op whenever it doesn't apply.
+   */
+  const settleBookingTurn = useCallback(
+    async (result: BookingTurnResult) => {
+      bookingRef.current = result.booking;
+      setEntries(result.entries);
+      if (!result.booking) return;
+      const step = currentStep(result.booking.state.slots, result.booking.camp.useSpotView);
+      if (step.id !== "spot" || (result.booking.spotCandidates ?? null) !== null) return;
+      const resolved = await resolveSpotStep(result.entries, result.booking, fetchSpotsForFlow, t, language, new Date());
+      // The flow may have moved on (cancelled, or a faster follow-up turn)
+      // while the fetch was in flight — discard a now-orphaned result rather
+      // than resurrect a stale/cancelled flow (code.md CAM-359 guard).
+      if (!bookingRef.current || bookingRef.current.camp.campId !== result.booking.camp.campId) return;
+      bookingRef.current = resolved.booking;
+      setEntries(resolved.entries);
+    },
+    [t, language]
+  );
+
+  /**
+   * CAM-700 — a chip tap or typed answer at the `spot` step. Reuses
+   * `resolveSpotSelection` (booking-turn.ts) for BOTH the miss/reject path
+   * (no network) and the real occupancy check (one call) before a pitch is
+   * ever committed — see that function's own doc for why a candidate can
+   * never advance straight through the generic synchronous path.
+   *
+   * `handleSpotSelectionRef` exists ONLY so the `checkFailed` block's own
+   * retry can call the LATEST version of this function (recreated whenever
+   * `entries`/`t`/`language` change) without naming the `const` inside its
+   * own initializer — a direct self-reference there is a genuine TDZ read
+   * (flagged as a build error, not just a style nit). Synced via a plain
+   * effect (never a direct render-time write — the React Compiler lint rule
+   * forbids mutating a ref during render) — the "always latest callback"
+   * idiom.
+   */
+  const handleSpotSelectionRef = useRef<(input: BookingFlowInput, echoText: string) => Promise<void>>(async () => {});
+
+  const handleSpotSelection = useCallback(
+    async (input: BookingFlowInput, echoText: string) => {
+      const session = bookingRef.current;
+      if (!session) return;
+      const outcome = await resolveSpotSelection(
+        entries,
+        session,
+        input,
+        echoText,
+        aiChatAPI.checkSpotAvailability,
+        t,
+        language,
+        new Date()
+      );
+      if (!bookingRef.current) return; // cancelled while the check was in flight — discard
+      if (outcome.retry) {
+        const { input: retryInput, echoText: retryEcho } = outcome.retry;
+        const view: BookingCheckFailedView = {
+          kind: "checkFailed",
+          onRetry: () => {
+            void handleSpotSelectionRef.current(retryInput, retryEcho);
+          },
+        };
+        bookingRef.current = outcome.booking;
+        setEntries(appendBookingEntry(outcome.entries, "spot", view));
+        return;
+      }
+      bookingRef.current = outcome.booking;
+      setEntries(outcome.entries);
+    },
+    [entries, t, language]
+  );
+  useEffect(() => {
+    handleSpotSelectionRef.current = handleSpotSelection;
+  }, [handleSpotSelection]);
+
   const sendMessage = useCallback(
     async (text: string) => {
       if (sending || !isSendableQuestion(text)) return; // BR-6/EC-1 (unchanged, first)
       if (bookingRef.current) {
-        // CAM-640 — a booking turn resolves LOCALLY, no network call: never
-        // touches `sending` (the composer must stay live throughout, design
-        // brief §4 "E"). Typed input goes through the SAME `processBookingTurn`
-        // a chip tap uses, so it is validated identically (booking-flow.ts's
-        // own parse/accept split).
+        // CAM-640 — a booking turn resolves LOCALLY (no `sending` toggle,
+        // design brief §4 "E"). CAM-700: the `spot` step is the one
+        // exception that DOES reach the network (an occupancy check), routed
+        // through `handleSpotSelection` instead of the generic synchronous
+        // path — every other step's typed input still goes through the SAME
+        // `processBookingTurn` a chip tap uses (booking-flow.ts's own
+        // parse/accept split).
+        const step = currentStep(bookingRef.current.state.slots, bookingRef.current.camp.useSpotView).id;
+        if (step === "spot") {
+          await handleSpotSelection({ kind: "text", text }, text);
+          return;
+        }
         const result = processBookingTurn(entries, bookingRef.current, { kind: "text", text }, text, t, language, new Date());
-        bookingRef.current = result.booking;
-        setEntries(result.entries);
+        await settleBookingTurn(result);
         return;
       }
       const withUser = appendUserQuestion(entries, text);
       setEntries(withUser);
       await runTurn(withUser, text);
     },
-    [entries, sending, runTurn, t, language]
+    [entries, sending, runTurn, t, language, handleSpotSelection, settleBookingTurn]
   );
 
   const retryLast = useCallback(async () => {
@@ -227,10 +337,10 @@ export function useAiChat(): UseAiChatResult {
   );
 
   const onBookingChipSelect = useCallback(
-    (value: string) => {
+    async (value: string) => {
       const session = bookingRef.current;
       if (!session) return;
-      const step = currentStep(session.state.slots).id;
+      const step = currentStep(session.state.slots, session.camp.useSpotView).id;
       if (step === "date") {
         // CAM-699 — `checkOut` here is a PROVISIONAL 1-night placeholder
         // only (required because `acceptDateCandidate` needs both fields to
@@ -249,8 +359,7 @@ export function useAiChat(): UseAiChatResult {
           language,
           new Date()
         );
-        bookingRef.current = result.booking;
-        setEntries(result.entries);
+        await settleBookingTurn(result);
       } else if (step === "nights") {
         const nights = Number(value);
         const result = processBookingTurn(
@@ -262,8 +371,7 @@ export function useAiChat(): UseAiChatResult {
           language,
           new Date()
         );
-        bookingRef.current = result.booking;
-        setEntries(result.entries);
+        await settleBookingTurn(result);
       } else if (step === "guests") {
         const guests = Number(value);
         const result = processBookingTurn(
@@ -275,22 +383,29 @@ export function useAiChat(): UseAiChatResult {
           language,
           new Date()
         );
-        bookingRef.current = result.booking;
-        setEntries(result.entries);
+        await settleBookingTurn(result);
+      } else if (step === "spot") {
+        // CAM-700 — `value` is the tapped candidate's id; look up its name
+        // from the session's own live list (never trust the DOM/echo alone).
+        const candidate = session.spotCandidates?.find((c) => c.id === value);
+        if (!candidate) return; // defensive — a chip can never carry an unknown id in practice
+        await handleSpotSelection(
+          { kind: "chip", slots: { spotId: candidate.id, spotName: candidate.name } },
+          formatSpotEcho(candidate.name, candidate.pricePerNight, t)
+        );
       }
     },
-    [entries, t, language]
+    [entries, t, language, settleBookingTurn, handleSpotSelection]
   );
 
   const onBookingBack = useCallback(
-    (toStep: BookingStepId) => {
+    async (toStep: BookingStepId) => {
       const session = bookingRef.current;
       if (!session) return;
       const result = processBookingControl(entries, session, toStep, t, language);
-      bookingRef.current = result.booking;
-      setEntries(result.entries);
+      await settleBookingTurn(result);
     },
-    [entries, t, language]
+    [entries, t, language, settleBookingTurn]
   );
 
   const onBookingEditDate = useCallback(() => onBookingBack("date"), [onBookingBack]);

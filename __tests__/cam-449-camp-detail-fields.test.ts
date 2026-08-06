@@ -295,6 +295,8 @@ describe('aiChatAPI.getCampDetail — CAM-449 narrows the new fields', () => {
       nameTh: 'ลานกางเต็นท์ริมน้ำ',
       nameEn: 'Riverside Camp',
       description: 'ลานกางเต็นท์ริมแม่น้ำ วิวสวย',
+      // CAM-700 additive field.
+      useSpotView: false,
       amenities: [],
       reviews: [],
       reviewSummary: { hasReviews: false, avgRating: null, count: 0 },

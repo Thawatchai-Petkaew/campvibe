@@ -26,9 +26,21 @@ const detailSrc = read("components/ai-chat/AiChatDetailCard.tsx");
 const listSrc = read("components/ai-chat/AiChatMessageList.tsx");
 
 describe("sendMessage — the booking intercept sits AFTER the sending guard, never before it", () => {
+  // CAM-700 SUPERSEDES the bare whole-file `indexOf("bookingRef.current")`
+  // used here through CAM-640: `settleBookingTurn`/`handleSpotSelection`
+  // (new helpers `sendMessage` itself depends on — declared ABOVE it so their
+  // identifiers are defined before `sendMessage`'s own `useCallback` DEPS
+  // ARRAY evaluates, avoiding a TDZ ReferenceError) legitimately reference
+  // `bookingRef.current` earlier in the file now. Both assertions below are
+  // rescoped to `sendMessage`'s OWN body (from its `const sendMessage =`
+  // line onward) — the guarantee they prove is unchanged, only the search
+  // window is now precise instead of accidentally whole-file.
+  const sendMessageStart = useAiChatSrc.indexOf("const sendMessage = useCallback(");
+
   it("[unit] the sending/isSendableQuestion guard line appears before the bookingRef intercept line", () => {
-    const guardIdx = useAiChatSrc.indexOf("if (sending || !isSendableQuestion(text)) return;");
-    const interceptIdx = useAiChatSrc.indexOf("if (bookingRef.current) {");
+    expect(sendMessageStart).toBeGreaterThan(-1);
+    const guardIdx = useAiChatSrc.indexOf("if (sending || !isSendableQuestion(text)) return;", sendMessageStart);
+    const interceptIdx = useAiChatSrc.indexOf("if (bookingRef.current) {", sendMessageStart);
     expect(guardIdx).toBeGreaterThan(-1);
     expect(interceptIdx).toBeGreaterThan(guardIdx);
   });
@@ -38,9 +50,9 @@ describe("sendMessage — the booking intercept sits AFTER the sending guard, ne
     // structurally: the booking branch is physically unreachable code before
     // that return statement executes for a truthy `sending`.
     const guardLine = "if (sending || !isSendableQuestion(text)) return;";
-    const start = useAiChatSrc.indexOf(guardLine);
+    const start = useAiChatSrc.indexOf(guardLine, sendMessageStart);
     expect(start).toBeGreaterThan(-1);
-    expect(useAiChatSrc.indexOf("bookingRef.current")).toBeGreaterThan(start);
+    expect(useAiChatSrc.indexOf("bookingRef.current", start)).toBeGreaterThan(start);
   });
 });
 
@@ -60,6 +72,9 @@ describe("BR-2 — the composer is never disabled during a booking turn (`sendin
       "const onBookingChipSelect = useCallback(",
       "const onBookingBack = useCallback(",
       "const onBookingCancel = useCallback(",
+      // CAM-700 — the spot step's new async helpers.
+      "const settleBookingTurn = useCallback(",
+      "const handleSpotSelection = useCallback(",
     ]) {
       const start = useAiChatSrc.indexOf(fn);
       expect(start, `${fn} not found`).toBeGreaterThan(-1);

@@ -44,6 +44,9 @@ const CAMP: BookingCampContext = {
   name: "ภูชี้ฟ้า",
   weekendAvailability: WEEKEND,
   maxGuestsPerDay: 10,
+  // CAM-700 — whole-camp fixture; the `spot` step's own view-builder coverage
+  // lives in cam-700-*.test.ts.
+  useSpotView: false,
   unitPrice: 500,
   priceUnit: "PER_SITE",
   priceIsFree: false,

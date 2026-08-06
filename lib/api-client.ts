@@ -704,6 +704,9 @@ function isGetCampDetailOk(value: unknown): value is Extract<GetCampDetailResult
         typeof v.nameTh === 'string' &&
         (v.nameEn === null || typeof v.nameEn === 'string') &&
         (v.description === null || typeof v.description === 'string') &&
+        // CAM-700 additive field — checked explicitly, matching this
+        // function's own "every field of the tool's shape" policy.
+        typeof v.useSpotView === 'boolean' &&
         Array.isArray(v.amenities) &&
         v.amenities.every(isCampAmenity) &&
         Array.isArray(v.reviews) &&
@@ -723,6 +726,34 @@ function isGetCampDetailOk(value: unknown): value is Extract<GetCampDetailResult
         v.availableWeekendDates.every((d) => typeof d === 'string') &&
         Array.isArray(v.weekendAvailability) &&
         v.weekendAvailability.every(isWeekendAvailabilityEntry)
+    );
+}
+
+/**
+ * CAM-700 — one live pitch as the in-chat booking flow's `spot` step needs
+ * it: name, per-night price, and the party-size ceiling. Wire shape of one
+ * entry in `GET /api/campsites/[id]/spots`'s array body
+ * (`app/api/campsites/[id]/spots/route.ts` — `apiSuccess(spots)`, an
+ * UNWRAPPED array, not `{data: [...]}`). Deliberately narrow: the real
+ * `Spot` row carries host-facing fields (zone, images, deprecated price
+ * columns) this flow never needs.
+ */
+export interface CampSpotSummary {
+    id: string;
+    name: string;
+    maxCampers: number | null;
+    pricePerNight: number;
+}
+
+/** CAM-700 — narrows one `GET /api/campsites/[id]/spots` array entry (network I/O is an input boundary, code.md CAM-305). */
+function isCampSpotSummary(value: unknown): value is CampSpotSummary {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        typeof v.id === 'string' &&
+        typeof v.name === 'string' &&
+        (v.maxCampers === null || typeof v.maxCampers === 'number') &&
+        typeof v.pricePerNight === 'number'
     );
 }
 
@@ -819,6 +850,58 @@ export const aiChatAPI = {
             return isGetCampDetailOk(data) ? data : { ok: false, code: 'not_found' };
         } catch {
             return { ok: false, code: 'not_found' };
+        }
+    },
+
+    /**
+     * GET /api/campsites/[id]/spots (CAM-700) — the live, non-deleted
+     * pitches on a per-pitch camp, for the booking flow's `spot` step.
+     * `null` on any non-2xx status, a malformed body, or a network
+     * exception — the caller (booking-turn.ts's `resolveSpotStep`) treats
+     * that identically to a camp with zero live pitches: the step fails
+     * TOWARD the existing whole-camp handoff summary, never toward a
+     * pitch-less confirm.
+     */
+    getCampSpots: async (campSiteId: string): Promise<CampSpotSummary[] | null> => {
+        try {
+            const response = await fetch(`${API_BASE}/campsites/${campSiteId}/spots`);
+            if (!response.ok) return null;
+            const data: unknown = await response.json();
+            if (!Array.isArray(data)) return null;
+            return data.filter(isCampSpotSummary);
+        } catch {
+            return null;
+        }
+    },
+
+    /**
+     * GET /api/campsites/[id]/availability?spotId= (CAM-665/CAM-700) —
+     * checks ONE pitch's occupancy across every night of
+     * `[startDate, lastNightDate]` (both INCLUSIVE — this route's own
+     * per-day-loop convention, NOT the booking flow's exclusive-checkout
+     * one; the caller passes the last actual NIGHT, never the checkout day
+     * itself). `true` = free every queried night, `false` = occupied at
+     * least one night, `null` = could not determine (network error,
+     * off-contract body, or an empty `availability` array) — a caller must
+     * never treat `null` as free.
+     */
+    checkSpotAvailability: async (
+        campSiteId: string,
+        spotId: string,
+        startDate: string,
+        lastNightDate: string
+    ): Promise<boolean | null> => {
+        try {
+            const response = await fetch(
+                `${API_BASE}/campsites/${campSiteId}/availability?startDate=${startDate}&endDate=${lastNightDate}&spotId=${spotId}`
+            );
+            if (!response.ok) return null;
+            const data: unknown = await response.json();
+            const list = (data as { availability?: unknown } | null)?.availability;
+            if (!Array.isArray(list) || list.length === 0) return null;
+            return list.every((entry) => (entry as { spotAvailable?: unknown }).spotAvailable !== false);
+        } catch {
+            return null;
         }
     },
 };

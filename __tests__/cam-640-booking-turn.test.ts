@@ -44,6 +44,9 @@ const CAMP: BookingCampContext = {
     { date: "2026-08-08", remaining: 0, blockedByHost: false }, // full
   ],
   maxGuestsPerDay: 10,
+  // CAM-700 — this file drives only the whole-camp path; the `spot` step's
+  // own turns are covered in cam-700-*.test.ts.
+  useSpotView: false,
   unitPrice: 500,
   priceUnit: "PER_SITE",
   priceIsFree: false,

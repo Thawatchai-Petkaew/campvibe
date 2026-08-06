@@ -94,6 +94,8 @@ function makeDetail(overrides: Partial<Extract<GetCampDetailResult, { ok: true }
     nameTh: "แคมป์ทดสอบ",
     nameEn: "Test Camp",
     description: null,
+    // CAM-700 — this story never touches per-pitch flows; whole-camp fixture.
+    useSpotView: false,
     amenities: [],
     reviews: [],
     reviewSummary: { hasReviews: false, avgRating: null, count: 0 },
@@ -196,6 +198,7 @@ describe("[unit] resolveUnitPrice + buildSummaryView — before/after documentat
     name: "แคมป์ทดสอบ",
     weekendAvailability: [],
     maxGuestsPerDay: null,
+    useSpotView: false,
     priceIsFree: false,
   };
   // CAM-699 (2026-08-06): `nights` is now a required slot (buildSummaryView

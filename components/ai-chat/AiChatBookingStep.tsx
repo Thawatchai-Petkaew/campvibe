@@ -42,11 +42,14 @@ import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { ChatChipRow, type ChatChipItem } from "@/components/ai-chat/ChatChipRow";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { BOOKING_STEPS, type BookingStepId } from "@/components/ai-chat/booking-flow";
+import { resolveBookingSteps, type BookingStepId } from "@/components/ai-chat/booking-flow";
 
-/** 1-based position of a step in the registry (never a hand-copied literal — BOOKING_STEPS is the one place step ids are enumerated together). */
-function stepPosition(step: BookingStepId): number {
-  return BOOKING_STEPS.findIndex((s) => s.id === step) + 1;
+/** Hoisted once, matching every sibling ai-chat component's own THB formatter (AiChatDetailCard.tsx, booking-view.ts). */
+const THB_FORMAT = new Intl.NumberFormat("th-TH");
+
+/** 1-based position of a step in THIS camp's resolved list (never a hand-copied literal — `resolveBookingSteps` is the one place step ids are enumerated together). CAM-700: per-camp, since `spot` only exists for `useSpotView` camps. */
+function stepPosition(step: BookingStepId, useSpotView: boolean): number {
+  return resolveBookingSteps(useSpotView).findIndex((s) => s.id === step) + 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,25 +65,38 @@ export type BookingNightsChipSpec = { kind: "nights"; count: number };
 export type BookingGuestsChipSpec = { kind: "guests"; count: number };
 /** The single E2 (over-capacity) offer chip — design brief §5 E2: "{count} คนก็ได้". */
 export type BookingGuestsCapChipSpec = { kind: "guestsCap"; count: number };
-export type BookingChipSpec = BookingDateChipSpec | BookingNightsChipSpec | BookingGuestsChipSpec | BookingGuestsCapChipSpec;
+/** CAM-700 — the `spot` step's chip: pitch name + per-night price (design brief §4, same anatomy as the `date` chip's date+remaining pair). */
+export type BookingSpotChipSpec = { kind: "spot"; id: string; name: string; pricePerNight: number };
+export type BookingChipSpec =
+  | BookingDateChipSpec
+  | BookingNightsChipSpec
+  | BookingGuestsChipSpec
+  | BookingGuestsCapChipSpec
+  | BookingSpotChipSpec;
 
 export type BookingControlSpec =
   | { kind: "back"; toStep: BookingStepId }
   | { kind: "editDate" }
+  /** CAM-700 — rendered via the EXISTING generic `onBack` prop (`toStep:'nights'`), never a dedicated handler — keeps `AiChatBookingStepProps` unchanged. */
+  | { kind: "editNights" }
   | { kind: "editGuests" }
+  /** CAM-700 — same reuse as `editNights` (`onBack`, `toStep:'spot'`). */
+  | { kind: "editSpot" }
   | { kind: "cancel" };
 
 export interface BookingQuestionView {
   kind: "question";
-  step: "date" | "nights" | "guests";
+  step: "date" | "nights" | "guests" | "spot";
   /** `aria-current="step"` on the caption only for the newest block (design brief §"The step-indicator verdict"). */
   isCurrent: boolean;
   /** Already-resolved assistant sentence — see file header "Scope split". */
   questionText: string;
   chips: readonly BookingChipSpec[];
-  /** `guests` only — the pre-summary re-check in flight (design brief §4: chips disabled + a text status line, never a spinner). */
+  /** `guests`/`spot` — an async re-check in flight (design brief §4: chips disabled + a text status line, never a spinner). */
   isChecking?: boolean;
   controls: readonly BookingControlSpec[];
+  /** CAM-700 — per-camp step total for the caption (`resolveBookingSteps(useSpotView).length`). Optional so every view literal written before this story keeps compiling + rendering unchanged (default `false` = whole-camp, byte-identical to the old `BOOKING_STEPS.length`). */
+  useSpotView?: boolean;
 }
 
 export interface BookingSummaryView {
@@ -89,10 +105,14 @@ export interface BookingSummaryView {
   campValue: string;
   datesValue: string;
   guestsValue: string;
+  /** CAM-700 — the chosen pitch's name, per-pitch camps only; absent renders no row (never a `—`, design brief §5). */
+  spotValue?: string;
   /** Pre-formatted (e.g. "฿500") by the caller via the shared `computeBookingPrice` + `THB_FORMAT` — this component never does money math (design brief §3 BR-7). */
   totalValue: string;
   handoffHref: string;
   controls: readonly BookingControlSpec[];
+  /** CAM-700 — same per-camp caption total as `BookingQuestionView.useSpotView`. */
+  useSpotView?: boolean;
 }
 
 /** E3 — the pre-summary re-check itself failed. No step block at all: reuses the chat's existing error row verbatim (design brief §5 E3). */
@@ -150,7 +170,7 @@ export function AiChatBookingStep({
     const step: BookingStepId = "summary";
     return (
       <div role="group" aria-label={t.aiChat.booking.groupLabel} data-testid="msg--ai-chat-booking-step" data-step={step} className="space-y-3">
-        <StepCaption step={step} isCurrent={view.isCurrent} />
+        <StepCaption step={step} isCurrent={view.isCurrent} useSpotView={view.useSpotView ?? false} />
         <p className="text-sm leading-relaxed text-foreground">{t.aiChat.booking.summary.intro}</p>
 
         <div
@@ -162,6 +182,9 @@ export function AiChatBookingStep({
           <SummaryRow field="camp" label={t.aiChat.booking.summary.campRow} value={view.campValue} />
           <SummaryRow field="dates" label={t.aiChat.booking.summary.datesRow} value={view.datesValue} />
           <SummaryRow field="guests" label={t.aiChat.booking.summary.guestsRow} value={view.guestsValue} />
+          {view.spotValue && (
+            <SummaryRow field="spot" label={t.aiChat.booking.summary.spotRow} value={view.spotValue} />
+          )}
           <div className="mt-3 border-t border-border/60 pt-3">
             <SummaryRow field="total" label={t.aiChat.booking.summary.totalRow} value={view.totalValue} />
           </div>
@@ -180,17 +203,20 @@ export function AiChatBookingStep({
 
   // view.kind === "question"
   const step = view.step;
-  const isEmpty = step === "date" && view.chips.length === 0;
+  // CAM-700 — a `spot` block with no chips WHILE loading (`isChecking`, the
+  // step-entry /spots fetch) is not the "no offers fit" empty state; exclude
+  // it so the fetch-in-flight moment never wears the empty-state testid/copy.
+  const isEmpty = (step === "date" || step === "spot") && view.chips.length === 0 && !view.isChecking;
   const showTypeHint = !isEmpty;
   const chipItems: ChatChipItem[] = view.chips.map((chip) => resolveChip(chip, t, formatDate));
   const { chipsLabel, typeHint } = stepCopy(step, t);
 
   return (
     <div role="group" aria-label={t.aiChat.booking.groupLabel} data-testid="msg--ai-chat-booking-step" data-step={step} className="space-y-3">
-      <StepCaption step={step} isCurrent={view.isCurrent} />
+      <StepCaption step={step} isCurrent={view.isCurrent} useSpotView={view.useSpotView ?? false} />
       <p
         className="text-sm leading-relaxed text-foreground"
-        data-testid={isEmpty ? "empty--ai-chat-booking-no-dates" : undefined}
+        data-testid={isEmpty ? (step === "spot" ? "empty--ai-chat-booking-no-spots" : "empty--ai-chat-booking-no-dates") : undefined}
       >
         {view.questionText}
       </p>
@@ -226,16 +252,15 @@ export function AiChatBookingStep({
 // Internal pieces
 // ---------------------------------------------------------------------------
 
-function StepCaption({ step, isCurrent }: { step: BookingStepId; isCurrent: boolean }) {
+function StepCaption({ step, isCurrent, useSpotView }: { step: BookingStepId; isCurrent: boolean; useSpotView: boolean }) {
   const { t } = useLanguage();
-  // CAM-699 — `{total}` reads the static registry count (now 4: date, nights,
-  // guests, summary) for every camp. Design brief §2's own critical note
-  // requires this to become the length of the step list RESOLVED FOR THIS
-  // CAMP once a conditional `spot` step exists (per-pitch camps only) — that
-  // lands with CAM-700, deliberately out of this story's surface.
+  // CAM-700 — `{total}` now reads the step list RESOLVED FOR THIS CAMP
+  // (`resolveBookingSteps(useSpotView)`), never the static whole-camp
+  // constant: 4 for a whole-camp flow, 5 for a per-pitch one that has
+  // reached/passed `spot` (design brief §2's critical note).
   const caption = t.aiChat.booking.stepCaption
-    .replace("{current}", String(stepPosition(step)))
-    .replace("{total}", String(BOOKING_STEPS.length));
+    .replace("{current}", String(stepPosition(step, useSpotView)))
+    .replace("{total}", String(resolveBookingSteps(useSpotView).length));
   const stepName = t.aiChat.booking.stepName[step];
   return (
     <p
@@ -250,7 +275,7 @@ function StepCaption({ step, isCurrent }: { step: BookingStepId; isCurrent: bool
   );
 }
 
-function SummaryRow({ field, label, value }: { field: "camp" | "dates" | "guests" | "total"; label: string; value: string }) {
+function SummaryRow({ field, label, value }: { field: "camp" | "dates" | "guests" | "spot" | "total"; label: string; value: string }) {
   return (
     <div role="row" data-testid="row--ai-chat-booking-summary-line" data-field={field} className="flex items-baseline justify-between gap-3">
       <span className="text-xs text-foreground/70">{label}</span>
@@ -334,6 +359,40 @@ function ControlsRow({
             </Button>
           );
         }
+        if (control.kind === "editNights") {
+          // CAM-700 — reuses the EXISTING generic `onBack` handler (never a
+          // dedicated prop, see `BookingControlSpec.editNights`'s own doc).
+          return (
+            <Button
+              key="editNights"
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-11 rounded-full"
+              data-testid="btn--ai-chat-booking-edit"
+              data-step="nights"
+              onClick={() => onBack?.("nights")}
+            >
+              {t.aiChat.booking.editNights}
+            </Button>
+          );
+        }
+        if (control.kind === "editSpot") {
+          return (
+            <Button
+              key="editSpot"
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-11 rounded-full"
+              data-testid="btn--ai-chat-booking-edit"
+              data-step="spot"
+              onClick={() => onBack?.("spot")}
+            >
+              {t.aiChat.booking.editSpot}
+            </Button>
+          );
+        }
         return (
           <Button
             key="cancel"
@@ -405,19 +464,38 @@ function resolveChip(
   if (chip.kind === "nights") {
     return { value: String(chip.count), label: t.aiChat.booking.nights.chip.replace("{count}", String(chip.count)) };
   }
+  // CAM-700 — `spot` chips inherit the `date` chip's anatomy (name + middot +
+  // muted price), design brief §4. The accessible name is overridden with a
+  // single string built from `spot.chip` so no stray separator is announced.
+  if (chip.kind === "spot") {
+    const priceText = `฿${THB_FORMAT.format(chip.pricePerNight)}`;
+    return {
+      value: chip.id,
+      label: `${chip.name} ${priceText}`,
+      ariaLabel: t.aiChat.booking.spot.chip.replace("{name}", chip.name).replace("{price}", priceText),
+      content: (
+        <>
+          <span>{chip.name}</span>
+          <span aria-hidden="true"> · </span>
+          <span className="text-foreground/70 tabular-nums">{priceText}</span>
+        </>
+      ),
+    };
+  }
   return { value: String(chip.count), label: t.aiChat.booking.guests.chip.replace("{count}", String(chip.count)) };
 }
 
 /**
- * CAM-699 — the chips-label + type-hint copy pair for a `question` step.
- * `date`/`nights`/`guests` are the only step ids `BookingQuestionView.step`
+ * CAM-700 — the chips-label + type-hint copy pair for a `question` step.
+ * `date`/`nights`/`guests`/`spot` are the only step ids `BookingQuestionView.step`
  * can carry (`summary` has its own render branch above).
  */
 function stepCopy(
-  step: "date" | "nights" | "guests",
+  step: "date" | "nights" | "guests" | "spot",
   t: ReturnType<typeof useLanguage>["t"]
 ): { chipsLabel: string; typeHint: string } {
   if (step === "date") return { chipsLabel: t.aiChat.booking.date.chipsLabel, typeHint: t.aiChat.booking.date.typeHint };
   if (step === "nights") return { chipsLabel: t.aiChat.booking.nights.chipsLabel, typeHint: t.aiChat.booking.nights.typeHint };
+  if (step === "spot") return { chipsLabel: t.aiChat.booking.spot.chipsLabel, typeHint: t.aiChat.booking.spot.typeHint };
   return { chipsLabel: t.aiChat.booking.guests.chipsLabel, typeHint: t.aiChat.booking.guests.typeHint };
 }
