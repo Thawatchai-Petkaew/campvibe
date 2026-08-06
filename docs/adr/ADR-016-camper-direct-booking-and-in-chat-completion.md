@@ -1,6 +1,6 @@
 # ADR-016: Campers book directly; the assistant completes the booking in chat (CAM-631)
 
-Status: Accepted — owner-ratified in chat 2026-07-28 · **Epic:** CAM-630 (In-chat guided booking) · **Supersedes in part:** ADR-011 (BookingReadinessGate as a camper-CTA gate)
+Status: Accepted — owner-ratified in chat 2026-07-28 · **Epic:** CAM-630 (In-chat guided booking) · **Supersedes in part:** ADR-011 (BookingReadinessGate as a camper-CTA gate) · **§5 decided 2026-08-06 by [ADR-018](ADR-018-in-chat-booking-write-path.md)** (CAM-696, epic CAM-695 — see the dated note in §5; nothing here is retracted)
 
 ## Context
 
@@ -43,6 +43,16 @@ The assistant collects dates and party size, shows a summary, and hands off to t
 
 **5. Committing the booking inside the chat is a LATER decision point, not decided here.**
 When round 2 is proposed it needs its own ADR covering at minimum: which deterministic code path performs the write, what the camper's explicit final confirm looks like, and how availability is re-checked at confirm time.
+
+> **DECIDED 2026-08-06 by [ADR-018](ADR-018-in-chat-booking-write-path.md)** (story CAM-696, epic CAM-695 — round 2). All three questions this paragraph asked are answered there:
+>
+> - **Which deterministic code path performs the write** — the existing `POST /api/bookings`, reached through the `bookingAPI.create` facade (`lib/api-client.ts:106`) with `source:'CHAT'` as a code constant at that call site. No new endpoint, no schema change, no migration (ADR-018 D1).
+> - **What the explicit final confirm looks like** — the camper's own tap on ยืนยันการจอง on the summary step. Typed text never submits, and after a login the button re-labels but **never** auto-submits (ADR-018 D2).
+> - **How availability is re-checked at confirm time** — by the Serializable transaction inside `POST /api/bookings` itself (`app/api/bookings/route.ts:60`–`:263`). The pre-summary live check (CAM-647) is the UX layer above it; a third GET between the tap and the POST is explicitly rejected (ADR-018 D3).
+>
+> ADR-018 additionally records three things this paragraph did not anticipate: the model's write-free relationship is unchanged and permanent (D4), booking blocks stay out of model history and are never restored (D5), and idempotency ships this round as a client reconcile heuristic with its residual risk stated (D6 — the server-side key is CAM-706).
+>
+> **Nothing above is retracted.** This paragraph stands as the record of what was deferred, and when.
 
 **6. What is still deferred to M7.5 is PAYMENT, not booking.**
 `BookingReadinessGate` remains meaningful for the payment/checkout re-entry decision (ADR-011's actual economic argument — refund/dispute/payout/fraud ops). It is retired only as a gate on the camper booking CTA. Documents that say "public booking/payment deferred" now read "public **payment** deferred".
