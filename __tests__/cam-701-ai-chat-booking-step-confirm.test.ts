@@ -54,6 +54,10 @@ function renderStep(
     onCancel?: () => void;
     onConfirm?: () => void;
     onCheckAndRetry?: () => void;
+    // CAM-703 (2026-08-06) — the LIVE session override for the confirm
+    // control's displayed label/data-auth; defaults false (guest) to match
+    // AiChatBookingStepProps's own default.
+    liveAuthed?: boolean;
   } = {}
 ) {
   render(React.createElement(LanguageProvider, null, React.createElement(AiChatBookingStep, { view, ...handlers })));
@@ -69,7 +73,15 @@ const BASE_ROWS = {
 };
 
 describe("summary — confirm CTA (design brief §5, 'one control two labels')", () => {
-  it("[normal] a MEMBER-confirmable summary renders ยืนยันการจอง, data-auth=member, and calls onConfirm on tap", () => {
+  // CAM-703 (2026-08-06 dated supersede) — the rendered label/data-auth now
+  // come from the LIVE `liveAuthed` prop, never the fixture's own
+  // `cta.label`/`authState` (design brief §5's critical note — see
+  // AiChatBookingStep.tsx's own doc comment). Both tests below now pass
+  // `liveAuthed` explicitly and assert the LIVE-derived copy; the full
+  // live-flip matrix (a stale `cta.authState:'guest'` still rendering
+  // ยืนยันการจอง once `liveAuthed:true`) is cam-703-login-gate.test.ts's own
+  // surface.
+  it("[normal] liveAuthed:true renders ยืนยันการจอง, data-auth=member, and calls onConfirm on tap", () => {
     const onConfirm = vi.fn();
     renderStep(
       {
@@ -79,7 +91,7 @@ describe("summary — confirm CTA (design brief §5, 'one control two labels')",
         cta: { kind: "confirm", label: "Confirm booking", authState: "member" },
         controls: [{ kind: "editDate" }, { kind: "editGuests" }, { kind: "cancel" }],
       },
-      { onConfirm }
+      { onConfirm, liveAuthed: true }
     );
 
     const btn = screen.getByTestId("btn--ai-chat-booking-confirm");
@@ -94,7 +106,7 @@ describe("summary — confirm CTA (design brief §5, 'one control two labels')",
     expect(screen.getByText("Have a look. If it's right, go ahead and confirm.")).toBeTruthy();
   });
 
-  it("[normal] a GUEST-gated summary renders the login-to-confirm label, same testid + position, and still calls onConfirm", () => {
+  it("[normal] liveAuthed:false (default) renders the login-to-confirm label, same testid + position, and still calls onConfirm", () => {
     const onConfirm = vi.fn();
     renderStep(
       {

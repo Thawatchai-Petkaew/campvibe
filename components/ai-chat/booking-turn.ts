@@ -639,8 +639,13 @@ export async function resolveSpotStep(
     // never a pitch-less confirm. The camp page itself still requires a
     // pitch on a `useSpotView` camp (ADR-018 D7); this flow simply hands off
     // to it rather than blocking on data it does not have.
+    // CAM-703 — `forceHandoff:true` is load-bearing here: this camp is
+    // GENUINELY per-pitch (only its own `useSpotView` copy is relabeled for
+    // routing), so it must never pick up CAM-703's whole-camp confirm rule —
+    // that would let the chat write a pitch-less booking the camp page
+    // forbids (see `buildSummaryView`'s own `forceHandoff` doc comment).
     const downgradedCamp: BookingCampContext = { ...camp, useSpotView: false };
-    const view = buildSummaryView({ slots: state.slots, camp: downgradedCamp, t, language, today: bangkokTodayISO(now) });
+    const view = buildSummaryView({ slots: state.slots, camp: downgradedCamp, t, language, today: bangkokTodayISO(now), forceHandoff: true });
     return { entries: appendBookingEntry(entries, 'summary', view), booking: { state, camp: downgradedCamp, spotCandidates: null } };
   }
 

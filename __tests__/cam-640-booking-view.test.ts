@@ -213,10 +213,15 @@ describe("buildSummaryView", () => {
     expect(view.totalValue).toBe(t.aiChat.card.free);
   });
 
-  it("[normal] the handoff link carries the REAL checkIn/checkOut/guests/from=chat — the SAME contract lib/booking-prefill.ts's reader expects", () => {
-    const view = buildSummaryView({ slots, camp: CAMP, t, language: "th", today: "2026-07-22" });
-    // CAM-701 — `handoffHref` renamed to the `cta` discriminator; this pure
-    // builder still produces `kind:'handoff'` today (no session parameter).
+  it("[normal] a PER-PITCH camp's handoff link carries the REAL checkIn/checkOut/guests/from=chat — the SAME contract lib/booking-prefill.ts's reader expects", () => {
+    // CAM-703 (2026-08-06 dated supersede) — `CAMP` (whole-camp) now gets
+    // `kind:'confirm'` unconditionally (guest or member); a per-pitch camp
+    // is the one case still keeping `handoff`, so this fixture proves the
+    // href contract against THAT camp shape instead. The whole-camp
+    // guest/member `confirm` cta shapes are covered by
+    // cam-703-login-gate.test.ts.
+    const perPitchCamp: BookingCampContext = { ...CAMP, useSpotView: true };
+    const view = buildSummaryView({ slots, camp: perPitchCamp, t, language: "th", today: "2026-07-22" });
     expect(view.cta).toEqual({
       kind: "handoff",
       href: `/campgrounds/${CAMP.slug}?checkIn=2026-08-01&checkOut=2026-08-03&guests=2&from=chat`,

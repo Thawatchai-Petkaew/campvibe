@@ -104,8 +104,12 @@ describe("(3) background scroll-lock is manual, NEVER via Radix modal", () => {
   });
 
   it("[normal] a manual effect toggles a scroll-lock class only while open && expanded", () => {
+    // CAM-703 (2026-08-06 dated supersede) — the guard grew one more OR
+    // clause (`|| loginModalOpen`, suspending the lock while LoginModal is
+    // open); the `!(open && expanded)` core condition this test protects is
+    // unchanged and still present.
     expect(panelSrc).toMatch(
-      /if \(typeof document === "undefined" \|\| !\(open && expanded\)\) return;/
+      /if \(typeof document === "undefined" \|\| !\(open && expanded\) \|\| loginModalOpen\) return;/
     );
     expect(panelSrc).toContain('root.classList.add("ai-chat-scroll-lock", "no-scrollbar");');
     expect(panelSrc).toContain('root.classList.remove("ai-chat-scroll-lock", "no-scrollbar");');

@@ -92,13 +92,21 @@ describe("the write orchestration is imported from booking-turn.ts (no inline re
   });
 });
 
+// CAM-703 (2026-08-06 dated supersede) — the guard used to be a bare
+// `if (!authed) return;` no-op; it now serializes the flow + fires
+// `onNeedsLogin` (the login gate) before returning. Still sits before the
+// first `await` — that guarantee is re-asserted against the new shape.
 describe("!authed guards onBookingConfirm before it ever reaches the network", () => {
-  it("[unit] the `if (!authed) return;` guard sits before the first await", () => {
+  it("[unit] the `if (!authed) {` guard sits before the first await and never calls bookingAPI.create", () => {
     const body = bodyOf(useAiChatSrc, "const onBookingConfirm = useCallback(async () => {");
-    const authGuardIdx = body.indexOf("if (!authed) return;");
+    const authGuardIdx = body.indexOf("if (!authed) {");
     const firstAwaitIdx = body.indexOf("await ");
     expect(authGuardIdx).toBeGreaterThan(-1);
     expect(authGuardIdx).toBeLessThan(firstAwaitIdx);
+    const guardBlockEnd = body.indexOf("\n    }\n", authGuardIdx);
+    const guardBlock = body.slice(authGuardIdx, guardBlockEnd);
+    expect(guardBlock).not.toContain("bookingAPI.create");
+    expect(guardBlock).toContain("onNeedsLogin?.(reason)");
   });
 });
 
@@ -144,11 +152,15 @@ describe("AiChatMessageList wires onConfirm/onCheckAndRetry, gated on isCurrent 
 });
 
 describe("AiChatPanel threads onBookingConfirm/onBookingCheckAndRetry from useAiChat() to AiChatMessageList", () => {
-  it("[unit] both are destructured from useAiChat() and passed straight through — no new login/modal logic added here", () => {
+  it("[unit] both are destructured from useAiChat() and passed straight through unchanged — the login gate lives in onNeedsLogin, not a wrapper here", () => {
     expect(panelSrc).toContain("onBookingConfirm,");
     expect(panelSrc).toContain("onBookingCheckAndRetry,");
     expect(panelSrc).toContain("onBookingConfirm={onBookingConfirm}");
     expect(panelSrc).toContain("onBookingCheckAndRetry={onBookingCheckAndRetry}");
-    expect(panelSrc).not.toContain("LoginModal"); // CAM-703's surface, untouched here
+    // CAM-703 (2026-08-06 dated supersede) — LoginModal now lives here, per
+    // this story's own file surface (see cam-703-login-gate.test.ts for the
+    // full wiring proof). The invariant this test still protects — neither
+    // handler is wrapped/reimplemented at the call site — holds unchanged.
+    expect(panelSrc).toContain("LoginModal");
   });
 });

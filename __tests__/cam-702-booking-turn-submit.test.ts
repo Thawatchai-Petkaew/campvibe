@@ -68,7 +68,10 @@ describe("buildSummaryView — the authed cta flip (ADR-018 D1/D2)", () => {
     expect(view.cta).toEqual({ kind: "confirm", label: t.aiChat.booking.confirm, authState: "member" });
   });
 
-  it("[normal] whole-camp + guest (authed omitted, defaults false) -> kind:'handoff', byte-identical to pre-CAM-702 behaviour", () => {
+  // CAM-703 (2026-08-06 dated supersede) — a whole-camp guest now ALSO gets
+  // `kind:'confirm'` (the login gate), never `handoff` — see
+  // cam-703-login-gate.test.ts for the full guest/member cta matrix.
+  it("[normal] whole-camp + guest (authed omitted, defaults false) -> kind:'confirm', authState:'guest', loginToConfirm label", () => {
     const view = buildSummaryView({
       slots: { checkIn: "2026-08-01", checkOut: "2026-08-03", nights: 2, guests: 2 },
       camp: CAMP,
@@ -76,7 +79,7 @@ describe("buildSummaryView — the authed cta flip (ADR-018 D1/D2)", () => {
       language: "th",
       today: "2026-07-30",
     });
-    expect(view.cta.kind).toBe("handoff");
+    expect(view.cta).toEqual({ kind: "confirm", label: t.aiChat.booking.loginToConfirm, authState: "guest" });
   });
 
   it("[boundary] a per-pitch camp stays handoff EVEN when authed:true (per-pitch confirm is a later story)", () => {

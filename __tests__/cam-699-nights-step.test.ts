@@ -354,11 +354,9 @@ describe('CAM-699 done_when — the chip path: date chip -> nights chip "2" -> g
     );
     expect(view.datesValue).toContain('พัก 2 คืน');
     expect(view.totalValue).toBe('฿1,000');
-    // CAM-701 — `handoffHref` renamed to the `cta` discriminator.
-    expect(view.cta).toEqual({
-      kind: 'handoff',
-      href: `/campgrounds/${CAMP.slug}?checkIn=2026-08-01&checkOut=2026-08-03&guests=2&from=chat`,
-    });
+    // CAM-703 (2026-08-06 dated supersede) — a whole-camp guest (authed:false
+    // above) now gets `kind:'confirm'` (the login gate), never `handoff`.
+    expect(view.cta).toEqual({ kind: 'confirm', label: t.aiChat.booking.loginToConfirm, authState: 'guest' });
   });
 });
 
