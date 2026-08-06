@@ -8,16 +8,16 @@
  * `cam-462-resolve-dates.test.ts` / `cam-479-resolve-dates-weekday.test.ts`
  * already use for `resolveDatesCore`.
  *
- * KNOWN LIMITATION pinned deliberately below (not a bug in this module): the
- * CAM-633 ticket and the CAM-637 design brief both give "15 ส.ค." as a typed
- * date-step example, but `resolveDatesCore` (CAM-632, reused here AS-IS, not
- * extended by this story) has no rule for an absolute day+Thai-month phrase
- * — verified against the real function, not assumed. This module correctly
- * delegates and returns `unsupported` for it; a follow-up story would add
- * the absolute-date rule to `lib/ai/date-phrases.ts` if the product wants
- * it. Reported to the ticket owner rather than silently fixed here (out of
- * this story's file surface) or silently dropped from the test (would hide
- * a real spec/repo mismatch).
+ * SUPERSEDED 2026-08-06 (CAM-645): the KNOWN LIMITATION originally pinned
+ * here — "15 ส.ค." falling through to `unsupported` because
+ * `resolveDatesCore` had no absolute day+Thai-month rule — is now closed.
+ * CAM-645 added the absolute-date rule to `lib/ai/date-phrases.ts` (rule 8
+ * in `resolveDatesCore`'s dispatch list); see
+ * `__tests__/cam-645-absolute-thai-dates.test.ts` for the full coverage.
+ * This module still delegates to `resolveDatesCore` AS-IS (unchanged here),
+ * so the test below now asserts the CURRENT resolved behavior instead of
+ * the old `unsupported` pin — kept in place (not deleted) so this file's own
+ * history of the gap stays legible.
  *
  * G3 REVIEW FIXES covered below, THREE ROUNDS (per the coordinator: rounds
  * 2 and 3 trace to an underspecified round-1 instruction, not to failed
@@ -155,7 +155,7 @@ describe('combineCapacityLimit — the capacity trap (BR-3: null is unbounded, n
   });
 });
 
-describe('date step — parse (typed input) via resolveDatesCore, unchanged, no absolute-date extension', () => {
+describe('date step — parse (typed input) via resolveDatesCore, unchanged (CAM-645 added the absolute-date rule to date-phrases.ts itself, not to this module)', () => {
   it('[normal] "เสาร์หน้า" advances with the real resolved Saturday (same date a chip for that Saturday would carry)', () => {
     const outcome = advanceBookingFlow(stateWith({}), { kind: 'text', text: 'เสาร์หน้า' }, ctx());
     expect(outcome).toEqual({
@@ -172,12 +172,11 @@ describe('date step — parse (typed input) via resolveDatesCore, unchanged, no 
     });
   });
 
-  it('[documented-limitation] "15 ส.ค." does NOT resolve today — resolveDatesCore has no absolute day+Thai-month rule (verified against the real function; flagged to the ticket owner, not silently added here)', () => {
+  it('[normal][superseded 2026-08-06, CAM-645] "15 ส.ค." now advances with the real resolved 2026-08-15 — this module still delegates AS-IS to resolveDatesCore, which gained the absolute-date rule (was `unsupported` before CAM-645; see cam-645-absolute-thai-dates.test.ts)', () => {
     const outcome = advanceBookingFlow(stateWith({}), { kind: 'text', text: '15 ส.ค.' }, ctx());
     expect(outcome).toEqual({
-      kind: 'reprompt',
-      state: { slots: {}, consecutiveMisses: 1 },
-      reason: 'unparsed',
+      kind: 'advance',
+      state: { slots: { checkIn: '2026-08-15', checkOut: '2026-08-16' }, consecutiveMisses: 0 },
     });
   });
 
