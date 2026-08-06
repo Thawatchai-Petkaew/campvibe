@@ -60,6 +60,8 @@ const CAMP: BookingCampContext = {
     { date: '2026-07-25', remaining: 6, blockedByHost: false }, // "สุดสัปดาห์นี้" resolves here (TODAY is Wed 2026-07-22)
   ],
   maxGuestsPerDay: 10,
+  // CAM-700 — whole-camp fixture; the `spot` step lives in cam-700-*.test.ts.
+  useSpotView: false,
   unitPrice: 500,
   priceUnit: 'PER_SITE',
   priceIsFree: false,
@@ -270,7 +272,7 @@ describe('buildNightsQuestionView', () => {
   const slots: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02' };
 
   it('[normal] reason:"ask" names the already-picked date', () => {
-    const view = buildNightsQuestionView({ slots, t, language: 'th', reason: 'ask' });
+    const view = buildNightsQuestionView({ slots, t, language: 'th', reason: 'ask', useSpotView: false });
     expect(view.step).toBe('nights');
     expect(view.questionText).toBe(t.aiChat.booking.nights.ask.replace('{date}', formatBookingDate('2026-08-01', 'th')));
     expect(view.chips.map((c) => (c.kind === 'nights' ? c.count : null))).toEqual([1, 2, 3, 4]);
@@ -278,18 +280,18 @@ describe('buildNightsQuestionView', () => {
   });
 
   it('[error/validation] reason:"unreadable"', () => {
-    const view = buildNightsQuestionView({ slots, t, language: 'th', reason: 'unreadable' });
+    const view = buildNightsQuestionView({ slots, t, language: 'th', reason: 'unreadable', useSpotView: false });
     expect(view.questionText).toBe(t.aiChat.booking.nights.unreadable);
   });
 
   it('[boundary] reason:"tooLong" names the REAL ceiling, chips unchanged (design brief §3: "the chip row is re-rendered unchanged")', () => {
-    const view = buildNightsQuestionView({ slots, t, language: 'th', reason: 'tooLong', max: 30 });
+    const view = buildNightsQuestionView({ slots, t, language: 'th', reason: 'tooLong', max: 30, useSpotView: false });
     expect(view.questionText).toBe(t.aiChat.booking.nights.tooLong.replace('{max}', '30'));
     expect(view.chips.map((c) => (c.kind === 'nights' ? c.count : null))).toEqual([1, 2, 3, 4]);
   });
 
   it('[null/empty] the chip row is never empty by construction', () => {
-    const view = buildNightsQuestionView({ slots, t, language: 'th', reason: 'ask' });
+    const view = buildNightsQuestionView({ slots, t, language: 'th', reason: 'ask', useSpotView: false });
     expect(view.chips.length).toBeGreaterThan(0);
   });
 });

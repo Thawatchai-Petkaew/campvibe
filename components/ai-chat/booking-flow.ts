@@ -115,9 +115,34 @@ export interface BookingSlots {
   /** CAM-699 — set either by the `nights` step's own answer, or PRE-FILLED by the `date` step itself when a typed phrase already resolved a real multi-night span (e.g. "สุดสัปดาห์นี้" = 2 nights) — see `acceptDateCandidate`. */
   nights?: number;
   guests?: number;
+  /**
+   * CAM-700 — the chosen pitch, `spot` step only (per-pitch camps). Flat and
+   * serialisable (structural rule #2 unbroken): `spotName` rides alongside
+   * `spotId` so the summary row (`buildSummaryView`) never needs a second
+   * lookup against a candidate list that may have moved on (occupied/
+   * refetched) by the time the summary renders.
+   */
+  spotId?: string;
+  spotName?: string;
 }
 
-export type BookingStepId = 'date' | 'nights' | 'guests' | 'summary';
+export type BookingStepId = 'date' | 'nights' | 'guests' | 'spot' | 'summary';
+
+/**
+ * CAM-700 — one live pitch as the pure state machine needs it to validate a
+ * candidate answer: id + the exact display name (both must match a real
+ * offered pitch) + price (carried through for completeness, unused by
+ * `accept` itself). The FULL wire shape (`CampSpotSummary`,
+ * `lib/api-client.ts`) also carries `maxCampers`; that filtering happens
+ * OUTSIDE this module (the caller hands over only the already-eligible
+ * candidates, the same "live data, caller-computed" contract `remaining`/
+ * `maxGuestsPerDay` already use on `BookingParseContext`).
+ */
+export interface BookingSpotCandidate {
+  id: string;
+  name: string;
+  pricePerNight: number;
+}
 
 /**
  * Everything a step's `parse`/`accept` may need, injected by the caller
@@ -145,6 +170,16 @@ export interface BookingParseContext {
   maxGuestsPerDay: number | null;
   /** CAM-699 — `state.slots.checkIn` at the moment of this turn (caller-computed, same idiom as `remaining`), the ONLY thing `nights`'s `accept` needs to derive `checkOut = checkIn + nights`. `null` only when `date` has not been answered yet — structurally unreachable for the `nights` step itself (it is never current before `date` is satisfied). */
   checkIn: string | null;
+  /**
+   * CAM-700 — the `spot` step's LIVE, already-eligible candidate list
+   * (guest-capacity filtered, occupied pitches excluded) — fetched by the
+   * hook (`use-ai-chat.ts`/`booking-turn.ts`'s `resolveSpotStep`), never by
+   * this module. `undefined`/`null` before the fetch resolves, or for a step
+   * that never reaches `spot` (optional so every EXISTING `ctx` literal
+   * built before this story keeps compiling unchanged). Same "live data,
+   * caller-computed" contract as `remaining`/`maxGuestsPerDay` above.
+   */
+  spotCandidates?: readonly BookingSpotCandidate[] | null;
 }
 
 /**
@@ -477,6 +512,63 @@ const guestsStep: BookingStepDef = {
 };
 
 // ---------------------------------------------------------------------------
+// `spot` step (CAM-700, ADR-018 D7) — per-pitch camps only (see
+// `resolveBookingSteps` below). Candidates are supplied LIVE by the caller
+// via `ctx.spotCandidates` (already guest-capacity filtered + occupied
+// pitches excluded) — this module never fetches. Availability at write time
+// is checked ASYNCHRONOUSLY, one level up (`booking-turn.ts`'s
+// `resolveSpotSelection`): `accept` here is the STATIC half only ("is this a
+// real, currently-offered pitch"), never the occupancy check itself.
+// ---------------------------------------------------------------------------
+
+function normalizeSpotName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/** TEXT ONLY — matches a typed pitch name against the live candidate list by PREFIX (case-insensitive), design brief §4. `null` when no candidate list is available yet, the text is blank, or nothing matches (a miss). */
+function parseSpotAnswer(text: string, ctx: BookingParseContext): Partial<BookingSlots> | null {
+  const candidates = ctx.spotCandidates;
+  if (!candidates || candidates.length === 0) return null;
+  const needle = normalizeSpotName(text);
+  if (needle.length === 0) return null;
+  const match = candidates.find((c) => normalizeSpotName(c.name).startsWith(needle));
+  return match ? { spotId: match.id, spotName: match.name } : null;
+}
+
+const SPOT_STEP_KEYS: readonly (keyof BookingSlots)[] = ['spotId', 'spotName'];
+
+/**
+ * POLICY for `spot`: confine to `spotId`/`spotName` only, both must be
+ * non-empty strings, and the pair must match a REAL entry in
+ * `ctx.spotCandidates` (never trust a chip/typed value that merely LOOKS
+ * well-formed — the same "confine + validate against live data" discipline
+ * `guests`'s capacity check already uses). Deliberately does NOT check
+ * occupancy — that is `resolveSpotSelection`'s async job, one level up.
+ */
+function acceptSpotCandidate(candidate: Partial<BookingSlots>, ctx: BookingParseContext): BookingStepParseResult {
+  if (!candidateStaysWithinKeys(candidate, SPOT_STEP_KEYS)) {
+    return { ok: false, kind: 'rejected', reasonKey: 'foreign_key', data: { keys: Object.keys(candidate) } };
+  }
+  const { spotId, spotName } = candidate;
+  if (typeof spotId !== 'string' || spotId.length === 0 || typeof spotName !== 'string' || spotName.length === 0) {
+    return { ok: false, kind: 'rejected', reasonKey: 'invalid_spot' };
+  }
+  const known = (ctx.spotCandidates ?? []).some((c) => c.id === spotId && c.name === spotName);
+  if (!known) {
+    return { ok: false, kind: 'rejected', reasonKey: 'invalid_spot' };
+  }
+  return { ok: true, slots: { spotId, spotName } };
+}
+
+const spotStep: BookingStepDef = {
+  id: 'spot',
+  isSatisfied: (slots) => slots.spotId !== undefined,
+  parse: parseSpotAnswer,
+  accept: acceptSpotCandidate,
+  chipKeys: ['chip'],
+};
+
+// ---------------------------------------------------------------------------
 // `summary` step — terminal (never satisfied, no field left to fill).
 // ---------------------------------------------------------------------------
 
@@ -499,18 +591,32 @@ const summaryStep: BookingStepDef = {
  *
  * CAM-699 — `nights` inserted between `date` and `guests` (ADR-018 D7/D8:
  * the pitch/guest ceiling and the total are computed FOR the span, so the
- * night count must be known before either). `BOOKING_STEPS.length` (read by
- * `AiChatBookingStep.tsx`'s `StepCaption` for the `{total}` in "ขั้นที่ N จาก
- * {total}") is now 4 for every camp — CAM-700 will make it per-camp once the
- * conditional `spot` step lands for per-pitch camps (design brief §2), which
- * is deliberately NOT this story's surface.
+ * night count must be known before either).
+ *
+ * CAM-700 — the registry is now PER-CAMP: a whole-camp flow never carries
+ * `spot` at all (never derived, never counted in `{total}`), a per-pitch
+ * flow inserts it directly before `summary` (ADR-018 D7 — the pitch is
+ * filtered by party size, so it must come after `guests`). `BOOKING_STEPS`
+ * stays exported as the WHOLE-CAMP list unchanged (back-compat for any
+ * caller that only ever deals with whole-camp flows); `resolveBookingSteps`
+ * is the one place that picks between the two — no second, hand-copied step
+ * list exists anywhere else (booking-flow.ts's own header rule #1).
  */
-export const BOOKING_STEPS: readonly BookingStepDef[] = [dateStep, nightsStep, guestsStep, summaryStep];
+const WHOLE_CAMP_STEPS: readonly BookingStepDef[] = [dateStep, nightsStep, guestsStep, summaryStep];
+const PER_PITCH_STEPS: readonly BookingStepDef[] = [dateStep, nightsStep, guestsStep, spotStep, summaryStep];
 
-/** First unsatisfied step, else the last step in the registry (structural rule #1 — never stored, always derived). */
-export function currentStep(slots: BookingSlots): BookingStepDef {
-  const firstUnsatisfied = BOOKING_STEPS.find((step) => !step.isSatisfied(slots));
-  return firstUnsatisfied ?? BOOKING_STEPS[BOOKING_STEPS.length - 1]!;
+export const BOOKING_STEPS: readonly BookingStepDef[] = WHOLE_CAMP_STEPS;
+
+/** CAM-700 — the step list for THIS camp: 4 steps whole-camp, 5 per-pitch. The `{total}` in the caption ("ขั้นที่ {current} จาก {total}") must always read this, never the static `BOOKING_STEPS.length`. */
+export function resolveBookingSteps(useSpotView: boolean): readonly BookingStepDef[] {
+  return useSpotView ? PER_PITCH_STEPS : WHOLE_CAMP_STEPS;
+}
+
+/** First unsatisfied step, else the last step in the registry (structural rule #1 — never stored, always derived). `useSpotView` defaults `false` so every call site written before CAM-700 keeps its exact whole-camp behavior unchanged. */
+export function currentStep(slots: BookingSlots, useSpotView = false): BookingStepDef {
+  const steps = resolveBookingSteps(useSpotView);
+  const firstUnsatisfied = steps.find((step) => !step.isSatisfied(slots));
+  return firstUnsatisfied ?? steps[steps.length - 1]!;
 }
 
 export interface BookingStepProgressEntry {
@@ -519,10 +625,11 @@ export interface BookingStepProgressEntry {
 }
 
 /** Every step before the current one is `done` (it must be satisfied, by `currentStep`'s own definition), the current one is `active`, everything after is `todo`. */
-export function stepProgress(slots: BookingSlots): BookingStepProgressEntry[] {
-  const current = currentStep(slots);
-  const currentIndex = BOOKING_STEPS.findIndex((step) => step.id === current.id);
-  return BOOKING_STEPS.map((step, index) => ({
+export function stepProgress(slots: BookingSlots, useSpotView = false): BookingStepProgressEntry[] {
+  const steps = resolveBookingSteps(useSpotView);
+  const current = currentStep(slots, useSpotView);
+  const currentIndex = steps.findIndex((step) => step.id === current.id);
+  return steps.map((step, index) => ({
     id: step.id,
     status: index < currentIndex ? 'done' : index === currentIndex ? 'active' : 'todo',
   }));
@@ -645,13 +752,14 @@ export function applyStepParseResult(state: BookingFlowState, result: BookingSte
 export function advanceBookingFlow(
   state: BookingFlowState,
   input: BookingFlowInput,
-  ctx: BookingParseContext
+  ctx: BookingParseContext,
+  useSpotView = false
 ): BookingFlowOutcome {
   if (input.kind === 'cancel') {
     return { kind: 'exit', reason: 'cancelled' };
   }
 
-  const step = currentStep(state.slots);
+  const step = currentStep(state.slots, useSpotView);
 
   if (input.kind === 'chip') {
     return applyStepParseResult(state, step.accept(input.slots, ctx));

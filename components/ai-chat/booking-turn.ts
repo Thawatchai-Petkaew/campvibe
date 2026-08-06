@@ -21,6 +21,14 @@
  * at flow start is treated as authoritative for the life of one flow; the
  * §1 "a typed full day is answered immediately" behaviour below is a
  * SYNCHRONOUS lookup against that same snapshot, not a network re-fetch.
+ *
+ * CAM-700 — `resolveSpotStep`/`resolveSpotSelection` at the bottom of this
+ * file ARE async and DO reach for the network, but never directly: the
+ * caller (`use-ai-chat.ts`) injects the fetch as a plain function parameter
+ * (dependency injection), so this module still imports zero of
+ * `lib/api-client.ts`'s runtime code (type-only where needed) and both
+ * functions stay fully unit-testable with a fake fetcher — no jsdom/RTL
+ * harness, matching every other test in this file's family.
  */
 import {
   advanceBookingFlow,
@@ -28,13 +36,16 @@ import {
   currentStep,
   type BookingFlowInput,
   type BookingFlowState,
+  type BookingSpotCandidate,
   type BookingStepId,
 } from '@/components/ai-chat/booking-flow';
 import { appendBookingEntry, appendBookingNotice, appendUserQuestion, type ChatEntry } from '@/components/ai-chat/conversation';
 import {
+  addDaysToIso,
   buildDateQuestionView,
   buildGuestsQuestionView,
   buildNightsQuestionView,
+  buildSpotQuestionView,
   buildSummaryView,
   extractDisplayNumber,
   isDateFull,
@@ -48,6 +59,13 @@ import type { Language, TranslationType } from '@/locales/translations';
 export interface BookingSession {
   state: BookingFlowState;
   camp: BookingCampContext;
+  /**
+   * CAM-700 — the `spot` step's live, already-eligible candidate list
+   * (fetched once per attempt — see `resolveSpotStep`). Optional so every
+   * `BookingSession` literal written before this story keeps compiling
+   * unchanged; every read goes through `session.spotCandidates ?? null`.
+   */
+  spotCandidates?: readonly BookingSpotCandidate[] | null;
 }
 
 export interface BookingTurnResult {
@@ -84,19 +102,31 @@ export function processBookingTurn(
   now: Date
 ): BookingTurnResult {
   const { state, camp } = session;
+  const spotCandidates = session.spotCandidates ?? null;
   const withEcho = appendUserQuestion(entries, echoText);
-  const wasDateStep = currentStep(state.slots).id === 'date';
-  const outcome = advanceBookingFlow(state, input, {
-    today: now,
-    remaining: state.slots.checkIn ? remainingForDate(camp.weekendAvailability, state.slots.checkIn) : null,
-    maxGuestsPerDay: camp.maxGuestsPerDay,
-    // CAM-699 — the `nights` step's own `accept` needs `checkIn` (already
-    // answered by the time `nights` is current) to derive `checkOut`.
-    checkIn: state.slots.checkIn ?? null,
-  });
+  const wasDateStep = currentStep(state.slots, camp.useSpotView).id === 'date';
+  const outcome = advanceBookingFlow(
+    state,
+    input,
+    {
+      today: now,
+      remaining: state.slots.checkIn ? remainingForDate(camp.weekendAvailability, state.slots.checkIn) : null,
+      maxGuestsPerDay: camp.maxGuestsPerDay,
+      // CAM-699 — the `nights` step's own `accept` needs `checkIn` (already
+      // answered by the time `nights` is current) to derive `checkOut`.
+      checkIn: state.slots.checkIn ?? null,
+      // CAM-700 — needed only while `spot` is current (the reject/miss path
+      // below); the successful-advance path never reaches here for `spot`
+      // (see `resolveSpotSelection`, which peeks BEFORE ever calling this
+      // function, so a real candidate never commits without the async
+      // occupancy check).
+      spotCandidates,
+    },
+    camp.useSpotView
+  );
 
   if (outcome.kind === 'advance') {
-    const newStep = currentStep(outcome.state.slots);
+    const newStep = currentStep(outcome.state.slots, camp.useSpotView);
     // §1 "a typed full day is answered immediately" — a SYNCHRONOUS lookup
     // against the static snapshot (never a network re-check, see the file
     // header). Only reachable leaving `date` via TYPED input — a chip's
@@ -119,8 +149,17 @@ export function processBookingTurn(
       // genuine multi-night typed range (see `acceptDateCandidate`'s own
       // comment) — this is the camper who tapped a date CHIP, or typed a
       // single day.
-      const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'ask' });
+      const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'ask', useSpotView: camp.useSpotView });
       return { entries: appendBookingEntry(withEcho, 'nights', view), booking: { state: outcome.state, camp } };
+    }
+    if (newStep.id === 'spot') {
+      // CAM-700 — freshly reached from `guests`: candidates are never known
+      // yet at THIS synchronous point (the fetch is `use-ai-chat.ts`'s job,
+      // via `resolveSpotStep`, right after this result is applied) — render
+      // the immediate "checking" feedback (loading.md §1) and let the caller
+      // replace it once the fetch resolves.
+      const view = buildSpotQuestionView({ t, useSpotView: camp.useSpotView, reason: 'loading', candidates: [] });
+      return { entries: appendBookingEntry(withEcho, 'spot', view), booking: { state: outcome.state, camp, spotCandidates: null } };
     }
     const view =
       newStep.id === 'guests'
@@ -130,7 +169,7 @@ export function processBookingTurn(
   }
 
   if (outcome.kind === 'reprompt') {
-    const step = currentStep(outcome.state.slots);
+    const step = currentStep(outcome.state.slots, camp.useSpotView);
     if (step.id === 'date') {
       const view = buildDateQuestionView({ camp, t, language, reason: 'unreadable' });
       return { entries: appendBookingEntry(withEcho, 'date', view), booking: { state: outcome.state, camp } };
@@ -142,11 +181,19 @@ export function processBookingTurn(
       // its own non-`over_capacity` rejections just below.
       if (outcome.reason === 'rejected' && outcome.reasonKey === 'too_long') {
         const max = (outcome.data as { max: number } | undefined)?.max;
-        const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'tooLong', max });
+        const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'tooLong', max, useSpotView: camp.useSpotView });
         return { entries: appendBookingEntry(withEcho, 'nights', view), booking: { state: outcome.state, camp } };
       }
-      const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'unreadable' });
+      const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'unreadable', useSpotView: camp.useSpotView });
       return { entries: appendBookingEntry(withEcho, 'nights', view), booking: { state: outcome.state, camp } };
+    }
+    if (step.id === 'spot') {
+      // CAM-700 — a typed miss / a rejected (foreign-key, invalid_spot)
+      // candidate at `spot`; every non-specific rejection reuses `unreadable`
+      // (the same precedent `nights`/`guests` set above for THEIR own
+      // non-primary rejections).
+      const view = buildSpotQuestionView({ t, useSpotView: camp.useSpotView, reason: 'unreadable', candidates: spotCandidates ?? [] });
+      return { entries: appendBookingEntry(withEcho, 'spot', view), booking: { state: outcome.state, camp, spotCandidates } };
     }
     // step.id === 'guests'
     if (outcome.reason === 'rejected' && outcome.reasonKey === 'over_capacity') {
@@ -206,6 +253,16 @@ export function processBookingTurn(
  * until `nights` is re-answered) so `dateStep.isSatisfied` (which still
  * requires both `checkIn` AND `checkOut`) keeps regarding `date` as
  * satisfied and `currentStep` lands on `nights`, not back on `date`.
+ *
+ * CAM-700 — `spotId`/`spotName` are cleared by EVERY `toStep` except `spot`
+ * itself: editing an earlier field (date/nights/guests) can change which
+ * pitches are even offerable (span or party size moved), so a previously
+ * chosen pitch is never carried forward silently. `spotCandidates` is reset
+ * to `null` alongside it for the SAME reason — the eligible list itself may
+ * have changed — forcing a fresh `resolveSpotStep` fetch the next time
+ * `spot` is reached. `toStep:'spot'` (the summary's `แก้จุดกางเต็นท์`) is the
+ * one exception: dates/guests are unchanged, so the cached candidates are
+ * still valid and this can rebuild the block SYNCHRONOUSLY, no fetch.
  */
 export function processBookingControl(
   entries: ChatEntry[],
@@ -216,27 +273,191 @@ export function processBookingControl(
 ): BookingTurnResult {
   const { camp } = session;
   const slots = { ...session.state.slots };
+  let spotCandidates = session.spotCandidates ?? null;
   if (toStep === 'date') {
     delete slots.checkIn;
     delete slots.checkOut;
     delete slots.nights;
+    delete slots.spotId;
+    delete slots.spotName;
+    spotCandidates = null;
   } else if (toStep === 'nights') {
     delete slots.nights;
+    delete slots.spotId;
+    delete slots.spotName;
+    spotCandidates = null;
   } else if (toStep === 'guests') {
     delete slots.guests;
+    delete slots.spotId;
+    delete slots.spotName;
+    spotCandidates = null;
+  } else if (toStep === 'spot') {
+    delete slots.spotId;
+    delete slots.spotName;
+    // `spotCandidates` intentionally KEPT — see doc comment above.
   }
   const state: BookingFlowState = { slots, consecutiveMisses: 0 };
-  const step = currentStep(slots);
+  const step = currentStep(slots, camp.useSpotView);
   const view =
-    step.id === 'guests'
-      ? buildGuestsQuestionView({ slots, camp, t, language, reason: 'ask' })
-      : step.id === 'nights'
-        ? buildNightsQuestionView({ slots, t, language, reason: 'ask' })
-        : buildDateQuestionView({ camp, t, language, reason: 'ask' });
-  return { entries: appendBookingEntry(entries, step.id, view), booking: { state, camp } };
+    step.id === 'spot'
+      ? buildSpotQuestionView({
+          t,
+          useSpotView: camp.useSpotView,
+          reason: spotCandidates && spotCandidates.length > 0 ? 'ask' : 'loading',
+          candidates: spotCandidates ?? [],
+        })
+      : step.id === 'guests'
+        ? buildGuestsQuestionView({ slots, camp, t, language, reason: 'ask' })
+        : step.id === 'nights'
+          ? buildNightsQuestionView({ slots, t, language, reason: 'ask', useSpotView: camp.useSpotView })
+          : buildDateQuestionView({ camp, t, language, reason: 'ask' });
+  return { entries: appendBookingEntry(entries, step.id, view), booking: { state, camp, spotCandidates } };
 }
 
 /** `ยกเลิกการจอง` — exits unconditionally from any step; no re-check needed. */
 export function processBookingCancel(entries: ChatEntry[], t: TranslationType): BookingTurnResult {
   return { entries: appendBookingNotice(entries, t.aiChat.booking.cancelled), booking: null };
+}
+
+// ---------------------------------------------------------------------------
+// CAM-700 — the `spot` step's async orchestration. Both functions below
+// accept the fetch as an injected PARAMETER (dependency injection) rather
+// than importing `lib/api-client.ts` themselves, so they stay unit-testable
+// with a fake fetcher (see the file header's own note).
+// ---------------------------------------------------------------------------
+
+/**
+ * The RAW result of fetching + guest-filtering a camp's pitches, decided
+ * entirely by the injected `fetchSpots` callback:
+ *   - `ok:false` — the fetch itself failed, OR the camp has literally zero
+ *     live pitches at all. `resolveSpotStep` fails TOWARD the handoff for
+ *     this case (ADR-018 §4 — never a pitch-less confirm, never a stall).
+ *   - `ok:true, candidates:[]` — the fetch succeeded but NONE of the camp's
+ *     real pitches fit this party size. This is design brief §4's real
+ *     "Empty is real here" state (stays on `spot`, offers the edit trio).
+ */
+export type SpotFetchOutcome =
+  | { ok: true; candidates: readonly BookingSpotCandidate[] }
+  | { ok: false };
+
+/**
+ * Runs the moment the flow reaches `spot` with no candidates cached yet
+ * (`use-ai-chat.ts`'s `settleBookingTurn`, right after applying a turn that
+ * just landed on the `loading` block built above). Never called for a
+ * whole-camp flow (that never resolves to `spot` at all).
+ */
+export async function resolveSpotStep(
+  entries: ChatEntry[],
+  session: BookingSession,
+  fetchSpots: (campId: string, guests: number) => Promise<SpotFetchOutcome>,
+  t: TranslationType,
+  language: Language,
+  now: Date
+): Promise<BookingTurnResult> {
+  const { camp, state } = session;
+  const outcome = await fetchSpots(camp.campId, state.slots.guests!);
+
+  if (!outcome.ok) {
+    // CAM-700 — fail TOWARD the handoff: this session's camp copy is
+    // downgraded to whole-camp for the REST of this flow (no spot data
+    // exists to offer), so `currentStep` skips `spot` from here on and the
+    // EXISTING whole-camp summary (with its handoff CTA) renders unchanged —
+    // never a pitch-less confirm. The camp page itself still requires a
+    // pitch on a `useSpotView` camp (ADR-018 D7); this flow simply hands off
+    // to it rather than blocking on data it does not have.
+    const downgradedCamp: BookingCampContext = { ...camp, useSpotView: false };
+    const view = buildSummaryView({ slots: state.slots, camp: downgradedCamp, t, language, today: bangkokTodayISO(now) });
+    return { entries: appendBookingEntry(entries, 'summary', view), booking: { state, camp: downgradedCamp, spotCandidates: null } };
+  }
+
+  const view = buildSpotQuestionView({
+    t,
+    useSpotView: true,
+    reason: outcome.candidates.length > 0 ? 'ask' : 'empty',
+    candidates: outcome.candidates,
+  });
+  return { entries: appendBookingEntry(entries, 'spot', view), booking: { state, camp, spotCandidates: outcome.candidates } };
+}
+
+/**
+ * The result of a spot-step SELECTION attempt (chip tap or typed name).
+ * `retry` is present ONLY when the availability check itself failed
+ * (network/off-contract) — `entries`/`booking` in that case already carry
+ * the camper's echo but NOT a `checkFailed` block yet: this module owns no
+ * React callback, so the caller builds the real `onRetry` closure and
+ * appends the block itself (design brief §5 E3's shape, reused).
+ */
+export interface SpotSelectionOutcome {
+  entries: ChatEntry[];
+  booking: BookingSession | null;
+  retry?: { input: BookingFlowInput; echoText: string };
+}
+
+/**
+ * Resolves ONE typed-or-chip answer at the `spot` step. Reuses
+ * `advanceBookingFlow` directly (not `processBookingTurn`) to PEEK at the
+ * outcome before committing anything: `spotStep.accept` only proves the
+ * candidate is a real, currently-offered pitch (static), never that it is
+ * still free (that needs the network). A non-`advance` outcome (miss /
+ * rejected / 2-strike exit) is delegated straight to `processBookingTurn` —
+ * the SAME generic handling every other step already gets, no network call
+ * for a miss (design brief §4, "misses go through the existing machinery").
+ */
+export async function resolveSpotSelection(
+  entries: ChatEntry[],
+  session: BookingSession,
+  input: BookingFlowInput,
+  echoText: string,
+  checkAvailability: (campId: string, spotId: string, startDate: string, lastNightDate: string) => Promise<boolean | null>,
+  t: TranslationType,
+  language: Language,
+  now: Date
+): Promise<SpotSelectionOutcome> {
+  const { camp, state } = session;
+  const spotCandidates = session.spotCandidates ?? null;
+  const peek = advanceBookingFlow(
+    state,
+    input,
+    {
+      today: now,
+      remaining: state.slots.checkIn ? remainingForDate(camp.weekendAvailability, state.slots.checkIn) : null,
+      maxGuestsPerDay: camp.maxGuestsPerDay,
+      checkIn: state.slots.checkIn ?? null,
+      spotCandidates,
+    },
+    camp.useSpotView
+  );
+
+  if (peek.kind !== 'advance') {
+    const result = processBookingTurn(entries, session, input, echoText, t, language, now);
+    return { entries: result.entries, booking: result.booking };
+  }
+
+  const spotId = peek.state.slots.spotId!;
+  const spotName = peek.state.slots.spotName!;
+  const withEcho = appendUserQuestion(entries, echoText);
+  const checkIn = state.slots.checkIn!;
+  const nights = state.slots.nights!;
+  const lastNightDate = addDaysToIso(checkIn, nights - 1);
+
+  const availability = await checkAvailability(camp.campId, spotId, checkIn, lastNightDate);
+
+  if (availability === null) {
+    // The check itself failed — never silently assume free. The caller adds
+    // the real `checkFailed` block (with a working `onRetry`) on top of
+    // these `entries`.
+    return { entries: withEcho, booking: { state, camp, spotCandidates }, retry: { input, echoText } };
+  }
+
+  if (!availability) {
+    // Occupied — fresh chip row, this pitch excluded, `spot` stays current
+    // (design brief §4 "Occupied → re-offer, one shape for three routes").
+    const remaining = (spotCandidates ?? []).filter((c) => c.id !== spotId);
+    const view = buildSpotQuestionView({ t, useSpotView: camp.useSpotView, reason: 'occupied', candidates: remaining, occupiedName: spotName });
+    return { entries: appendBookingEntry(withEcho, 'spot', view), booking: { state, camp, spotCandidates: remaining } };
+  }
+
+  // Free — commit for real.
+  const summaryView = buildSummaryView({ slots: peek.state.slots, camp, t, language, today: bangkokTodayISO(now) });
+  return { entries: appendBookingEntry(withEcho, 'summary', summaryView), booking: { state: peek.state, camp, spotCandidates } };
 }

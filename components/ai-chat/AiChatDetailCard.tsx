@@ -293,6 +293,10 @@ export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: Ai
       name,
       weekendAvailability: detail.weekendAvailability,
       maxGuestsPerDay: detail.capacity.maxGuestsPerDay,
+      // CAM-700 — `detail.useSpotView` is a real, NOT NULL boolean (get-camp-
+      // detail.ts's own additive field) so the booking flow can decide
+      // whether to show its `spot` step without a second query.
+      useSpotView: detail.useSpotView,
       unitPrice: resolved.unitPrice,
       priceUnit: resolved.unit,
       priceIsFree: detail.price.isFree,

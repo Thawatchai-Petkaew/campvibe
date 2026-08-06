@@ -1119,6 +1119,7 @@
                     "date": "Choose a date",
                     "nights": "Nights",
                     "guests": "How many people",
+                    "spot": "Choose a pitch",
                     "summary": "Check it over"
                 },
                 "date": {
@@ -1150,6 +1151,15 @@
                     "overCapacityHint": "Take {remaining} instead, or go back and find a day that fits everyone.",
                     "capChip": "{count} works"
                 },
+                "spot": {
+                    "ask": "Pick the pitch you like.",
+                    "chipsLabel": "Pitches still open",
+                    "chip": "{name}, {price} per night",
+                    "typeHint": "Want a different pitch? Just type its name.",
+                    "unreadable": "I didn't catch that pitch name. Try picking one from the list above.",
+                    "occupied": "{name} was taken just now. Pick another pitch.",
+                    "empty": "No pitch is open and big enough for your group on those dates. Want to change the dates or the group size?"
+                },
                 "summary": {
                     "intro": "Have a look. If it's right, carry on at the booking page.",
                     "label": "Your booking draft",
@@ -1158,13 +1168,16 @@
                     "datesValue": "{date}, {nights} nights",
                     "guestsRow": "People",
                     "guestsValue": "{count} people",
+                    "spotRow": "Pitch",
                     "totalRow": "Estimated total",
                     "estimateNote": "The camp's own fees aren't included here. See the full amount at the booking page."
                 },
                 "handoff": "Continue at the booking page",
                 "back": "Back",
                 "editDate": "Change date",
+                "editNights": "Change nights",
                 "editGuests": "Change people",
+                "editSpot": "Change pitch",
                 "cancel": "Cancel booking",
                 "controlsLabel": "Other options",
                 "cancelled": "Cancelled. Want to look at other camps?",
@@ -2296,6 +2309,7 @@
                     "date": "เลือกวัน",
                     "nights": "จำนวนคืน",
                     "guests": "จำนวนคน",
+                    "spot": "เลือกจุดกางเต็นท์",
                     "summary": "ตรวจดูอีกที"
                 },
                 "date": {
@@ -2327,6 +2341,15 @@
                     "overCapacityHint": "เลือก {remaining} คนได้เลย หรือกดย้อนกลับไปหาวันที่รับได้ทั้งกลุ่ม",
                     "capChip": "{count} คนก็ได้"
                 },
+                "spot": {
+                    "ask": "เลือกจุดกางเต็นท์ที่ชอบได้เลย",
+                    "chipsLabel": "จุดกางเต็นท์ที่ยังว่าง",
+                    "chip": "{name} คืนละ {price}",
+                    "typeHint": "อยากได้จุดอื่น พิมพ์ชื่อจุดมาได้เลย",
+                    "unreadable": "ยังจับชื่อจุดไม่ได้เลย ลองเลือกจากที่มีให้ด้านบน",
+                    "occupied": "{name} เพิ่งถูกจองไปเมื่อกี้ เลือกจุดอื่นได้เลย",
+                    "empty": "ช่วงวันนั้นยังไม่มีจุดที่ว่างและรับได้ทั้งกลุ่ม ลองแก้วันหรือจำนวนคนดูไหม"
+                },
                 "summary": {
                     "intro": "ตรวจดูอีกทีนะ ถ้าโอเคแล้วไปกรอกต่อที่หน้าจองได้เลย",
                     "label": "สรุปการจองที่เลือกไว้",
@@ -2335,13 +2358,16 @@
                     "datesValue": "{date} พัก {nights} คืน",
                     "guestsRow": "จำนวนคน",
                     "guestsValue": "{count} คน",
+                    "spotRow": "จุดกางเต็นท์",
                     "totalRow": "ยอดรวมโดยประมาณ",
                     "estimateNote": "ค่าธรรมเนียมของลานยังไม่รวมในนี้ ดูยอดเต็มได้ที่หน้าจอง"
                 },
                 "handoff": "ไปกรอกต่อที่หน้าจอง",
                 "back": "ย้อนกลับ",
                 "editDate": "แก้วัน",
+                "editNights": "แก้จำนวนคืน",
                 "editGuests": "แก้จำนวนคน",
+                "editSpot": "แก้จุดกางเต็นท์",
                 "cancel": "ยกเลิกการจอง",
                 "controlsLabel": "ตัวเลือกอื่น",
                 "cancelled": "ยกเลิกให้แล้ว อยากดูลานอื่นต่อไหม",
