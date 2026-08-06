@@ -233,10 +233,13 @@ export interface AiChatCardResponse {
     priceLow: number | null;
     /**
      * CAM-653 (ADR-014): what `priceLow` is charged per. Additive + optional
-     * (api.md rule 12) — `lib/ai/**` (out of this story's surface, CAM-656)
-     * does not populate this yet, so it is always `undefined` today; every
-     * consumer defaults the missing value to `PER_SITE` (`priceUnitSuffix`,
-     * lib/price-unit-display.ts), matching the column default.
+     * (api.md rule 12) — `searchCampsites` populates this on every card
+     * (`aiCampCardSelect` inherits `CampSite.priceUnit` from
+     * `campCardSelect`, CAM-653), so a real unit rides the wire today.
+     * Stays optional so an older/unaware body still satisfies this type;
+     * every consumer defaults the missing value to `PER_SITE`
+     * (`priceUnitSuffix`, lib/price-unit-display.ts), matching the column
+     * default.
      */
     priceUnit?: PricingUnit;
     createdAt: string;
