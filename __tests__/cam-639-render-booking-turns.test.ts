@@ -60,12 +60,17 @@ function renderEntries(entries: ChatEntry[]) {
         onRetry: vi.fn(),
         onSelectCamp: vi.fn(),
         // CAM-640 — this story wires these; fixture-only no-ops here (the
-        // real wiring is covered by cam-640-*.test.ts).
+        // real wiring is covered by cam-640-*.test.ts). CAM-702 (2026-08-06)
+        // added onBookingConfirm/onBookingCheckAndRetry to the same prop
+        // contract; fixture-only no-ops here too (real wiring covered by
+        // cam-702-*.test.ts).
         onBookingChipSelect: vi.fn(),
         onBookingBack: vi.fn(),
         onBookingEditDate: vi.fn(),
         onBookingEditGuests: vi.fn(),
         onBookingCancel: vi.fn(),
+        onBookingConfirm: vi.fn(),
+        onBookingCheckAndRetry: vi.fn(),
       })
     )
   );

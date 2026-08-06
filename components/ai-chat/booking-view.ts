@@ -192,21 +192,24 @@ export interface DateQuestionParams {
   camp: BookingCampContext;
   t: TranslationType;
   language: Language;
-  reason: 'ask' | 'unreadable' | 'full';
-  /** Only for `reason:'full'` — the specific checkIn date that turned out to be full. */
+  reason: 'ask' | 'unreadable' | 'full' | 'justFilled';
+  /** Only for `reason:'full'`/`'justFilled'` — the specific checkIn date that turned out to be full. */
   fullDate?: string;
 }
 
+/** CAM-702 (ADR-018 D3, design brief §8 F6) — `reason:'justFilled'` reuses the dormant `aiChat.booking.justFilled` copy round 1 wrote for exactly this: a `409` mid-flight (the dates went while the camper was deciding), never `date.full` (that copy is §1's SYNCHRONOUS local-snapshot check, a different trigger). */
 export function buildDateQuestionView({ camp, t, language, reason, fullDate }: DateQuestionParams): BookingQuestionView {
   const chips = buildDateChipSpecs(camp.weekendAvailability);
   const questionText =
     reason === 'unreadable'
       ? t.aiChat.booking.date.unreadable
-      : reason === 'full' && fullDate
-        ? t.aiChat.booking.date.full.replace('{date}', formatBookingDate(fullDate, language))
-        : chips.length === 0
-          ? t.aiChat.booking.date.empty
-          : t.aiChat.booking.date.ask.replace('{name}', camp.name);
+      : reason === 'justFilled' && fullDate
+        ? t.aiChat.booking.justFilled.replace('{date}', formatBookingDate(fullDate, language))
+        : reason === 'full' && fullDate
+          ? t.aiChat.booking.date.full.replace('{date}', formatBookingDate(fullDate, language))
+          : chips.length === 0
+            ? t.aiChat.booking.date.empty
+            : t.aiChat.booking.date.ask.replace('{name}', camp.name);
 
   return {
     kind: 'question',
@@ -375,9 +378,20 @@ export interface SummaryParams {
   language: Language;
   /** `bangkokTodayISO(now)` — the SAME injected-`today` contract `buildBookingPrefillQuery` requires (BR-2 there); never a naive UTC read. */
   today: string;
+  /**
+   * CAM-702 (ADR-018 D1/D2) — the LIVE session's authed status at the
+   * moment this view is built. Optional, defaults `false` (the pre-CAM-702
+   * behaviour byte-for-byte) so every caller written before this story
+   * keeps compiling and keeps producing the exact same `handoff` cta it
+   * always has. Only a WHOLE-CAMP (`!camp.useSpotView`) summary for an
+   * authed camper ever gets `kind:'confirm'` — a per-pitch camp and a guest
+   * both keep `handoff` for now (per-pitch confirm + the guest login gate
+   * are later stories, CAM-703+).
+   */
+  authed?: boolean;
 }
 
-export function buildSummaryView({ slots, camp, t, language, today }: SummaryParams): BookingSummaryView {
+export function buildSummaryView({ slots, camp, t, language, today, authed = false }: SummaryParams): BookingSummaryView {
   const checkIn = slots.checkIn!;
   const checkOut = slots.checkOut!;
   const guests = slots.guests!;
@@ -421,14 +435,14 @@ export function buildSummaryView({ slots, camp, t, language, today }: SummaryPar
     guestsValue: t.aiChat.booking.summary.guestsValue.replace('{count}', String(guests)),
     spotValue,
     totalValue,
-    // CAM-701 — this pure builder has no session parameter (see
-    // `SummaryParams`'s own field list), so it cannot compute a live
-    // guest/member confirm label; it keeps producing the pre-confirm escape
-    // `kind:'handoff'` for every camp today (both whole-camp AND per-pitch,
-    // unchanged live behaviour). `kind:'confirm'` is exercised by
-    // `AiChatBookingStep`'s own render tests; wiring a real session into a
-    // `cta:{kind:'confirm',...}` decision here is CAM-702's job.
-    cta: { kind: 'handoff', href: `/campgrounds/${camp.slug}?${query}` },
+    // CAM-702 (ADR-018 D1/D2) — a whole-camp summary for an AUTHED camper
+    // gets the real write CTA; a per-pitch camp (still no confirm story of
+    // its own) and a guest (login gate is CAM-703) both keep the interim
+    // `handoff` escape so nothing is ever a dead button.
+    cta:
+      authed && !camp.useSpotView
+        ? { kind: 'confirm', label: t.aiChat.booking.confirm, authState: 'member' }
+        : { kind: 'handoff', href: `/campgrounds/${camp.slug}?${query}` },
     controls: spotValue
       ? [{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'editSpot' }, { kind: 'cancel' }]
       : [{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'cancel' }],
@@ -438,9 +452,15 @@ export function buildSummaryView({ slots, camp, t, language, today }: SummaryPar
 
 // ---------------------------------------------------------------------------
 // CAM-701 (design brief §6/§7/§8) — pure builders for the write-outcome
-// states. NOT called by `booking-turn.ts` yet (this story is presentation
-// only, see `AiChatBookingStep.tsx`'s file header); CAM-702 wires the real
-// POST and calls these with the server's response.
+// states, wired for real by CAM-702 (ADR-018). Each sets `isCurrent: true`
+// so a fresh write-outcome entry supersedes the block it replaces through
+// the SAME `appendBookingEntry` mechanism `question`/`summary` views already
+// use (`conversation.ts`) — a booking entry's controls only ever go inert
+// (real `disabled`, out of the tab order) once a NEWER booking entry
+// supersedes it. `booked`/F1/F3's `isCurrent` is what lets
+// `AiChatMessageList` decide whether `onConfirm`/`onCheckAndRetry` are even
+// wired for a given entry — an undefined `isCurrent` would leave those
+// handlers permanently unreachable.
 // ---------------------------------------------------------------------------
 
 export interface SubmittingParams {
@@ -451,7 +471,7 @@ export interface SubmittingParams {
 }
 
 export function buildSubmittingView({ rows, controls, useSpotView }: SubmittingParams): BookingSubmittingView {
-  return { kind: 'submitting', ...rows, controls, useSpotView };
+  return { kind: 'submitting', isCurrent: true, ...rows, controls, useSpotView };
 }
 
 export interface BookedParams {
@@ -461,7 +481,7 @@ export interface BookedParams {
 }
 
 export function buildBookedView({ bookingId, rows }: BookedParams): BookingBookedView {
-  return { kind: 'booked', bookingId, ...rows };
+  return { kind: 'booked', isCurrent: true, bookingId, ...rows };
 }
 
 export interface BookingFailedParams {
@@ -472,5 +492,39 @@ export interface BookingFailedParams {
 }
 
 export function buildBookingFailedView({ reason, rows, cta }: BookingFailedParams): BookingFailedView {
-  return { kind: 'bookingFailed', reason, cta, ...rows };
+  return { kind: 'bookingFailed', isCurrent: true, reason, cta, ...rows };
+}
+
+// ---------------------------------------------------------------------------
+// CAM-702 (ADR-018 D3/D8, design brief §7) — the frozen row set for a
+// SERVER-confirmed outcome (`booked`, and a reconciled `booked` via
+// `findJustCreatedBooking`). Identical row formatting to `buildSummaryView`
+// EXCEPT the total, which is the server-recorded amount handed in by the
+// caller — never re-derived from `computeBookingPrice` here (that function
+// prices an ESTIMATE; a written booking's total is a historical fact).
+// ---------------------------------------------------------------------------
+
+export interface BookedRowsParams {
+  /** Requires `checkIn`/`nights`/`guests` set — the same precondition `buildSummaryView` has (only ever called once a booking has actually written). */
+  slots: BookingSlots;
+  camp: BookingCampContext;
+  t: TranslationType;
+  language: Language;
+  /** [Financial] the server-recorded total (`data.snapshotTotalAmount` on a fresh create, or a reconciled row's own recorded total) — ADR-018 D6 refinement 4: "the reconciled success card renders the FOUND row's real id and total, never a re-render of the local estimate." */
+  serverTotal: number;
+}
+
+export function buildBookedRows({ slots, camp, t, language, serverTotal }: BookedRowsParams): BookingSummaryRows {
+  const checkIn = slots.checkIn!;
+  const nights = slots.nights!;
+  const guests = slots.guests!;
+  const dateLabel = formatBookingDate(checkIn, language);
+  const spotValue = slots.spotId && slots.spotName ? slots.spotName : undefined;
+  return {
+    campValue: camp.name,
+    datesValue: t.aiChat.booking.summary.datesValue.replace('{date}', dateLabel).replace('{nights}', String(nights)),
+    guestsValue: t.aiChat.booking.summary.guestsValue.replace('{count}', String(guests)),
+    spotValue,
+    totalValue: camp.priceIsFree ? t.aiChat.card.free : `฿${THB_FORMAT.format(serverTotal)}`,
+  };
 }

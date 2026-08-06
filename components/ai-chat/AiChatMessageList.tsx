@@ -171,6 +171,10 @@ interface AiChatMessageListProps {
   onBookingEditDate: () => void;
   onBookingEditGuests: () => void;
   onBookingCancel: () => void;
+  /** CAM-702 — the summary confirm CTA (and F1/F3's re-armed CTA); async, ADR-018 D1/D2. */
+  onBookingConfirm: () => Promise<void>;
+  /** CAM-702 — F2's check-and-retry action (ADR-018 D6). */
+  onBookingCheckAndRetry: () => Promise<void>;
 }
 
 export function AiChatMessageList({
@@ -185,6 +189,8 @@ export function AiChatMessageList({
   onBookingEditDate,
   onBookingEditGuests,
   onBookingCancel,
+  onBookingConfirm,
+  onBookingCheckAndRetry,
 }: AiChatMessageListProps) {
   const { t } = useLanguage();
   const lastEntry = entries[entries.length - 1];
@@ -264,6 +270,8 @@ export function AiChatMessageList({
           onBookingEditDate={onBookingEditDate}
           onBookingEditGuests={onBookingEditGuests}
           onBookingCancel={onBookingCancel}
+          onBookingConfirm={onBookingConfirm}
+          onBookingCheckAndRetry={onBookingCheckAndRetry}
           showSuggestions={!sending && index === entries.length - 1}
         />
       ))}
@@ -304,6 +312,8 @@ interface AiChatEntryRowProps {
   onBookingEditDate: () => void;
   onBookingEditGuests: () => void;
   onBookingCancel: () => void;
+  onBookingConfirm: () => Promise<void>;
+  onBookingCheckAndRetry: () => Promise<void>;
   /** CAM-410 BR-7: true only for the newest entry while no turn is in flight. */
   showSuggestions: boolean;
 }
@@ -318,6 +328,8 @@ function AiChatEntryRow({
   onBookingEditDate,
   onBookingEditGuests,
   onBookingCancel,
+  onBookingConfirm,
+  onBookingCheckAndRetry,
   showSuggestions,
 }: AiChatEntryRowProps) {
   const { t } = useLanguage();
@@ -482,6 +494,8 @@ function AiChatEntryRow({
         onEditDate={isCurrent ? onBookingEditDate : undefined}
         onEditGuests={isCurrent ? onBookingEditGuests : undefined}
         onCancel={isCurrent ? onBookingCancel : undefined}
+        onConfirm={isCurrent ? onBookingConfirm : undefined}
+        onCheckAndRetry={isCurrent ? onBookingCheckAndRetry : undefined}
       />
     );
   }
