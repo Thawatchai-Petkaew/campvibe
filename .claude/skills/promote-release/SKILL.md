@@ -16,11 +16,12 @@ Read first: `.claude/rules/ops.md` (pre-launch checklist, graduated rollout %, r
 The `staging`→`main` (Released) promotion, in order:
 
 1. Verify **G4 Staging sign-off** — AC confirmed on the real Staging URL (`node scripts/ticket-sync.mjs gates`; do not skip).
-2. Promote `staging`→`main` — open/merge the PR → Vercel Production deploy + `prisma migrate deploy` on **prod DB**.
-3. Prod **smoke/health check** on the real URL.
-4. `git tag vX.Y.Z` + write the **changelog** entry.
-5. Watch Sentry for N minutes per the **rollback thresholds** in `.claude/rules/ops.md` → error spike = auto-rollback + notify.
-6. `node scripts/ticket-sync.mjs release <CAM-id>` (once per story) → stamps `releasedAt` (state stays `Done`).
+2. **Engine pre-check** — `SELECT version()` on prod and confirm every pending migration's version-dependent construct runs there (open now: CAM-670 needs Postgres 15+). An unverified engine blocks the promote; `migrate deploy` runs inside the build, so this fails the deploy, not a test.
+3. Promote `staging`→`main` — open/merge the PR → Vercel Production deploy + `prisma migrate deploy` on **prod DB**.
+4. Prod **smoke/health check** on the real URL.
+5. `git tag vX.Y.Z` + write the **changelog** entry.
+6. Watch Sentry for N minutes per the **rollback thresholds** in `.claude/rules/ops.md` → error spike = auto-rollback + notify.
+7. `node scripts/ticket-sync.mjs release <CAM-id>` (once per story) → stamps `releasedAt` (state stays `Done`).
 
 `--to staging` is the batched promote: open the promote PR `dev`→`staging` → merge on green CI → auto deploy + migrate + smoke → `ticket-sync stage <CAM-id>` per story (the `on-staging` label). See Workflow.
 
@@ -59,11 +60,12 @@ The `staging`→`main` (Released) promotion, in order:
 ## Workflow — `--to prod` (promote `staging`→`main`, must pass G5)
 
 1. **Pre-condition:** Staging green + G4 sign-off (check `node scripts/ticket-sync.mjs gates`; do not skip).
-2. Open/merge PR `staging`→`main` → Vercel Production deploy + `prisma migrate deploy` on **prod DB**.
-3. Smoke/health check + `git tag vX.Y.Z` + changelog + rollback plan.
-4. Run `node scripts/ticket-sync.mjs release <CAM-id>` for each released story → stamps `releasedAt` (state stays `Done`, not a new state).
-5. Write the story's `release.md`: `## Staging verify` (G4 — AC confirmed on the Staging URL) + `## Release` (G5 — tag / changelog / rollback) so the ship record is durable (see the `delivery-artifacts` skill).
-6. Watch Sentry for N minutes per the rollback thresholds in `.claude/rules/ops.md` → error spike = auto-rollback + notify; failure = rollback + open ticket.
+2. **Engine pre-check (blocking).** `prisma migrate deploy` runs INSIDE the Vercel production build — a migration the prod engine cannot execute fails the deploy, not a test. Before opening the PR, diff the pending migrations against what prod's engine actually supports and prove it, don't reason it: `SELECT version()` on the prod DB, then confirm every version-dependent construct in those files. **Open now: CAM-670 ships column-scoped `ON DELETE SET NULL (col)`, which requires Postgres 15+** (staging measured 17.2, local 16.14, prod NOT yet verified). Record the measured version in the release notes; an unverified engine is a blocked promote.
+3. Open/merge PR `staging`→`main` → Vercel Production deploy + `prisma migrate deploy` on **prod DB**.
+4. Smoke/health check + `git tag vX.Y.Z` + changelog + rollback plan.
+5. Run `node scripts/ticket-sync.mjs release <CAM-id>` for each released story → stamps `releasedAt` (state stays `Done`, not a new state).
+6. Write the story's `release.md`: `## Staging verify` (G4 — AC confirmed on the Staging URL) + `## Release` (G5 — tag / changelog / rollback) so the ship record is durable (see the `delivery-artifacts` skill).
+7. Watch Sentry for N minutes per the rollback thresholds in `.claude/rules/ops.md` → error spike = auto-rollback + notify; failure = rollback + open ticket.
 
 ## Output / postconditions
 

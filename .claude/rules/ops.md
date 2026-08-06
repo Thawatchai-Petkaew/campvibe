@@ -17,7 +17,7 @@ Promote `staging`→`main` (= Released, G5):
 
 1. Confirm Done: quality-gate green + AC verified on the **real Staging URL** + G4 sign-off.
 2. `/promote-release --to prod` — the only path to prod; never promote straight from local/Preview.
-3. `prisma migrate deploy` on prod (migration already reversible + tested on Staging).
+3. **Engine pre-check, then** `prisma migrate deploy` on prod (migration already reversible + tested on Staging). `migrate deploy` runs INSIDE the production build, so a construct the prod engine cannot execute fails the DEPLOY, not a test — `SELECT version()` on prod and confirm every pending migration against it. Open now: CAM-670 needs Postgres 15+ (staging measured 17.2, prod unverified).
 4. **Tag + changelog + rollback plan** — all three, every prod release.
 5. **Smoke test** on the real Production URL.
 6. **Watch errors** (Sentry) for N minutes → spike = auto-rollback + alert; real error = open a bug ticket.
