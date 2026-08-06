@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { Inter, Outfit, Sarabun } from "next/font/google";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -67,11 +67,19 @@ export default async function RootLayout({
   // next-themes's own FOUC-prevention script, which Next's own automatic
   // script-nonce pipeline never reaches (CAM-607 tech.md).
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  // CAM-688 — BR-1/BR-3: resolve the camper's language from the
+  // `campvibe_lang` cookie BEFORE the first byte, so SSR renders the right
+  // language/currency immediately (no client-side flash). Only `th`/`en` are
+  // honoured; any other value (missing cookie, unrecognised value) falls
+  // back to `en` (EC-1). This layout already forces every route dynamic via
+  // the unconditional `auth()` call above, so reading cookies() here adds no
+  // new dynamic-rendering cost.
+  const lang = (await cookies()).get("campvibe_lang")?.value === "th" ? "th" : "en";
   return (
-    <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable, outfit.variable, sarabun.variable)}>
+    <html lang={lang} suppressHydrationWarning className={cn("font-sans", inter.variable, outfit.variable, sarabun.variable)}>
       <body className="antialiased" suppressHydrationWarning>
         <Providers session={session} nonce={nonce}>
-          <LanguageProvider>
+          <LanguageProvider initialLanguage={lang}>
             <VitalsReporter />
             {children}
             <Toaster />

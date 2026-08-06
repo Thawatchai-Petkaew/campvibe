@@ -59,9 +59,31 @@ fallback that needs neither.
 an English accessible name (`getByRole(..., { name: "Previous image" })`)
 will silently find 0 elements; it does not throw, it just fails the
 assertion with a confusing "not found". This exact mechanism broke 6 specs
-under CAM-570. If you need to assert English copy, drive a separate page
-with `page.evaluate(() => localStorage.setItem("campvibe_lang", "en"))`
-before navigating — never assume the shared storageState is English.
+under CAM-570.
+
+**CAM-688 precedence rule — cookie wins, always.** The app now resolves its
+language server-side from the `campvibe_lang` **cookie** (`app/layout.tsx`),
+not from `localStorage` — that is the whole point of the fix (SSR can't read
+`localStorage`). The shared `storageState` carries a `th` cookie, so
+**`page.evaluate(() => localStorage.setItem("campvibe_lang", "en"))` is now a
+silent no-op**: the cookie still says `th`, the one-time migration effect
+only fires when NO cookie is present, and the page stays Thai — 0 elements
+found, no throw, the exact failure shape this trap warns about.
+
+To force English for one spec, override the **cookie** instead, before
+navigating:
+
+```ts
+await context.addCookies([
+  { name: "campvibe_lang", value: "en", domain: "localhost", path: "/" },
+]);
+await page.goto("/some-page");
+```
+
+(Verified live against a real dev server: the old `localStorage`-only
+override left `document.documentElement.lang === "th"` and 0 `$`-priced
+elements on the home page under a `th` cookie; the `addCookies` override
+above flips it to `"en"` with the expected `$`-priced elements rendered.)
 
 ## What is in here
 
