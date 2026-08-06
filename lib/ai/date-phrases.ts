@@ -121,6 +121,127 @@ function formatRangeGloss(label: string, range: DateRange): string {
 }
 
 // ---------------------------------------------------------------------------
+// Absolute Thai date (CAM-645) — a camper naming an explicit day+month
+// ("15 ส.ค.", "วันที่ 15 สิงหาคม 2569", "15/8"), the most direct way to ask
+// and the one the shipped date-step type-hint copy already promises works
+// (aiChat.booking.date.typeHint / date.unreadable, locales/translations.json).
+// Each alias maps back to a 1-12 month number via
+// THAI_MONTH_ALIAS_TO_NUMBER; aliases are matched LONGEST-first
+// (`MONTH_ALTERNATION_SOURCE`) so a short informal form (e.g. "สิงหา") never
+// short-circuits a longer one sharing the same prefix (e.g. "สิงหาคม") before
+// the trailing year digits are read.
+// ---------------------------------------------------------------------------
+
+const THAI_MONTH_ALIAS_GROUPS: Array<{ month: number; aliases: string[] }> = [
+  { month: 1, aliases: ['มกราคม', 'มกรา', 'ม.ค.', 'ม.ค'] },
+  { month: 2, aliases: ['กุมภาพันธ์', 'กุมภา', 'ก.พ.', 'ก.พ'] },
+  { month: 3, aliases: ['มีนาคม', 'มีนา', 'มี.ค.', 'มี.ค'] },
+  { month: 4, aliases: ['เมษายน', 'เมษา', 'เม.ย.', 'เม.ย'] },
+  { month: 5, aliases: ['พฤษภาคม', 'พฤษภา', 'พ.ค.', 'พ.ค'] },
+  { month: 6, aliases: ['มิถุนายน', 'มิถุนา', 'มิ.ย.', 'มิ.ย'] },
+  { month: 7, aliases: ['กรกฎาคม', 'กรกฎา', 'ก.ค.', 'ก.ค'] },
+  { month: 8, aliases: ['สิงหาคม', 'สิงหา', 'ส.ค.', 'ส.ค'] },
+  { month: 9, aliases: ['กันยายน', 'กันยา', 'ก.ย.', 'ก.ย'] },
+  { month: 10, aliases: ['ตุลาคม', 'ตุลา', 'ต.ค.', 'ต.ค'] },
+  { month: 11, aliases: ['พฤศจิกายน', 'พฤศจิกา', 'พ.ย.', 'พ.ย'] },
+  { month: 12, aliases: ['ธันวาคม', 'ธันวา', 'ธ.ค.', 'ธ.ค'] },
+];
+
+const THAI_MONTH_ALIAS_TO_NUMBER = new Map<string, number>(
+  THAI_MONTH_ALIAS_GROUPS.flatMap(({ month, aliases }) => aliases.map((alias) => [alias, month] as const))
+);
+
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Longest-first — a plain insertion-order alternation would let the short
+// informal alias ("สิงหา") match before the full name ("สิงหาคม") is ever
+// tried, stranding "คม" as unconsumed text right where the year would be read.
+const MONTH_ALTERNATION_SOURCE = [...THAI_MONTH_ALIAS_TO_NUMBER.keys()]
+  .sort((a, b) => b.length - a.length)
+  .map(escapeRegExp)
+  .join('|');
+
+/** "15 ส.ค." / "15 ส.ค" / "วันที่ 15 สิงหาคม 2569" — day, month alias, optional 4-digit year. */
+const ABSOLUTE_THAI_MONTH_RE = new RegExp(
+  `(?:วันที่\\s*)?(\\d{1,2})\\s*(${MONTH_ALTERNATION_SOURCE})(?:\\s*(\\d{4}))?`
+);
+
+/** "15/8" / "15/8/2569" — bare numeric day/month (Thai D/M order), optional 4-digit year. */
+const ABSOLUTE_NUMERIC_DM_RE = /(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/;
+
+/** Buddhist-era 4-digit years (~2400+) shift back 543 years; a Gregorian 4-digit year passes through unchanged. */
+function normalizeYearToGregorian(year: number): number {
+  return year > 2400 ? year - 543 : year;
+}
+
+/** `m`/`d` bounds-checked AND the constructed UTC date must round-trip exactly (rejects Feb 30, day 32, month 13, ...). */
+function isValidCalendarDate(y: number, m: number, d: number): boolean {
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+function toAbsoluteISO(y: number, m: number, d: number): string {
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+type AbsoluteDateOutcome = { kind: 'resolved'; range: DateRange } | { kind: 'past' } | { kind: 'invalid' };
+
+/**
+ * Parses an explicit day+month(+year) phrase; `null` if neither the
+ * Thai-month nor the bare-numeric form is present (the dispatcher falls
+ * through to the rest of the rule list). Year handling (ticket CAM-645): an
+ * explicit 4-digit year is used as given (Buddhist-era normalized) and
+ * rejected as `past` if it lands before `todayISO`; an OMITTED year always
+ * resolves to the NEXT occurrence (this year if not yet past, else next
+ * year) — a bare day+month can therefore never itself be "past" (only an
+ * explicit past year can be — see the rule-8 dispatch site for how `past`
+ * reuses that rule's existing `unsupported` shape rather than a new one).
+ */
+function resolveAbsoluteDate(text: string, todayISO: string): AbsoluteDateOutcome | null {
+  const monthMatch = ABSOLUTE_THAI_MONTH_RE.exec(text);
+  const monthFromAlias = monthMatch ? THAI_MONTH_ALIAS_TO_NUMBER.get(monthMatch[2]!) : undefined;
+
+  let day: number;
+  let month: number;
+  let explicitYearRaw: string | undefined;
+  if (monthMatch && monthFromAlias !== undefined) {
+    day = Number(monthMatch[1]);
+    month = monthFromAlias;
+    explicitYearRaw = monthMatch[3];
+  } else {
+    const numericMatch = ABSOLUTE_NUMERIC_DM_RE.exec(text);
+    if (!numericMatch) return null;
+    day = Number(numericMatch[1]);
+    month = Number(numericMatch[2]);
+    explicitYearRaw = numericMatch[3];
+  }
+
+  const todayYear = Number(todayISO.slice(0, 4));
+
+  if (explicitYearRaw) {
+    const year = normalizeYearToGregorian(Number(explicitYearRaw));
+    if (!isValidCalendarDate(year, month, day)) return { kind: 'invalid' };
+    const iso = toAbsoluteISO(year, month, day);
+    if (iso < todayISO) return { kind: 'past' };
+    return { kind: 'resolved', range: { startDate: iso, endDate: addDaysISO(iso, 1) } };
+  }
+
+  // No year given -> NEXT occurrence (this year if not past, else next year).
+  if (isValidCalendarDate(todayYear, month, day)) {
+    const thisYearISO = toAbsoluteISO(todayYear, month, day);
+    if (thisYearISO >= todayISO) {
+      return { kind: 'resolved', range: { startDate: thisYearISO, endDate: addDaysISO(thisYearISO, 1) } };
+    }
+  }
+  if (!isValidCalendarDate(todayYear + 1, month, day)) return { kind: 'invalid' };
+  const nextYearISO = toAbsoluteISO(todayYear + 1, month, day);
+  return { kind: 'resolved', range: { startDate: nextYearISO, endDate: addDaysISO(nextYearISO, 1) } };
+}
+
+// ---------------------------------------------------------------------------
 // Weekend math (AC-2/AC-3/EC-2)
 // ---------------------------------------------------------------------------
 
@@ -396,16 +517,36 @@ export function resolveDatesCore(
     };
   }
 
-  // 8) A past-resolving phrase (EC-1) — a past stay is meaningless, never resolved.
+  // 8) Absolute Thai date (CAM-645) — an explicit day+month(+year) phrase
+  // ("15 ส.ค.", "วันที่ 15 สิงหาคม 2569", "15/8") the camper named outright,
+  // resolved deterministically, never guessed. Runs AFTER every named-term
+  // relative rule above (none of those ever contain a digit or a month
+  // alias, so none is shadowed) and BEFORE the past-phrase/vague-phrase
+  // rules below.
+  const absolute = resolveAbsoluteDate(text, todayISO);
+  if (absolute) {
+    if (absolute.kind === 'resolved') {
+      return {
+        ok: true,
+        dates: [absolute.range],
+        interpretation: formatRangeGloss('วันที่ระบุ', absolute.range),
+      };
+    }
+    // 'past' and 'invalid' both reuse rule 9's existing unsupported shape
+    // below (BR-5 — never guess/fabricate a date), not a new rejection kind.
+    return { ok: false, reason: 'unsupported' };
+  }
+
+  // 9) A past-resolving phrase (EC-1) — a past stay is meaningless, never resolved.
   if (/เมื่อวาน/.test(text)) {
     return { ok: false, reason: 'unsupported' };
   }
 
-  // 9) A vague phrase with no resolvable time reference (AC-5).
+  // 10) A vague phrase with no resolvable time reference (AC-5).
   if (/ช่วงนี้/.test(text)) {
     return { ok: false, reason: 'ambiguous' };
   }
 
-  // 10) No rule matched at all (BR-5 — never guess).
+  // 11) No rule matched at all (BR-5 — never guess).
   return { ok: false, reason: 'unsupported' };
 }
