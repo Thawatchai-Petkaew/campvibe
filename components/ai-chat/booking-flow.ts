@@ -1,13 +1,14 @@
 /**
  * components/ai-chat/booking-flow.ts — CAM-633 (epic CAM-630, in-chat guided
- * booking, design brief CAM-637)
+ * booking, design brief CAM-637); `nights` step added by CAM-699 (epic
+ * CAM-695, ADR-018 D8) — see that story's own header block further down.
  *
- * Pure, framework-free state machine for the 3-step in-chat booking flow
- * (date -> guests -> summary). Kept separate from any "use client" glue for
- * the same reason `conversation.ts` states in its own header: the real
- * transition logic is unit-testable directly, with no jsdom (vitest here
- * runs `environment: 'node'`). NOTHING imports this module yet — wiring it
- * into `AiChatPanel`/`AiChatMessageList` is CAM-639/CAM-640.
+ * Pure, framework-free state machine for the 4-step in-chat booking flow
+ * (date -> nights -> guests -> summary). Kept separate from any "use client"
+ * glue for the same reason `conversation.ts` states in its own header: the
+ * real transition logic is unit-testable directly, with no jsdom (vitest
+ * here runs `environment: 'node'`). Wiring into `AiChatPanel`/
+ * `AiChatMessageList` lives in `booking-turn.ts`/`use-ai-chat.ts`.
  *
  * Zero server dependency, by construction: no React import, no Prisma client
  * import, no network call, no reading the system clock directly for "today"
@@ -82,19 +83,41 @@ import {
   bangkokTodayISO,
   type ThaiHolidayInput,
 } from '@/lib/ai/date-phrases';
+// CAM-699 — the SAME 30-night ceiling `lib/validations/booking.ts:6` and
+// `lib/booking-prefill.ts` already share, reused here rather than a THIRD
+// independently-chosen 30 (the exact drift `lib/booking-prefill.ts`'s own
+// header calls out as a repo scar).
+import { MAX_BOOKING_NIGHTS } from '@/lib/validations/booking';
 
 // ---------------------------------------------------------------------------
 // Slots (flat optionals, serialisable — structural rule #2 above)
 // ---------------------------------------------------------------------------
 
-/** BR-2 — ISO `YYYY-MM-DD`. `checkIn` inclusive, `checkOut` EXCLUSIVE (byte-identical convention to `resolveDatesCore`/`Booking.checkOutDate`). */
+/**
+ * BR-2 — ISO `YYYY-MM-DD`. `checkIn` inclusive, `checkOut` EXCLUSIVE
+ * (byte-identical convention to `resolveDatesCore`/`Booking.checkOutDate`).
+ *
+ * CAM-699 — `nights` was deliberately added as its OWN flat field rather than
+ * only ever being derived from `checkOut - checkIn` (the story's "recommend
+ * keeping the slot shape unchanged" note, deviated from WITH reasoning): a
+ * derived-only signal cannot tell "the nights step has not been asked yet"
+ * apart from "the camper explicitly chose 1 night" — both produce the exact
+ * same 1-day `checkOut - checkIn` span, and the `nights` step's own
+ * `isSatisfied` needs to tell them apart (a diff-only check would loop
+ * forever the moment a camper picked exactly 1 night: `accept` recomputes
+ * `checkOut = checkIn + 1`, the span is still 1, "unsatisfied" fires again).
+ * `nights` stays a flat, optional, serialisable number — the flatness rule
+ * itself is unbroken, only the field COUNT grew by one.
+ */
 export interface BookingSlots {
   checkIn?: string;
   checkOut?: string;
+  /** CAM-699 — set either by the `nights` step's own answer, or PRE-FILLED by the `date` step itself when a typed phrase already resolved a real multi-night span (e.g. "สุดสัปดาห์นี้" = 2 nights) — see `acceptDateCandidate`. */
+  nights?: number;
   guests?: number;
 }
 
-export type BookingStepId = 'date' | 'guests' | 'summary';
+export type BookingStepId = 'date' | 'nights' | 'guests' | 'summary';
 
 /**
  * Everything a step's `parse`/`accept` may need, injected by the caller
@@ -120,6 +143,8 @@ export interface BookingParseContext {
   remaining: number | null;
   /** `CampSite.maxGuestsPerDay` (`Int?`). Same null-is-unbounded rule as `remaining`. */
   maxGuestsPerDay: number | null;
+  /** CAM-699 — `state.slots.checkIn` at the moment of this turn (caller-computed, same idiom as `remaining`), the ONLY thing `nights`'s `accept` needs to derive `checkOut = checkIn + nights`. `null` only when `date` has not been answered yet — structurally unreachable for the `nights` step itself (it is never current before `date` is satisfied). */
+  checkIn: string | null;
 }
 
 /**
@@ -172,6 +197,19 @@ function isValidIsoDate(value: unknown): value is string {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+/** CAM-699 — whole nights between two already-validated `YYYY-MM-DD` strings (`checkOut` EXCLUSIVE, same convention as `lib/booking-prefill.ts`'s private `nightsBetween`, re-derived here rather than imported since that helper is not exported and this module stays a self-contained pure module). UTC-anchored, no DST concerns (Thailand has none). */
+function nightsBetweenIso(checkIn: string, checkOut: string): number {
+  const start = new Date(`${checkIn}T00:00:00Z`).getTime();
+  const end = new Date(`${checkOut}T00:00:00Z`).getTime();
+  return Math.round((end - start) / 86_400_000);
+}
+
+/** CAM-699 — `checkIn` + `nights` calendar days (UTC-safe), the ONLY place `checkOut` is derived from a night count. */
+function addDaysToIso(iso: string, nights: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d! + nights)).toISOString().slice(0, 10);
+}
+
 // ---------------------------------------------------------------------------
 // `date` step
 //
@@ -206,6 +244,17 @@ const DATE_STEP_KEYS: readonly (keyof BookingSlots)[] = ['checkIn', 'checkOut'];
  * BOTH a successful `parse` (trivially passes — `resolveDatesCore` already
  * guarantees all of this) and a `chip` candidate (the actual reason this
  * function exists: a chip never went through `resolveDatesCore` at all).
+ *
+ * CAM-699 — the ONE place `nights` is ever PRE-FILLED. A candidate whose own
+ * span already covers MORE than one night (a typed range phrase — the
+ * weekend rule resolves 2 nights, a long-weekend span can resolve more; see
+ * `resolveDatesCore`) is real evidence the camper already said how many
+ * nights they want, so the `nights` step auto-satisfies and is never asked
+ * again (`nightsStep.isSatisfied` below). A 1-night span proves nothing
+ * either way — EVERY single-day resolution (a typed single date, a date
+ * CHIP's own `checkIn+1` placeholder from `use-ai-chat.ts`) also produces
+ * exactly that same span — so `nights` is deliberately left UNSET and the
+ * `nights` step still asks.
  */
 function acceptDateCandidate(candidate: Partial<BookingSlots>, ctx: BookingParseContext): BookingStepParseResult {
   if (!candidateStaysWithinKeys(candidate, DATE_STEP_KEYS)) {
@@ -221,7 +270,8 @@ function acceptDateCandidate(candidate: Partial<BookingSlots>, ctx: BookingParse
   if (checkIn < bangkokTodayISO(ctx.today)) {
     return { ok: false, kind: 'rejected', reasonKey: 'in_the_past' };
   }
-  return { ok: true, slots: { checkIn, checkOut } };
+  const span = nightsBetweenIso(checkIn, checkOut);
+  return span > 1 ? { ok: true, slots: { checkIn, checkOut, nights: span } } : { ok: true, slots: { checkIn, checkOut } };
 }
 
 const dateStep: BookingStepDef = {
@@ -230,6 +280,62 @@ const dateStep: BookingStepDef = {
   parse: parseDateAnswer,
   accept: acceptDateCandidate,
   chipKeys: ['chip', 'chipNoCap'],
+};
+
+// ---------------------------------------------------------------------------
+// `nights` step (CAM-699) — closes the "the chat books 1 night no matter
+// what" defect (ADR-018 D8): `nights` is asked explicitly (chips 1..4, or a
+// typed number) UNLESS `acceptDateCandidate` already pre-filled it from a
+// genuine multi-night typed range (see that function's own comment).
+//
+// `parseNightsAnswer` reads through `parseNightsCount`, which shares its
+// digit-token regex AND its 0-99 `THAI_NUMBER_WORDS` table with the `guests`
+// step's own `parseGuestCount` (both are thin wrappers over the same
+// `parseCountToken` — see that function's doc) — the reuse this ticket asks
+// for. Only the trailing classifier word differs ("คืน" vs "คน"), because a
+// bare Thai number WORD needs its OWN classifier stripped before the table
+// lookup; a digit token (`"3 คืน"`) never needs that step at all.
+// ---------------------------------------------------------------------------
+
+function parseNightsAnswer(text: string): Partial<BookingSlots> | null {
+  const nights = parseNightsCount(text);
+  return nights === null ? null : { nights };
+}
+
+const NIGHTS_STEP_KEYS: readonly (keyof BookingSlots)[] = ['nights'];
+
+/**
+ * POLICY for `nights`: confine to `nights` only, must be a positive integer,
+ * and must not exceed `MAX_BOOKING_NIGHTS` (BR — the real server bound,
+ * `lib/validations/booking.ts:54`; catching it here is what keeps that
+ * route's English zod message off the camper's screen). `ctx.checkIn` is
+ * ALWAYS set by the time this runs (the `nights` step is never current
+ * before `date` isSatisfied) — the `null` branch is a defensive guard, not a
+ * reachable path in the live flow.
+ */
+function acceptNightsCandidate(candidate: Partial<BookingSlots>, ctx: BookingParseContext): BookingStepParseResult {
+  if (!candidateStaysWithinKeys(candidate, NIGHTS_STEP_KEYS)) {
+    return { ok: false, kind: 'rejected', reasonKey: 'foreign_key', data: { keys: Object.keys(candidate) } };
+  }
+  const { nights } = candidate;
+  if (typeof nights !== 'number' || !Number.isSafeInteger(nights) || nights <= 0) {
+    return { ok: false, kind: 'rejected', reasonKey: 'invalid_nights' };
+  }
+  if (nights > MAX_BOOKING_NIGHTS) {
+    return { ok: false, kind: 'rejected', reasonKey: 'too_long', data: { max: MAX_BOOKING_NIGHTS } };
+  }
+  if (!ctx.checkIn) {
+    return { ok: false, kind: 'rejected', reasonKey: 'invalid_nights' };
+  }
+  return { ok: true, slots: { nights, checkOut: addDaysToIso(ctx.checkIn, nights) } };
+}
+
+const nightsStep: BookingStepDef = {
+  id: 'nights',
+  isSatisfied: (slots) => slots.nights !== undefined,
+  parse: parseNightsAnswer,
+  accept: acceptNightsCandidate,
+  chipKeys: ['chip'],
 };
 
 // ---------------------------------------------------------------------------
@@ -285,34 +391,52 @@ function buildThaiNumberWordTable(): ReadonlyMap<string, number> {
 const THAI_NUMBER_WORDS = buildThaiNumberWordTable();
 
 /**
- * `"8 คน"` / `"แปดคน"` / `"8"` all resolve to `8`. `null` ONLY when no
- * number-shaped token exists at all (`"สวัสดี"`, `"คน"` alone) — a genuine
- * "could not read this as a number" case (a miss).
+ * Shared classifier-stripping core (CAM-699) — `parseGuestCount` (`classifier
+ * "คน"`) and `parseNightsCount` (`classifier "คืน"`) are both thin wrappers
+ * over this ONE function, so the 0-99 `THAI_NUMBER_WORDS` table (and the
+ * digit-token regex) exist exactly once, never a second hand-built table for
+ * `nights` — the reuse the CAM-699 ticket asks for. A leading ARABIC-DIGIT
+ * token (`"3 คืน"`, `"8 คน"`, a bare `"3"`) is read FIRST and never touches
+ * `classifier` at all — the digit is unambiguous regardless of the trailing
+ * word. Only a WORD-only answer (`"สามคืน"`, `"แปดคน"`) needs its own
+ * classifier stripped before the Thai-number-word lookup — "คน" is never a
+ * substring of "คืน" (the vowel mark ื sits between ค and น in "คืน"), so
+ * stripping the wrong classifier is a no-op, never a false strip.
  *
  * G3 review, round 3 (policy leaking into `parse`) — a negative or
  * fractional token (`"-5 คน"`, `"3.5 คน"`) IS read, as `-5`/`3.5`, and handed
- * straight through UNCHANGED. Whether that value is an acceptable guest
- * count is `accept`'s policy question, not this function's: a policy check
- * hidden inside `parse` gave a typed `"-5 คน"` a DIFFERENT consequence (a
- * miss) than the equivalent chip `{guests:-5}` (a rejection) — breaking the
- * exact typed-equals-chip equivalence this whole `parse`/`accept` split
- * exists to guarantee. `accept`'s own `Number.isSafeInteger`/`<= 0` checks
- * now classify `-5` and `3.5` identically for BOTH paths.
+ * straight through UNCHANGED. Whether that value is an acceptable count is
+ * `accept`'s policy question, not this function's: a policy check hidden
+ * inside `parse` gave a typed `"-5 คน"` a DIFFERENT consequence (a miss) than
+ * the equivalent chip `{guests:-5}` (a rejection) — breaking the exact
+ * typed-equals-chip equivalence this whole `parse`/`accept` split exists to
+ * guarantee. `accept`'s own `Number.isSafeInteger`/`<= 0` checks now classify
+ * `-5` and `3.5` identically for BOTH paths.
  *
  * The regex is still ANCHORED to capture the FULL numeric token including an
  * optional sign/decimal (`-?\d+(?:\.\d+)?`) — this is what stops `"3.5"`
  * being silently misread as bare `3`; the value reaches `accept` as `3.5`,
  * neither truncated nor dropped.
  */
-function parseGuestCount(text: string): number | null {
+function parseCountToken(text: string, classifier: string): number | null {
   const numericToken = text.match(/-?\d+(?:\.\d+)?/);
   if (numericToken) {
     return Number(numericToken[0]);
   }
-  const normalized = text.replace(/\s+/g, '').replace(/คน/g, '');
+  const normalized = text.replace(/\s+/g, '').replace(new RegExp(classifier, 'g'), '');
   if (normalized.length === 0) return null;
   const value = THAI_NUMBER_WORDS.get(normalized);
   return value ?? null;
+}
+
+/** `"8 คน"` / `"แปดคน"` / `"8"` all resolve to `8`. `null` ONLY when no number-shaped token exists at all (`"สวัสดี"`, `"คน"` alone) — a genuine "could not read this as a number" case (a miss). */
+function parseGuestCount(text: string): number | null {
+  return parseCountToken(text, 'คน');
+}
+
+/** CAM-699 — `"3 คืน"` / `"สามคืน"` / `"3"` all resolve to `3`. Same contract as `parseGuestCount` (see `parseCountToken`'s own doc), classifier `"คืน"` instead of `"คน"`. */
+function parseNightsCount(text: string): number | null {
+  return parseCountToken(text, 'คืน');
 }
 
 function parseGuestsAnswer(text: string): Partial<BookingSlots> | null {
@@ -369,8 +493,19 @@ const summaryStep: BookingStepDef = {
   chipKeys: [],
 };
 
-/** The registry — order matters (it is the step SEQUENCE). A new step is inserted BEFORE `summaryStep`, which must stay last/terminal. */
-export const BOOKING_STEPS: readonly BookingStepDef[] = [dateStep, guestsStep, summaryStep];
+/**
+ * The registry — order matters (it is the step SEQUENCE). A new step is
+ * inserted BEFORE `summaryStep`, which must stay last/terminal.
+ *
+ * CAM-699 — `nights` inserted between `date` and `guests` (ADR-018 D7/D8:
+ * the pitch/guest ceiling and the total are computed FOR the span, so the
+ * night count must be known before either). `BOOKING_STEPS.length` (read by
+ * `AiChatBookingStep.tsx`'s `StepCaption` for the `{total}` in "ขั้นที่ N จาก
+ * {total}") is now 4 for every camp — CAM-700 will make it per-camp once the
+ * conditional `spot` step lands for per-pitch camps (design brief §2), which
+ * is deliberately NOT this story's surface.
+ */
+export const BOOKING_STEPS: readonly BookingStepDef[] = [dateStep, nightsStep, guestsStep, summaryStep];
 
 /** First unsatisfied step, else the last step in the registry (structural rule #1 — never stored, always derived). */
 export function currentStep(slots: BookingSlots): BookingStepDef {
