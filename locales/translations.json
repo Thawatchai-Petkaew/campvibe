@@ -1138,6 +1138,7 @@
                     "chip": "{count} nights",
                     "typeHint": "Staying longer? Just type the number of nights.",
                     "unreadable": "I didn't catch a number of nights. Tell me like \"2 nights\".",
+                    "overRun": "{date} has {count} nights open in a row. Take those, or change the date to find a longer stretch.",
                     "tooLong": "You can book up to {max} nights at a time. Try a smaller number."
                 },
                 "guests": {
@@ -1162,6 +1163,7 @@
                 },
                 "summary": {
                     "intro": "Have a look. If it's right, carry on at the booking page.",
+                    "introConfirm": "Have a look. If it's right, go ahead and confirm.",
                     "label": "Your booking draft",
                     "campRow": "Campsite",
                     "datesRow": "Stay",
@@ -1170,9 +1172,14 @@
                     "guestsValue": "{count} people",
                     "spotRow": "Pitch",
                     "totalRow": "Estimated total",
-                    "estimateNote": "The camp's own fees aren't included here. See the full amount at the booking page."
+                    "estimateNote": "This is worked out from the latest information I have. The real amount is confirmed when the booking goes through."
                 },
                 "handoff": "Continue at the booking page",
+                "confirm": "Confirm booking",
+                "loginToConfirm": "Sign in to confirm booking",
+                "loginPrompt": "Sign in first and you can finish booking right here in the chat.",
+                "sessionExpired": "You've been signed out. Sign in again, then confirm.",
+                "submitting": "Confirming your booking…",
                 "back": "Back",
                 "editDate": "Change date",
                 "editNights": "Change nights",
@@ -1184,7 +1191,21 @@
                 "checking": "Checking availability…",
                 "checkFailed": "Couldn't check availability. Please try again.",
                 "justFilled": "Sorry, {date} filled up just now. Want to try another day?",
-                "handedToAssistant": "OK, let's park the booking. I'll answer that instead."
+                "handedToAssistant": "OK, let's park the booking. I'll answer that instead.",
+                "success": {
+                    "title": "Booking confirmed",
+                    "label": "Your completed booking",
+                    "totalRow": "Total",
+                    "pendingNote": "The camp will confirm your booking.",
+                    "viewBooking": "View booking details",
+                    "viewAll": "View all bookings"
+                },
+                "failed": {
+                    "rateLimited": "That's a lot of booking attempts in a row. Wait a moment, then confirm again.",
+                    "uncertain": "I'm not sure yet whether the booking went through. Check first so you don't book twice.",
+                    "checkAndRetry": "Check, then try again",
+                    "viewMyBookings": "See my bookings"
+                }
             }
         }
     },
@@ -2328,6 +2349,7 @@
                     "chip": "{count} คืน",
                     "typeHint": "อยากพักนานกว่านี้ พิมพ์จำนวนคืนมาได้เลย",
                     "unreadable": "ยังจับจำนวนคืนไม่ได้เลย บอกเป็นตัวเลขได้ เช่น 2 คืน",
+                    "overRun": "{date} ว่างต่อเนื่อง {count} คืน เลือกเท่านี้ก่อน หรือกดแก้วันไปหาช่วงที่ยาวกว่านี้",
                     "tooLong": "จองได้สูงสุด {max} คืนต่อครั้ง ลองบอกจำนวนที่น้อยกว่านี้"
                 },
                 "guests": {
@@ -2352,6 +2374,7 @@
                 },
                 "summary": {
                     "intro": "ตรวจดูอีกทีนะ ถ้าโอเคแล้วไปกรอกต่อที่หน้าจองได้เลย",
+                    "introConfirm": "ตรวจดูอีกทีนะ ถ้าโอเคแล้วกดยืนยันได้เลย",
                     "label": "สรุปการจองที่เลือกไว้",
                     "campRow": "ลาน",
                     "datesRow": "วันเข้าพัก",
@@ -2360,9 +2383,14 @@
                     "guestsValue": "{count} คน",
                     "spotRow": "จุดกางเต็นท์",
                     "totalRow": "ยอดรวมโดยประมาณ",
-                    "estimateNote": "ค่าธรรมเนียมของลานยังไม่รวมในนี้ ดูยอดเต็มได้ที่หน้าจอง"
+                    "estimateNote": "ยอดนี้คำนวณจากข้อมูลล่าสุดที่เราเห็น ยอดจริงจะยืนยันอีกทีตอนจองสำเร็จ"
                 },
                 "handoff": "ไปกรอกต่อที่หน้าจอง",
+                "confirm": "ยืนยันการจอง",
+                "loginToConfirm": "เข้าสู่ระบบเพื่อยืนยันการจอง",
+                "loginPrompt": "เข้าสู่ระบบก่อน จะได้จองให้เสร็จในแชทนี้เลย",
+                "sessionExpired": "คุณออกจากระบบไปแล้ว เข้าสู่ระบบอีกครั้งแล้วกดยืนยันได้เลย",
+                "submitting": "กำลังยืนยันการจอง…",
                 "back": "ย้อนกลับ",
                 "editDate": "แก้วัน",
                 "editNights": "แก้จำนวนคืน",
@@ -2374,7 +2402,21 @@
                 "checking": "กำลังตรวจสอบที่ว่าง…",
                 "checkFailed": "ตรวจสอบที่ว่างไม่สำเร็จ ลองอีกทีได้เลย",
                 "justFilled": "ขอโทษที {date} เพิ่งเต็มไปเมื่อกี้ ลองวันอื่นดูไหม",
-                "handedToAssistant": "โอเค พักเรื่องจองไว้ก่อน เดี๋ยวเราตอบเรื่องนี้ให้"
+                "handedToAssistant": "โอเค พักเรื่องจองไว้ก่อน เดี๋ยวเราตอบเรื่องนี้ให้",
+                "success": {
+                    "title": "จองสำเร็จแล้ว",
+                    "label": "สรุปการจองที่สำเร็จแล้ว",
+                    "totalRow": "ยอดรวม",
+                    "pendingNote": "ลานจะยืนยันการจองอีกครั้ง",
+                    "viewBooking": "ดูรายละเอียดการจอง",
+                    "viewAll": "ดูการจองทั้งหมด"
+                },
+                "failed": {
+                    "rateLimited": "กดจองถี่เกินไป รอสักครู่แล้วกดยืนยันอีกที",
+                    "uncertain": "เรายังไม่แน่ใจว่าการจองบันทึกไปหรือยัง กดตรวจสอบก่อนได้เลย จะได้ไม่จองซ้ำ",
+                    "checkAndRetry": "ตรวจสอบแล้วลองใหม่",
+                    "viewMyBookings": "ดูการจองของฉัน"
+                }
             }
         }
     }

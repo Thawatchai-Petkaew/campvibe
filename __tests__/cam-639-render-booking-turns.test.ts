@@ -110,7 +110,8 @@ describe("AiChatMessageList — kind:'booking' entry mounts AiChatBookingStep, p
       datesValue: "Sat, 8 Aug, 1 night",
       guestsValue: "2 people",
       totalValue: "฿500",
-      handoffHref: "/campgrounds/phu-chi-fa?checkIn=2026-08-08&checkOut=2026-08-09&guests=2",
+      // CAM-701 — `handoffHref` renamed to the `cta` discriminator.
+      cta: { kind: "handoff", href: "/campgrounds/phu-chi-fa?checkIn=2026-08-08&checkOut=2026-08-09&guests=2" },
       controls: [{ kind: "editDate" }, { kind: "editGuests" }, { kind: "cancel" }],
     };
     renderEntries([bookingEntry("summary", view)]);

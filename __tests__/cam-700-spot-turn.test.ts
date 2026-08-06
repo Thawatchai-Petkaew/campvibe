@@ -96,9 +96,9 @@ describe('resolveSpotStep — the entering-`spot` fetch (design brief §4)', () 
 
     const newest = bookingEntries(result.entries).at(-1);
     expect(newest).toMatchObject({ step: 'summary' });
-    expect(newest && 'view' in newest && newest.view.kind === 'summary' ? newest.view.handoffHref : null).toContain(
-      '/campgrounds/phu-chi-fa-spot-camp'
-    );
+    // CAM-701 — `handoffHref` renamed to the `cta` discriminator.
+    const summaryCta = newest && 'view' in newest && newest.view.kind === 'summary' ? newest.view.cta : null;
+    expect(summaryCta?.kind === 'handoff' ? summaryCta.href : null).toContain('/campgrounds/phu-chi-fa-spot-camp');
     // The downgrade is session-scoped only — `spot` is skipped for the REST
     // of this flow, never re-attempted, and no spotId is ever set.
     expect(result.booking?.camp.useSpotView).toBe(false);

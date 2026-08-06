@@ -137,6 +137,7 @@ describe('buildSummaryView — CAM-700 spotValue + editSpot control', () => {
     const view = buildSummaryView({ slots: noSpotSlots, camp: downgradedCamp, t, language: 'th', today: '2026-07-22' });
     expect(view.spotValue).toBeUndefined();
     expect(view.controls).toEqual([{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'cancel' }]);
-    expect(view.handoffHref).toContain('/campgrounds/phu-chi-fa-spot-camp');
+    // CAM-701 — `handoffHref` renamed to the `cta` discriminator.
+    expect(view.cta.kind === 'handoff' ? view.cta.href : null).toContain('/campgrounds/phu-chi-fa-spot-camp');
   });
 });
