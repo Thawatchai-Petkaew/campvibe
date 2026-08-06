@@ -27,13 +27,16 @@ regression project's own `npm run dev -- -p 3100`).
 import { chromium } from "@playwright/test";
 
 const browser = await chromium.launch();
-const page = await browser.newPage();
+const context = await browser.newContext();
 
-// Nothing forces a language here (unlike e2e/regression's shared
-// storageState, which forces Thai — see the trap below). Set it explicitly.
-await page.addInitScript(() => {
-  window.localStorage.setItem("campvibe_lang", "en");
-});
+// CAM-688 — the server resolves language from the `campvibe_lang` COOKIE
+// (app/layout.tsx), not localStorage; a fresh context with no cookie already
+// renders English by default, same as here. If you are reusing a context
+// that already carries a `th` cookie (e.g. e2e/regression's shared
+// storageState — see the trap below), setting localStorage alone is now a
+// silent no-op; override the cookie instead:
+// await context.addCookies([{ name: "campvibe_lang", value: "en", domain: "localhost", path: "/" }]);
+const page = await context.newPage();
 
 await page.goto("http://localhost:3000/");
 const count = await page.getByRole("link", { name: /CampVibe/i }).count();
@@ -49,15 +52,28 @@ regression spec (no assertion, no CI guard) — it is how you check your
 assumptions BEFORE writing or editing one blind.
 
 **The language trap.** `e2e/regression/global.setup.ts` forces
-`campvibe_lang=th` into the shared `storageState`, so **every spec under
-`e2e/regression/` renders Thai, never English** — this exact mechanism is
-what broke 6 specs under CAM-570. A `getByRole(..., { name: "Previous image"
-})` lookup against that Thai render finds 0 elements silently; it doesn't
-throw, it just fails the assertion. When writing or debugging a regression
-spec, either assert the Thai copy (the suite's actual state) or explicitly
-force English yourself (`page.evaluate(() => localStorage.setItem(...))`)
-before asserting an English string — never assume the shared session is
-English.
+`campvibe_lang=th` into the shared `storageState` (both the cookie AND
+localStorage, CAM-688), so **every spec under `e2e/regression/` renders Thai,
+never English** — this exact mechanism is what broke 6 specs under CAM-570. A
+`getByRole(..., { name: "Previous image" })` lookup against that Thai render
+finds 0 elements silently; it doesn't throw, it just fails the assertion.
+When writing or debugging a regression spec, either assert the Thai copy (the
+suite's actual state) or explicitly force English yourself — but do it via
+the **cookie**, not `localStorage`:
+
+```ts
+await page.context().addCookies([
+  { name: "campvibe_lang", value: "en", domain: "localhost", path: "/" },
+]);
+```
+
+The app resolves language server-side from the `campvibe_lang` cookie
+(`app/layout.tsx`) — `page.evaluate(() => localStorage.setItem("campvibe_lang",
+"en"))` alone is now a silent no-op whenever a `th` cookie is already present
+(the shared regression session always has one): the cookie still wins, the
+page stays Thai, and the lookup fails with 0 elements and no error, exactly
+the failure shape this section exists to prevent. Never assume the shared
+session is English.
 
 ## What is in here
 
