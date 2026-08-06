@@ -437,6 +437,10 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
     onBookingEditDate,
     onBookingEditGuests,
     onBookingCancel,
+    // CAM-702 (ADR-018) — the confirm tap + F2's check-and-retry; mechanical
+    // pass-through only, no login/modal logic added here (that stays CAM-703's).
+    onBookingConfirm,
+    onBookingCheckAndRetry,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(() => readExpandedFromStorage());
@@ -868,6 +872,8 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                       onBookingEditDate={onBookingEditDate}
                       onBookingEditGuests={onBookingEditGuests}
                       onBookingCancel={onBookingCancel}
+                      onBookingConfirm={onBookingConfirm}
+                      onBookingCheckAndRetry={onBookingCheckAndRetry}
                     />
                   </div>
                 </ScrollArea>
