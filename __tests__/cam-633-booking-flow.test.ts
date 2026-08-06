@@ -79,7 +79,7 @@ import {
 const TODAY = new Date('2026-07-22T10:00:00Z'); // Bangkok Wednesday 2026-07-22 (same fixture as cam-479)
 
 function ctx(overrides: Partial<BookingParseContext> = {}): BookingParseContext {
-  return { today: TODAY, holidays: [], remaining: null, maxGuestsPerDay: null, ...overrides };
+  return { today: TODAY, holidays: [], remaining: null, maxGuestsPerDay: null, checkIn: null, ...overrides };
 }
 
 function stateWith(slots: BookingSlots, consecutiveMisses = 0): BookingFlowState {
@@ -87,8 +87,8 @@ function stateWith(slots: BookingSlots, consecutiveMisses = 0): BookingFlowState
 }
 
 describe('BOOKING_STEPS registry + derived current step', () => {
-  it('[normal] the registry is date -> guests -> summary, in order', () => {
-    expect(BOOKING_STEPS.map((s) => s.id)).toEqual(['date', 'guests', 'summary']);
+  it('[normal] the registry is date -> nights -> guests -> summary, in order (CAM-699 inserted `nights`)', () => {
+    expect(BOOKING_STEPS.map((s) => s.id)).toEqual(['date', 'nights', 'guests', 'summary']);
   });
 
   it('[normal] empty slots derive to the FIRST step (date)', () => {
@@ -99,33 +99,39 @@ describe('BOOKING_STEPS registry + derived current step', () => {
     expect(currentStep({ guests: 2 }).id).toBe('date');
   });
 
-  it('[normal] date filled, guests empty derives to `guests`', () => {
-    expect(currentStep({ checkIn: '2026-08-01', checkOut: '2026-08-02' }).id).toBe('guests');
+  it('[normal][CAM-699] date filled, a 1-night span (never pre-filled), derives to `nights`', () => {
+    expect(currentStep({ checkIn: '2026-08-01', checkOut: '2026-08-02' }).id).toBe('nights');
   });
 
-  it('[normal] date + guests both filled derives to `summary` (terminal, never satisfied)', () => {
-    expect(currentStep({ checkIn: '2026-08-01', checkOut: '2026-08-02', guests: 2 }).id).toBe('summary');
+  it('[normal][CAM-699] date + nights filled, guests empty derives to `guests`', () => {
+    expect(currentStep({ checkIn: '2026-08-01', checkOut: '2026-08-02', nights: 1 }).id).toBe('guests');
+  });
+
+  it('[normal][CAM-699] date + nights + guests all filled derives to `summary` (terminal, never satisfied)', () => {
+    expect(currentStep({ checkIn: '2026-08-01', checkOut: '2026-08-02', nights: 1, guests: 2 }).id).toBe('summary');
   });
 
   it('[boundary] `summary` stays current no matter how many times it is re-derived (terminal step returns false forever)', () => {
-    const slots: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02', guests: 2 };
+    const slots: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02', nights: 1, guests: 2 };
     expect(currentStep(slots).id).toBe('summary');
     expect(currentStep(slots).id).toBe('summary');
     expect(currentStep(currentStep(slots).isSatisfied(slots) ? slots : slots).id).toBe('summary');
   });
 
-  it('[normal] stepProgress marks earlier steps done, the derived step active, later steps todo', () => {
-    const slots: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02' }; // date done, guests active, summary todo
+  it('[normal][CAM-699] stepProgress marks earlier steps done, the derived step active, later steps todo', () => {
+    const slots: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02' }; // date done, nights active, guests+summary todo
     expect(stepProgress(slots)).toEqual([
       { id: 'date', status: 'done' },
-      { id: 'guests', status: 'active' },
+      { id: 'nights', status: 'active' },
+      { id: 'guests', status: 'todo' },
       { id: 'summary', status: 'todo' },
     ]);
   });
 
-  it('[boundary] stepProgress on empty slots has `date` active and nothing done yet', () => {
+  it('[boundary][CAM-699] stepProgress on empty slots has `date` active and nothing done yet', () => {
     expect(stepProgress({})).toEqual([
       { id: 'date', status: 'active' },
+      { id: 'nights', status: 'todo' },
       { id: 'guests', status: 'todo' },
       { id: 'summary', status: 'todo' },
     ]);
@@ -201,13 +207,20 @@ describe('date step — parse (typed input) via resolveDatesCore, unchanged (CAM
     if (outcome.kind === 'advance') {
       // resolveDatesCore returns 4 weekend ranges for July 2026; only the
       // FIRST (the Sat 2026-07-04 -> Mon 2026-07-06 weekend) is kept.
-      expect(outcome.state.slots).toEqual({ checkIn: '2026-07-04', checkOut: '2026-07-06' });
+      // CAM-699 — that weekend is a real 2-night span, so `nights` is
+      // PRE-FILLED here too (the same rule the plain weekend-rule phrase
+      // gets) — never re-asked for a range the camper already named.
+      expect(outcome.state.slots).toEqual({ checkIn: '2026-07-04', checkOut: '2026-07-06', nights: 2 });
     }
   });
 });
 
 describe('guests step — parse (typed input equals chip input: "8 คน" / "แปดคน" / "8")', () => {
-  const dateFilled: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02' };
+  // CAM-699 — `nights` must also be filled or `currentStep` derives to the
+  // new `nights` step instead of `guests`; every test below spreads this
+  // fixture (`{ ...dateFilled, guests: N }`), so the one line change here
+  // propagates correctly to all of them.
+  const dateFilled: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02', nights: 1 };
 
   it('[normal] "8 คน" (Arabic digit + classifier) advances with guests:8', () => {
     const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: '8 คน' }, ctx());
@@ -368,7 +381,9 @@ describe('guests step — parse (typed input equals chip input: "8 คน" / "�
 });
 
 describe('summary step — terminal, nothing left to parse', () => {
-  const filled: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02', guests: 2 };
+  // CAM-699 — `nights` is required to reach `summary` at all (see the
+  // registry describe block above).
+  const filled: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02', nights: 1, guests: 2 };
 
   it('[normal] any typed text at summary reprompts once (unparsed) — nothing to fill, generic escape-hatch path applies', () => {
     const outcome = advanceBookingFlow(stateWith(filled), { kind: 'text', text: 'แล้วมีเปลให้เช่าไหม' }, ctx());
@@ -386,7 +401,9 @@ describe('summary step — terminal, nothing left to parse', () => {
 });
 
 describe('chip input skips `parse` ONLY — it still goes through `accept`, the SAME policy gate typed input uses (G3 review, round 2)', () => {
-  const dateFilled: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02' };
+  // CAM-699 — `nights` filled so the GUESTS-step chip cases below exercise
+  // `guests`, not the new `nights` step (`currentStep` derivation).
+  const dateFilled: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02', nights: 1 };
 
   it('[normal] a well-formed date chip advances directly, with NO round-trip through resolveDatesCore', () => {
     const outcome = advanceBookingFlow(
@@ -692,7 +709,7 @@ describe('the rejection channel is step-agnostic — no step.id branching anywhe
     expect(fnMatch).not.toBeNull();
     const fnBody = fnMatch![0];
     expect(fnBody).not.toMatch(/step\.id/);
-    expect(fnBody).not.toMatch(/['"](date|guests|summary)['"]/);
+    expect(fnBody).not.toMatch(/['"](date|nights|guests|summary)['"]/);
   });
 });
 
@@ -710,7 +727,7 @@ describe('the escape hatch — a SECOND consecutive unparsed input exits to the 
     expect(second).toEqual({ kind: 'exit', reason: 'handoff', prefill: {} });
   });
 
-  it('[error/validation] the handoff prefill carries whatever partial slots were already collected (e.g. a date already picked, still mid-guests-step)', () => {
+  it('[error/validation] the handoff prefill carries whatever partial slots were already collected (e.g. a date already picked, still mid-nights-step — CAM-699 moved this fixture from "mid-guests" since `nights` is unfilled)', () => {
     const dateFilled: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02' };
     const first = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: 'วันนี้อากาศดีนะ' }, ctx());
     expect(first.kind).toBe('reprompt');
@@ -780,10 +797,14 @@ describe('static guards (source-inspection, mirrors what a CI grep would run)', 
     expect(SOURCE).not.toMatch(/Date\.now\(/);
   });
 
-  it('[normal] no second literal step-id list exists anywhere else in components/ai-chat/ (the registry is the ONLY place step ids are enumerated together)', () => {
+  it('[normal][CAM-699] no second literal step-id list exists anywhere else in components/ai-chat/ (the registry is the ONLY place step ids are enumerated together) — pins the 4-step shape', () => {
     const dir = path.resolve(__dirname, '../components/ai-chat');
     const files = fs.readdirSync(dir).filter((f) => (f.endsWith('.ts') || f.endsWith('.tsx')) && f !== 'booking-flow.ts');
-    const stepIdCoOccurrence = /['"]date['"]\s*,\s*['"]guests['"]\s*,\s*['"]summary['"]/;
+    // Matches EITHER the old 3-item co-occurrence (still a hand-copy even
+    // without `nights`) or the full new 4-item one — a partial hand-copy is
+    // just as much of a re-implementation as a complete one.
+    const stepIdCoOccurrence =
+      /['"]date['"]\s*,\s*['"](nights['"]\s*,\s*['"])?guests['"]\s*,\s*['"]summary['"]/;
     for (const file of files) {
       const content = fs.readFileSync(path.join(dir, file), 'utf-8');
       expect(content, `${file} must not hand-copy the booking step-id list`).not.toMatch(stepIdCoOccurrence);

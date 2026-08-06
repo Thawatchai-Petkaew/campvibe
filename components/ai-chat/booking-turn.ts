@@ -34,6 +34,7 @@ import { appendBookingEntry, appendBookingNotice, appendUserQuestion, type ChatE
 import {
   buildDateQuestionView,
   buildGuestsQuestionView,
+  buildNightsQuestionView,
   buildSummaryView,
   extractDisplayNumber,
   isDateFull,
@@ -89,6 +90,9 @@ export function processBookingTurn(
     today: now,
     remaining: state.slots.checkIn ? remainingForDate(camp.weekendAvailability, state.slots.checkIn) : null,
     maxGuestsPerDay: camp.maxGuestsPerDay,
+    // CAM-699 — the `nights` step's own `accept` needs `checkIn` (already
+    // answered by the time `nights` is current) to derive `checkOut`.
+    checkIn: state.slots.checkIn ?? null,
   });
 
   if (outcome.kind === 'advance') {
@@ -110,6 +114,14 @@ export function processBookingTurn(
       const view = buildSummaryView({ slots: outcome.state.slots, camp, t, language, today: bangkokTodayISO(now) });
       return { entries: appendBookingEntry(withEcho, 'summary', view), booking: { state: outcome.state, camp } };
     }
+    if (newStep.id === 'nights') {
+      // CAM-699 — reached whenever `date` advances but the span was NOT a
+      // genuine multi-night typed range (see `acceptDateCandidate`'s own
+      // comment) — this is the camper who tapped a date CHIP, or typed a
+      // single day.
+      const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'ask' });
+      return { entries: appendBookingEntry(withEcho, 'nights', view), booking: { state: outcome.state, camp } };
+    }
     const view =
       newStep.id === 'guests'
         ? buildGuestsQuestionView({ slots: outcome.state.slots, camp, t, language, reason: 'ask' })
@@ -122,6 +134,19 @@ export function processBookingTurn(
     if (step.id === 'date') {
       const view = buildDateQuestionView({ camp, t, language, reason: 'unreadable' });
       return { entries: appendBookingEntry(withEcho, 'date', view), booking: { state: outcome.state, camp } };
+    }
+    if (step.id === 'nights') {
+      // Only `too_long` (>MAX_BOOKING_NIGHTS) gets its own copy; every other
+      // rejection (e.g. `invalid_nights`, a party of 0/negative) reuses the
+      // `unreadable` sentence — the SAME precedent `guests` already sets for
+      // its own non-`over_capacity` rejections just below.
+      if (outcome.reason === 'rejected' && outcome.reasonKey === 'too_long') {
+        const max = (outcome.data as { max: number } | undefined)?.max;
+        const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'tooLong', max });
+        return { entries: appendBookingEntry(withEcho, 'nights', view), booking: { state: outcome.state, camp } };
+      }
+      const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'unreadable' });
+      return { entries: appendBookingEntry(withEcho, 'nights', view), booking: { state: outcome.state, camp } };
     }
     // step.id === 'guests'
     if (outcome.reason === 'rejected' && outcome.reasonKey === 'over_capacity') {
@@ -155,14 +180,32 @@ export function processBookingTurn(
 }
 
 /**
- * `ย้อนกลับ` (from `guests`, `toStep:'date'`) / `แก้วัน` (`toStep:'date'`) /
- * `แก้จำนวนคน` (`toStep:'guests'`) — clears ONLY the field(s) `toStep` owns
- * so `currentStep` derives back there; anything answered further along
- * (e.g. `guests`, when going back to `date`) is KEPT, matching the design
- * brief's E1 note on the derived-step design "paying for itself": picking a
- * still-valid day re-derives straight past `guests` to `summary` with no
- * re-ask. No control/echo bubble — this is a navigation action, not an
- * answer.
+ * `ย้อนกลับ` (from `nights`, `toStep:'date'`; from `guests`, `toStep:'nights'`)
+ * / `แก้วัน` (`toStep:'date'`) / `แก้จำนวนคน` (`toStep:'guests'`) — clears
+ * ONLY the field(s) `toStep` owns so `currentStep` derives back there;
+ * anything answered further along (e.g. `guests`, when going back to
+ * `nights`) is KEPT, matching the design brief's E1 note on the
+ * derived-step design "paying for itself": picking a still-valid answer
+ * re-derives straight past the intervening steps with no re-ask. No
+ * control/echo bubble — this is a navigation action, not an answer.
+ *
+ * CAM-699 — `toStep:'date'` also clears `nights` (never just `checkIn`/
+ * `checkOut`). A deliberate, conservative simplification over the design
+ * brief's later (round-2, out of this story's scope) 409-rewind table, which
+ * keeps `nights` across a date-only edit: doing that safely needs the `date`
+ * step itself to know about and re-derive `checkOut` against a KEPT `nights`
+ * value when the camper picks a new day, which this story does not build.
+ * Keeping `nights` here without that would risk `checkOut` silently
+ * disagreeing with `nights` the moment `date` is re-answered with a
+ * 1-night-shaped candidate — this flow's `nights` step would then wrongly
+ * read as already-satisfied (see `acceptDateCandidate`'s own comment) and
+ * skip asking again with the STALE night count. Clearing both together
+ * cannot drift; the cost is one extra re-ask of `nights` after `แก้วัน`.
+ *
+ * `toStep:'nights'` clears ONLY `nights` — `checkOut` is left as-is (stale
+ * until `nights` is re-answered) so `dateStep.isSatisfied` (which still
+ * requires both `checkIn` AND `checkOut`) keeps regarding `date` as
+ * satisfied and `currentStep` lands on `nights`, not back on `date`.
  */
 export function processBookingControl(
   entries: ChatEntry[],
@@ -176,6 +219,9 @@ export function processBookingControl(
   if (toStep === 'date') {
     delete slots.checkIn;
     delete slots.checkOut;
+    delete slots.nights;
+  } else if (toStep === 'nights') {
+    delete slots.nights;
   } else if (toStep === 'guests') {
     delete slots.guests;
   }
@@ -184,7 +230,9 @@ export function processBookingControl(
   const view =
     step.id === 'guests'
       ? buildGuestsQuestionView({ slots, camp, t, language, reason: 'ask' })
-      : buildDateQuestionView({ camp, t, language, reason: 'ask' });
+      : step.id === 'nights'
+        ? buildNightsQuestionView({ slots, t, language, reason: 'ask' })
+        : buildDateQuestionView({ camp, t, language, reason: 'ask' });
   return { entries: appendBookingEntry(entries, step.id, view), booking: { state, camp } };
 }
 

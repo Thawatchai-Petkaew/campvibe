@@ -53,7 +53,7 @@ import {
   startBookingTurn,
   type BookingSession,
 } from "@/components/ai-chat/booking-turn";
-import { addOneDayIso, formatDateEcho, formatGuestsEcho, type BookingCampContext } from "@/components/ai-chat/booking-view";
+import { addOneDayIso, formatDateEcho, formatGuestsEcho, formatNightsEcho, type BookingCampContext } from "@/components/ai-chat/booking-view";
 import {
   appendOutcome,
   appendOrStartStreamingDelta,
@@ -86,9 +86,9 @@ export interface UseAiChatResult {
   abortActiveStream: () => void;
   /** CAM-640 — "เริ่มจอง" tapped (`AiChatDetailCard`): starts a fresh booking flow for `camp`. */
   startBookingFlow: (camp: BookingCampContext) => void;
-  /** CAM-640 — a booking-step chip tap (date or guests, per the CURRENT step). */
+  /** CAM-640/CAM-699 — a booking-step chip tap (date, nights, or guests, per the CURRENT step). */
   onBookingChipSelect: (value: string) => void;
-  /** CAM-640 — `ย้อนกลับ` (guests -> date). */
+  /** CAM-640/CAM-699 — `ย้อนกลับ` (nights -> date, or guests -> nights). */
   onBookingBack: (toStep: BookingStepId) => void;
   /** CAM-640 — `แก้วัน` (summary -> date). */
   onBookingEditDate: () => void;
@@ -232,11 +232,32 @@ export function useAiChat(): UseAiChatResult {
       if (!session) return;
       const step = currentStep(session.state.slots).id;
       if (step === "date") {
+        // CAM-699 — `checkOut` here is a PROVISIONAL 1-night placeholder
+        // only (required because `acceptDateCandidate` needs both fields to
+        // even validate the candidate): the `nights` step that follows
+        // always overwrites it with the camper's real answer, except for a
+        // TYPED multi-night range, which a date CHIP can never produce
+        // (every chip-offered day is single-day by construction, see
+        // `buildDateChipSpecs`). This is what closes the "the chat books 1
+        // night no matter what" defect on the chip path.
         const result = processBookingTurn(
           entries,
           session,
           { kind: "chip", slots: { checkIn: value, checkOut: addOneDayIso(value) } },
           formatDateEcho(value, session.camp, t, language),
+          t,
+          language,
+          new Date()
+        );
+        bookingRef.current = result.booking;
+        setEntries(result.entries);
+      } else if (step === "nights") {
+        const nights = Number(value);
+        const result = processBookingTurn(
+          entries,
+          session,
+          { kind: "chip", slots: { nights } },
+          formatNightsEcho(nights, t),
           t,
           language,
           new Date()

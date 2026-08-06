@@ -31,17 +31,32 @@ import {
 import type {
   BookingDateChipSpec,
   BookingGuestsChipSpec,
+  BookingNightsChipSpec,
   BookingQuestionView,
   BookingSummaryView,
 } from '@/components/ai-chat/AiChatBookingStep';
 import { buildBookingPriceArgs, computeBookingPrice, type PricingUnit } from '@/lib/booking-pricing';
 import { buildBookingPrefillQuery, type BookingPrefill } from '@/lib/booking-prefill';
+// CAM-699 — the SAME 30-night ceiling `booking-flow.ts`'s `nights` step
+// already enforces server-shaped, reused for the `nights.tooLong` fallback
+// default below (never a second independently-chosen 30).
+import { MAX_BOOKING_NIGHTS } from '@/lib/validations/booking';
 import type { WeekendAvailabilityEntry } from '@/lib/ai/tools/get-camp-detail';
 import type { Language, TranslationType } from '@/locales/translations';
 
-/** Layout constants (design brief §1/§2) — how many pills fit one row of the ~380px column, never a capacity number. */
+/** Layout constants (design brief §1/§2/§3) — how many pills fit one row of the ~380px column, never a capacity number. */
 export const MAX_BOOKING_DATE_CHIPS = 4;
 export const MAX_BOOKING_GUEST_CHIPS = 4;
+/**
+ * CAM-699 — design brief §3's full formula also truncates to the consecutive
+ * OPEN-night "run" from the chosen check-in date
+ * (`ceiling = min(run, MAX_BOOKING_NIGHTS)`); computing that run needs a scan
+ * across `weekendAvailability` this story does not add (out of scope — see
+ * `story.md`). Chips are therefore always `1..MAX_BOOKING_NIGHT_CHIPS`, the
+ * same "no run/cap data -> render the full row" fallback
+ * `buildGuestChipSpecs(null)` already uses below.
+ */
+export const MAX_BOOKING_NIGHT_CHIPS = 4;
 
 /** The one snapshot a flow runs against — captured once when "เริ่มจอง" is tapped (`AiChatDetailCard`'s already-resolved detail fetch). */
 export interface BookingCampContext {
@@ -112,6 +127,11 @@ export function buildGuestChipSpecs(ceiling: number | null): BookingGuestsChipSp
   return Array.from({ length: max }, (_, i) => ({ kind: 'guests' as const, count: i + 1 }));
 }
 
+/** `1..MAX_BOOKING_NIGHT_CHIPS`, always (see that constant's own comment on the run-based truncation this story does not add). Never empty by construction (design brief §3/§9). */
+export function buildNightChipSpecs(): BookingNightsChipSpec[] {
+  return Array.from({ length: MAX_BOOKING_NIGHT_CHIPS }, (_, i) => ({ kind: 'nights' as const, count: i + 1 }));
+}
+
 /** Best-effort numeric echo of a REJECTED typed guest answer, for the over-capacity notice only — display, never policy (the state machine's own `accept()` already decided validity). */
 export function extractDisplayNumber(text: string): string {
   return text.match(/-?\d+(?:\.\d+)?/)?.[0] ?? text.trim();
@@ -128,6 +148,11 @@ export function formatDateEcho(iso: string, camp: BookingCampContext, t: Transla
 /** The user-bubble echo for a tapped guests chip. */
 export function formatGuestsEcho(count: number, t: TranslationType): string {
   return t.aiChat.booking.guests.chip.replace('{count}', String(count));
+}
+
+/** The user-bubble echo for a tapped nights chip. */
+export function formatNightsEcho(count: number, t: TranslationType): string {
+  return t.aiChat.booking.nights.chip.replace('{count}', String(count));
 }
 
 export interface DateQuestionParams {
@@ -157,6 +182,36 @@ export function buildDateQuestionView({ camp, t, language, reason, fullDate }: D
     questionText,
     chips,
     controls: [{ kind: 'cancel' }],
+  };
+}
+
+export interface NightsQuestionParams {
+  /** Only `slots.checkIn` is read (for the `{date}` in the `ask` sentence) — the step's own chips never depend on it (see `buildNightChipSpecs`). */
+  slots: BookingSlots;
+  t: TranslationType;
+  language: Language;
+  reason: 'ask' | 'unreadable' | 'tooLong';
+  /** Only for `reason:'tooLong'` — the real `MAX_BOOKING_NIGHTS` ceiling the rejection carried (never fabricated); falls back to the shared constant if somehow absent. */
+  max?: number;
+}
+
+/** CAM-699 — the `nights` step's question view. The chip row is unconditional (never empty, design brief §3/§9), so there is no `empty` reason to branch on. */
+export function buildNightsQuestionView({ slots, t, language, reason, max }: NightsQuestionParams): BookingQuestionView {
+  const dateLabel = slots.checkIn ? formatBookingDate(slots.checkIn, language) : '';
+  const questionText =
+    reason === 'unreadable'
+      ? t.aiChat.booking.nights.unreadable
+      : reason === 'tooLong'
+        ? t.aiChat.booking.nights.tooLong.replace('{max}', String(max ?? MAX_BOOKING_NIGHTS))
+        : t.aiChat.booking.nights.ask.replace('{date}', dateLabel);
+
+  return {
+    kind: 'question',
+    step: 'nights',
+    isCurrent: true,
+    questionText,
+    chips: buildNightChipSpecs(),
+    controls: [{ kind: 'back', toStep: 'date' }, { kind: 'cancel' }],
   };
 }
 
@@ -196,7 +251,9 @@ export function buildGuestsQuestionView({
       isCurrent: true,
       questionText,
       chips: [{ kind: 'guestsCap', count: overCapacityData.limit }],
-      controls: [{ kind: 'back', toStep: 'date' }, { kind: 'cancel' }],
+      // CAM-699 — `nights` now sits directly before `guests` in the
+      // registry; `back` returns to the IMMEDIATELY preceding step.
+      controls: [{ kind: 'back', toStep: 'nights' }, { kind: 'cancel' }],
     };
   }
 
@@ -215,12 +272,12 @@ export function buildGuestsQuestionView({
     isCurrent: true,
     questionText,
     chips,
-    controls: [{ kind: 'back', toStep: 'date' }, { kind: 'cancel' }],
+    controls: [{ kind: 'back', toStep: 'nights' }, { kind: 'cancel' }],
   };
 }
 
 export interface SummaryParams {
-  /** Requires `checkIn`/`checkOut`/`guests` all set — only ever called once `currentStep` derives to `summary`. */
+  /** Requires `checkIn`/`checkOut`/`nights`/`guests` all set — only ever called once `currentStep` derives to `summary`. */
   slots: BookingSlots;
   camp: BookingCampContext;
   t: TranslationType;
@@ -233,6 +290,10 @@ export function buildSummaryView({ slots, camp, t, language, today }: SummaryPar
   const checkIn = slots.checkIn!;
   const checkOut = slots.checkOut!;
   const guests = slots.guests!;
+  // CAM-699 (ADR-018 D8) — the REAL night count, never the round-1 hardcoded
+  // `1`. Guaranteed set: `buildSummaryView` only ever runs once `currentStep`
+  // derives to `summary`, which requires the `nights` step `isSatisfied`.
+  const nights = slots.nights!;
   const dateLabel = formatBookingDate(checkIn, language);
   // CAM-652: routed through buildBookingPriceArgs (the ONE place every
   // pricing call site assembles a ComputeBookingPriceInput) instead of this
@@ -244,7 +305,7 @@ export function buildSummaryView({ slots, camp, t, language, today }: SummaryPar
     campSite: { priceLow: camp.unitPrice, priceUnit: camp.priceUnit, extraFeeAmount: null },
     spot: null,
     party: { guests },
-    nights: 1,
+    nights,
     vatRate: 0,
   });
   // `ok:false` (TENT_COUNT_UNAVAILABLE) is unreachable — `camp.priceUnit` is
@@ -260,7 +321,7 @@ export function buildSummaryView({ slots, camp, t, language, today }: SummaryPar
     kind: 'summary',
     isCurrent: true,
     campValue: camp.name,
-    datesValue: t.aiChat.booking.summary.datesValue.replace('{date}', dateLabel),
+    datesValue: t.aiChat.booking.summary.datesValue.replace('{date}', dateLabel).replace('{nights}', String(nights)),
     guestsValue: t.aiChat.booking.summary.guestsValue.replace('{count}', String(guests)),
     totalValue,
     handoffHref: `/campgrounds/${camp.slug}?${query}`,

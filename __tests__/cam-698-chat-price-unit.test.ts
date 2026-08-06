@@ -158,7 +158,11 @@ describe("[render] AiChatDetailCard — handleStartBooking threads the real deta
     expect(capturedContext.priceUnit).toBe("PER_PERSON");
 
     const view = buildSummaryView({
-      slots: { checkIn: "2026-09-01", checkOut: "2026-09-02", guests: 3 },
+      // CAM-699 (2026-08-06): `nights` is now a required slot (buildSummaryView
+      // reads `slots.nights!`, no longer a hardcoded 1) — added here as `1` to
+      // match this case's own "1 night" total; the price-unit assertion this
+      // test exists for is unchanged.
+      slots: { checkIn: "2026-09-01", checkOut: "2026-09-02", nights: 1, guests: 3 },
       camp: capturedContext,
       t: getTranslations("th"),
       language: "th",
@@ -194,7 +198,12 @@ describe("[unit] resolveUnitPrice + buildSummaryView — before/after documentat
     maxGuestsPerDay: null,
     priceIsFree: false,
   };
-  const slots = { checkIn: "2026-09-01", checkOut: "2026-09-02", guests: 3 };
+  // CAM-699 (2026-08-06): `nights` is now a required slot (buildSummaryView
+  // no longer hardcodes 1) — added here as `1` to preserve this describe
+  // block's own "1 night" before/after documentation; totals below are
+  // UNCHANGED (the price-unit defect these two cases prove is orthogonal to
+  // the night count).
+  const slots = { checkIn: "2026-09-01", checkOut: "2026-09-02", nights: 1, guests: 3 };
   const t = getTranslations("th");
 
   it("[before] the pre-CAM-698 call site (campSitePriceUnit: null) normalizes to PER_SITE and never multiplies by guests -> ฿500", () => {

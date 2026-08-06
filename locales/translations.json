@@ -1117,6 +1117,7 @@
                 "stepCaption": "Step {current} of {total}",
                 "stepName": {
                     "date": "Choose a date",
+                    "nights": "Nights",
                     "guests": "How many people",
                     "summary": "Check it over"
                 },
@@ -1129,6 +1130,14 @@
                     "empty": "No Saturdays are open in this stretch. Type the day you have in mind and I'll go look.",
                     "unreadable": "I didn't catch a date there. Try again, like \"next Saturday\" or \"15 Aug\".",
                     "full": "{date} is fully booked. Want to try another day?"
+                },
+                "nights": {
+                    "ask": "{date} it is. How many nights?",
+                    "chipsLabel": "Number of nights",
+                    "chip": "{count} nights",
+                    "typeHint": "Staying longer? Just type the number of nights.",
+                    "unreadable": "I didn't catch a number of nights. Tell me like \"2 nights\".",
+                    "tooLong": "You can book up to {max} nights at a time. Try a smaller number."
                 },
                 "guests": {
                     "ask": "{date} it is. That day has {count} spots left. How many of you are going?",
@@ -1146,7 +1155,7 @@
                     "label": "Your booking draft",
                     "campRow": "Campsite",
                     "datesRow": "Stay",
-                    "datesValue": "{date}, 1 night",
+                    "datesValue": "{date}, {nights} nights",
                     "guestsRow": "People",
                     "guestsValue": "{count} people",
                     "totalRow": "Estimated total",
@@ -2285,6 +2294,7 @@
                 "stepCaption": "ขั้นที่ {current} จาก {total}",
                 "stepName": {
                     "date": "เลือกวัน",
+                    "nights": "จำนวนคืน",
                     "guests": "จำนวนคน",
                     "summary": "ตรวจดูอีกที"
                 },
@@ -2297,6 +2307,14 @@
                     "empty": "ช่วงนี้ยังไม่มีเสาร์ว่างเลย ลองพิมพ์วันที่อยากไปมาได้เลย เดี๋ยวเราหาให้",
                     "unreadable": "ยังจับวันไม่ได้เลย ลองบอกใหม่อีกที เช่น เสาร์หน้า หรือ 15 ส.ค.",
                     "full": "{date} เต็มแล้ว ลองวันอื่นดูไหม"
+                },
+                "nights": {
+                    "ask": "{date} นะ ไปกันกี่คืนดี",
+                    "chipsLabel": "จำนวนคืน",
+                    "chip": "{count} คืน",
+                    "typeHint": "อยากพักนานกว่านี้ พิมพ์จำนวนคืนมาได้เลย",
+                    "unreadable": "ยังจับจำนวนคืนไม่ได้เลย บอกเป็นตัวเลขได้ เช่น 2 คืน",
+                    "tooLong": "จองได้สูงสุด {max} คืนต่อครั้ง ลองบอกจำนวนที่น้อยกว่านี้"
                 },
                 "guests": {
                     "ask": "{date} นะ วันนั้นเหลือ {count} ที่ ไปกันกี่คน",
@@ -2314,7 +2332,7 @@
                     "label": "สรุปการจองที่เลือกไว้",
                     "campRow": "ลาน",
                     "datesRow": "วันเข้าพัก",
-                    "datesValue": "{date} พัก 1 คืน",
+                    "datesValue": "{date} พัก {nights} คืน",
                     "guestsRow": "จำนวนคน",
                     "guestsValue": "{count} คน",
                     "totalRow": "ยอดรวมโดยประมาณ",

@@ -1,11 +1,12 @@
 /**
  * components/ai-chat/AiChatBookingStep.tsx — CAM-638 (epic CAM-630, in-chat
- * guided booking, design brief CAM-637 §1-§7)
+ * guided booking, design brief CAM-637 §1-§7); `nights` step rendering added
+ * by CAM-699 (epic CAM-695, ADR-018 D8 — see `booking-flow.ts`'s own header).
  *
- * The step-state presentation for the 3-step in-chat booking flow
- * (date -> guests -> summary). PRESENTATION ONLY: nothing here renders yet —
- * CAM-639 wires this into `AiChatMessageList`'s message stream and CAM-640
- * drives it from `advanceBookingFlow` (`booking-flow.ts`, CAM-633). This
+ * The step-state presentation for the 4-step in-chat booking flow
+ * (date -> nights -> guests -> summary). CAM-639 wires this into
+ * `AiChatMessageList`'s message stream and `booking-turn.ts`/`use-ai-chat.ts`
+ * drive it from `advanceBookingFlow` (`booking-flow.ts`, CAM-633). This
  * file imports that module's types + its `BOOKING_STEPS` registry ONLY
  * (never re-declares the step-id list — booking-flow.ts's own header rule,
  * enforced by a source-inspection guard in `cam-633-booking-flow.test.ts`).
@@ -56,10 +57,12 @@ function stepPosition(step: BookingStepId): number {
 // ---------------------------------------------------------------------------
 
 export type BookingDateChipSpec = { kind: "date"; date: string; remaining: number | null };
+/** CAM-699 — the `nights` step's chip (design brief §3); inherits round 1's chip anatomy verbatim, no muted secondary content (same shape as `BookingGuestsChipSpec`). */
+export type BookingNightsChipSpec = { kind: "nights"; count: number };
 export type BookingGuestsChipSpec = { kind: "guests"; count: number };
 /** The single E2 (over-capacity) offer chip — design brief §5 E2: "{count} คนก็ได้". */
 export type BookingGuestsCapChipSpec = { kind: "guestsCap"; count: number };
-export type BookingChipSpec = BookingDateChipSpec | BookingGuestsChipSpec | BookingGuestsCapChipSpec;
+export type BookingChipSpec = BookingDateChipSpec | BookingNightsChipSpec | BookingGuestsChipSpec | BookingGuestsCapChipSpec;
 
 export type BookingControlSpec =
   | { kind: "back"; toStep: BookingStepId }
@@ -69,7 +72,7 @@ export type BookingControlSpec =
 
 export interface BookingQuestionView {
   kind: "question";
-  step: "date" | "guests";
+  step: "date" | "nights" | "guests";
   /** `aria-current="step"` on the caption only for the newest block (design brief §"The step-indicator verdict"). */
   isCurrent: boolean;
   /** Already-resolved assistant sentence — see file header "Scope split". */
@@ -180,6 +183,7 @@ export function AiChatBookingStep({
   const isEmpty = step === "date" && view.chips.length === 0;
   const showTypeHint = !isEmpty;
   const chipItems: ChatChipItem[] = view.chips.map((chip) => resolveChip(chip, t, formatDate));
+  const { chipsLabel, typeHint } = stepCopy(step, t);
 
   return (
     <div role="group" aria-label={t.aiChat.booking.groupLabel} data-testid="msg--ai-chat-booking-step" data-step={step} className="space-y-3">
@@ -193,7 +197,7 @@ export function AiChatBookingStep({
 
       <ChatChipRow
         items={chipItems}
-        groupLabel={step === "date" ? t.aiChat.booking.date.chipsLabel : t.aiChat.booking.guests.chipsLabel}
+        groupLabel={chipsLabel}
         groupTestId="group--ai-chat-booking-chips"
         chipTestId="btn--ai-chat-booking-chip"
         dataStep={step}
@@ -209,7 +213,7 @@ export function AiChatBookingStep({
 
       {showTypeHint && (
         <p data-testid="text--ai-chat-booking-type-hint" data-step={step} className="text-xs text-foreground/70">
-          {step === "date" ? t.aiChat.booking.date.typeHint : t.aiChat.booking.guests.typeHint}
+          {typeHint}
         </p>
       )}
 
@@ -224,6 +228,11 @@ export function AiChatBookingStep({
 
 function StepCaption({ step, isCurrent }: { step: BookingStepId; isCurrent: boolean }) {
   const { t } = useLanguage();
+  // CAM-699 — `{total}` reads the static registry count (now 4: date, nights,
+  // guests, summary) for every camp. Design brief §2's own critical note
+  // requires this to become the length of the step list RESOLVED FOR THIS
+  // CAMP once a conditional `spot` step exists (per-pitch camps only) — that
+  // lands with CAM-700, deliberately out of this story's surface.
   const caption = t.aiChat.booking.stepCaption
     .replace("{current}", String(stepPosition(step)))
     .replace("{total}", String(BOOKING_STEPS.length));
@@ -391,5 +400,24 @@ function resolveChip(
   if (chip.kind === "guestsCap") {
     return { value: String(chip.count), label: t.aiChat.booking.guests.capChip.replace("{count}", String(chip.count)) };
   }
+  // CAM-699 — `nights` chips inherit round 1's `guests` chip anatomy
+  // verbatim: plain label, no muted secondary content (design brief §9).
+  if (chip.kind === "nights") {
+    return { value: String(chip.count), label: t.aiChat.booking.nights.chip.replace("{count}", String(chip.count)) };
+  }
   return { value: String(chip.count), label: t.aiChat.booking.guests.chip.replace("{count}", String(chip.count)) };
+}
+
+/**
+ * CAM-699 — the chips-label + type-hint copy pair for a `question` step.
+ * `date`/`nights`/`guests` are the only step ids `BookingQuestionView.step`
+ * can carry (`summary` has its own render branch above).
+ */
+function stepCopy(
+  step: "date" | "nights" | "guests",
+  t: ReturnType<typeof useLanguage>["t"]
+): { chipsLabel: string; typeHint: string } {
+  if (step === "date") return { chipsLabel: t.aiChat.booking.date.chipsLabel, typeHint: t.aiChat.booking.date.typeHint };
+  if (step === "nights") return { chipsLabel: t.aiChat.booking.nights.chipsLabel, typeHint: t.aiChat.booking.nights.typeHint };
+  return { chipsLabel: t.aiChat.booking.guests.chipsLabel, typeHint: t.aiChat.booking.guests.typeHint };
 }

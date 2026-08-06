@@ -101,7 +101,8 @@ describe("date question — AC-1 default/hover/focus states + BR-8 testids", () 
     expect(block.getAttribute("role")).toBe("group");
 
     const caption = screen.getByTestId("text--ai-chat-booking-step-caption");
-    expect(caption.textContent).toContain("Step 1 of 3");
+    // CAM-699 — `nights` inserted into the registry; the total is now 4.
+    expect(caption.textContent).toContain("Step 1 of 4");
     expect(caption.textContent).toContain("Choose a date");
     expect(caption.getAttribute("aria-current")).toBe("step");
     expect(caption.getAttribute("tabIndex")).toBe("-1");
@@ -265,7 +266,8 @@ describe("summary — AC-4 the draft card + honest total + non-confirming handof
       { onEditDate, onEditGuests }
     );
 
-    expect(screen.getByTestId("text--ai-chat-booking-step-caption").textContent).toContain("Step 3 of 3");
+    // CAM-699 — `summary` is now step 4 of 4 (date, nights, guests, summary).
+    expect(screen.getByTestId("text--ai-chat-booking-step-caption").textContent).toContain("Step 4 of 4");
 
     const rows = screen.getAllByTestId("row--ai-chat-booking-summary-line");
     expect(rows).toHaveLength(4);

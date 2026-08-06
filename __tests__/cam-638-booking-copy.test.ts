@@ -26,6 +26,7 @@ describe("locales/translations.json — aiChat.booking namespace (TH verbatim, p
   it("BR-1: groupLabel", () => expect(th.groupLabel).toBe("ขั้นตอนการจอง"));
   it("BR-1: stepCaption", () => expect(th.stepCaption).toBe("ขั้นที่ {current} จาก {total}"));
   it("stepName.date", () => expect(th.stepName.date).toBe("เลือกวัน"));
+  it("CAM-699: stepName.nights", () => expect(th.stepName.nights).toBe("จำนวนคืน"));
   it("stepName.guests", () => expect(th.stepName.guests).toBe("จำนวนคน"));
   it("stepName.summary", () => expect(th.stepName.summary).toBe("ตรวจดูอีกที"));
 
@@ -54,7 +55,8 @@ describe("locales/translations.json — aiChat.booking namespace (TH verbatim, p
   it("summary.label", () => expect(th.summary.label).toBe("สรุปการจองที่เลือกไว้"));
   it("summary.campRow", () => expect(th.summary.campRow).toBe("ลาน"));
   it("summary.datesRow", () => expect(th.summary.datesRow).toBe("วันเข้าพัก"));
-  it("summary.datesValue", () => expect(th.summary.datesValue).toBe("{date} พัก 1 คืน"));
+  it("CAM-699: summary.datesValue now carries the real night count (was a hardcoded 1 night — ADR-018 D8)", () =>
+    expect(th.summary.datesValue).toBe("{date} พัก {nights} คืน"));
   it("summary.guestsRow", () => expect(th.summary.guestsRow).toBe("จำนวนคน"));
   it("summary.guestsValue", () => expect(th.summary.guestsValue).toBe("{count} คน"));
   it("BR-7: summary.totalRow", () => expect(th.summary.totalRow).toBe("ยอดรวมโดยประมาณ"));
