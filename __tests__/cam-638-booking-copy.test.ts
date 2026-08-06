@@ -60,7 +60,12 @@ describe("locales/translations.json — aiChat.booking namespace (TH verbatim, p
   it("summary.guestsRow", () => expect(th.summary.guestsRow).toBe("จำนวนคน"));
   it("summary.guestsValue", () => expect(th.summary.guestsValue).toBe("{count} คน"));
   it("BR-7: summary.totalRow", () => expect(th.summary.totalRow).toBe("ยอดรวมโดยประมาณ"));
-  it("summary.estimateNote", () => expect(th.summary.estimateNote).toBe("ค่าธรรมเนียมของลานยังไม่รวมในนี้ ดูยอดเต็มได้ที่หน้าจอง"));
+  // CAM-701 (design brief §13.2) — both halves of the round-1 sentence were
+  // wrong: the chat DOES carry `extraFeeAmount`, and "the booking page" is a
+  // destination this flow no longer offers (§0). Replaced, not appended.
+  it("CAM-701: summary.estimateNote (superseded, was the round-1 'fees not included / see the booking page' text)", () =>
+    expect(th.summary.estimateNote).toBe("ยอดนี้คำนวณจากข้อมูลล่าสุดที่เราเห็น ยอดจริงจะยืนยันอีกทีตอนจองสำเร็จ"));
+  it("CAM-701: summary.introConfirm", () => expect(th.summary.introConfirm).toBe("ตรวจดูอีกทีนะ ถ้าโอเคแล้วกดยืนยันได้เลย"));
 
   it("BR-6: handoff (never ยืนยัน/จองเลย)", () => {
     expect(th.handoff).toBe("ไปกรอกต่อที่หน้าจอง");
@@ -78,8 +83,21 @@ describe("locales/translations.json — aiChat.booking namespace (TH verbatim, p
   it("E1: justFilled", () => expect(th.justFilled).toBe("ขอโทษที {date} เพิ่งเต็มไปเมื่อกี้ ลองวันอื่นดูไหม"));
   it("EC-8: handedToAssistant", () => expect(th.handedToAssistant).toBe("โอเค พักเรื่องจองไว้ก่อน เดี๋ยวเราตอบเรื่องนี้ให้"));
 
-  it("BR-6: no booking code / ticket / \"จองสำเร็จ\" anywhere in the TH copy set (checkFailed's \"ไม่สำเร็จ\" is the AVAILABILITY check failing, not a completed booking)", () => {
+  // Superseded 2026-08-06 (CAM-697/CAM-701, ADR-018). CAM-637's premise for
+  // this ban was "nothing has been written yet", true for round 1's whole
+  // surface. Round 2's `summary` CTA writes a real Booking row, so the
+  // `success.*` group's "จองสำเร็จแล้ว" is now the ACCURATE word (design
+  // brief §0), not the forbidden one — the ban stays fully enforced for
+  // every OTHER group (the question/draft/summary copy that still runs
+  // before any write), which is what this sweep now scopes to.
+  it("BR-6/CAM-701: no booking code / ticket / \"จองสำเร็จ\" outside success.* (checkFailed's \"ไม่สำเร็จ\" is the AVAILABILITY check failing, not a completed booking)", () => {
+    // CAM-701 (design brief §13.2) — `summary.estimateNote` names a FUTURE
+    // event ("ยอดจริงจะยืนยันอีกทีตอนจองสำเร็จ" = once the booking succeeds),
+    // never a false claim that it already has; the brief specifies this
+    // exact string, so it is exempted by name rather than by group.
+    const exempt = new Set(["th.aiChat.booking.summary.estimateNote"]);
     for (const [path, value] of collectLeaves(th, "th.aiChat.booking")) {
+      if (path.startsWith("th.aiChat.booking.success.") || exempt.has(path)) continue;
       expect(value, path).not.toContain("จองสำเร็จ");
     }
   });

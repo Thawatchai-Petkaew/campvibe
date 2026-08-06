@@ -30,11 +30,18 @@ import {
   type BookingSpotCandidate,
 } from '@/components/ai-chat/booking-flow';
 import type {
+  BookingBookedView,
+  BookingConfirmCta,
+  BookingControlSpec,
   BookingDateChipSpec,
+  BookingFailedReason,
+  BookingFailedView,
   BookingGuestsChipSpec,
   BookingNightsChipSpec,
   BookingQuestionView,
   BookingSpotChipSpec,
+  BookingSubmittingView,
+  BookingSummaryRows,
   BookingSummaryView,
 } from '@/components/ai-chat/AiChatBookingStep';
 import { buildBookingPriceArgs, computeBookingPrice, type PricingUnit } from '@/lib/booking-pricing';
@@ -414,10 +421,56 @@ export function buildSummaryView({ slots, camp, t, language, today }: SummaryPar
     guestsValue: t.aiChat.booking.summary.guestsValue.replace('{count}', String(guests)),
     spotValue,
     totalValue,
-    handoffHref: `/campgrounds/${camp.slug}?${query}`,
+    // CAM-701 — this pure builder has no session parameter (see
+    // `SummaryParams`'s own field list), so it cannot compute a live
+    // guest/member confirm label; it keeps producing the pre-confirm escape
+    // `kind:'handoff'` for every camp today (both whole-camp AND per-pitch,
+    // unchanged live behaviour). `kind:'confirm'` is exercised by
+    // `AiChatBookingStep`'s own render tests; wiring a real session into a
+    // `cta:{kind:'confirm',...}` decision here is CAM-702's job.
+    cta: { kind: 'handoff', href: `/campgrounds/${camp.slug}?${query}` },
     controls: spotValue
       ? [{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'editSpot' }, { kind: 'cancel' }]
       : [{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'cancel' }],
     useSpotView: camp.useSpotView,
   };
+}
+
+// ---------------------------------------------------------------------------
+// CAM-701 (design brief §6/§7/§8) — pure builders for the write-outcome
+// states. NOT called by `booking-turn.ts` yet (this story is presentation
+// only, see `AiChatBookingStep.tsx`'s file header); CAM-702 wires the real
+// POST and calls these with the server's response.
+// ---------------------------------------------------------------------------
+
+export interface SubmittingParams {
+  /** The already-built summary (or the same frozen row data) — "the rows stay on screen, unchanged" (design brief §6). */
+  rows: BookingSummaryRows;
+  controls: readonly BookingControlSpec[];
+  useSpotView?: boolean;
+}
+
+export function buildSubmittingView({ rows, controls, useSpotView }: SubmittingParams): BookingSubmittingView {
+  return { kind: 'submitting', ...rows, controls, useSpotView };
+}
+
+export interface BookedParams {
+  bookingId: string;
+  /** The SERVER-recorded row data (design brief §7: `totalValue` here is `computeBookingPrice`'s recorded total, never a preview — never reuse the summary's `โดยประมาณ` value as-is). */
+  rows: BookingSummaryRows;
+}
+
+export function buildBookedView({ bookingId, rows }: BookedParams): BookingBookedView {
+  return { kind: 'booked', bookingId, ...rows };
+}
+
+export interface BookingFailedParams {
+  reason: BookingFailedReason;
+  rows: BookingSummaryRows;
+  /** F1 (re-enabled confirm, member) / F3 (reverted to `loginToConfirm`, guest) — absent for F2 (design brief §8). */
+  cta?: BookingConfirmCta;
+}
+
+export function buildBookingFailedView({ reason, rows, cta }: BookingFailedParams): BookingFailedView {
+  return { kind: 'bookingFailed', reason, cta, ...rows };
 }

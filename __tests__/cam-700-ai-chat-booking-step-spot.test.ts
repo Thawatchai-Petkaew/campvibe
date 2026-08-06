@@ -172,7 +172,8 @@ describe("summary — the spot row + editSpot control (per-pitch camps only)", (
         guestsValue: "2 people",
         spotValue: "Riverside A",
         totalValue: "฿1,000",
-        handoffHref: "/campgrounds/phu-chi-fa?checkIn=2026-08-01&checkOut=2026-08-03&guests=2",
+        // CAM-701 — `handoffHref` renamed to the `cta` discriminator.
+        cta: { kind: "handoff", href: "/campgrounds/phu-chi-fa?checkIn=2026-08-01&checkOut=2026-08-03&guests=2" },
         controls: [{ kind: "editDate" }, { kind: "editGuests" }, { kind: "editSpot" }, { kind: "cancel" }],
         useSpotView: true,
       },
@@ -200,7 +201,8 @@ describe("summary — the spot row + editSpot control (per-pitch camps only)", (
       datesValue: "Sat, 1 Aug, 1 night",
       guestsValue: "2 people",
       totalValue: "฿500",
-      handoffHref: "/campgrounds/phu-chi-fa?checkIn=2026-08-01&checkOut=2026-08-02&guests=2",
+      // CAM-701 — `handoffHref` renamed to the `cta` discriminator.
+      cta: { kind: "handoff", href: "/campgrounds/phu-chi-fa?checkIn=2026-08-01&checkOut=2026-08-02&guests=2" },
       controls: [{ kind: "editDate" }, { kind: "editGuests" }, { kind: "cancel" }],
     });
     const rows = screen.getAllByTestId("row--ai-chat-booking-summary-line");

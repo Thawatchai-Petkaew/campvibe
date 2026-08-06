@@ -105,7 +105,8 @@ describe("summary — the dates row now carries the real night count (CAM-699)",
       datesValue: "Sat, 8 Aug, 2 nights",
       guestsValue: "2 people",
       totalValue: "฿1,000",
-      handoffHref: "/campgrounds/phu-chi-fa?checkIn=2026-08-08&checkOut=2026-08-10&guests=2",
+      // CAM-701 — `handoffHref` renamed to the `cta` discriminator.
+      cta: { kind: "handoff", href: "/campgrounds/phu-chi-fa?checkIn=2026-08-08&checkOut=2026-08-10&guests=2" },
       controls: [{ kind: "editDate" }, { kind: "editGuests" }, { kind: "cancel" }],
     });
     const rows = screen.getAllByTestId("row--ai-chat-booking-summary-line");

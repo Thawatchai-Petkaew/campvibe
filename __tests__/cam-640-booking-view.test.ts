@@ -215,9 +215,12 @@ describe("buildSummaryView", () => {
 
   it("[normal] the handoff link carries the REAL checkIn/checkOut/guests/from=chat — the SAME contract lib/booking-prefill.ts's reader expects", () => {
     const view = buildSummaryView({ slots, camp: CAMP, t, language: "th", today: "2026-07-22" });
-    expect(view.handoffHref).toBe(
-      `/campgrounds/${CAMP.slug}?checkIn=2026-08-01&checkOut=2026-08-03&guests=2&from=chat`
-    );
+    // CAM-701 — `handoffHref` renamed to the `cta` discriminator; this pure
+    // builder still produces `kind:'handoff'` today (no session parameter).
+    expect(view.cta).toEqual({
+      kind: "handoff",
+      href: `/campgrounds/${CAMP.slug}?checkIn=2026-08-01&checkOut=2026-08-03&guests=2&from=chat`,
+    });
   });
 
   // CAM-652 (ADR-014): proves buildSummaryView is really routed through
