@@ -40,19 +40,39 @@
  * result — see that file's header for why this split makes "the composer is
  * never disabled during a booking turn" structural rather than a rule to
  * remember.
+ *
+ * CAM-702 (ADR-018) — `onBookingConfirm` is the ONE async booking-flow
+ * handler that reaches `bookingAPI.create`, and it NEVER touches `sending`
+ * either (the same rule, extended: a write in flight is not a `sendMessage`
+ * turn, and disabling the composer to protect a one-second write would break
+ * the panel's core promise for the one second the camper is most likely to
+ * want to ask something — design brief §6). Three independent guards stop a
+ * double-POST: (1) `bookingSubmitInFlightRef`, a synchronous ref check at
+ * the very top of `onBookingConfirm`/`onBookingCheckAndRetry`, set BEFORE
+ * the first `await`; (2) `startBookingSubmit` (booking-turn.ts) supersedes
+ * the prior summary's `isCurrent`, so its confirm control renders real
+ * `disabled`; (3) the rendered `submitting` view carries no `onClick` at all
+ * on its own confirm button (`AiChatBookingStep.tsx`, CAM-701). The actual
+ * POST + outcome branching is `submitBookingWrite` (booking-turn.ts) — this
+ * hook's job is only to guard, apply `startBookingSubmit`'s result, call it
+ * with `bookingAPI.create`/`bookingAPI.list` injected, and apply the result.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { aiChatAPI } from "@/lib/api-client";
+import { aiChatAPI, bookingAPI } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { currentStep, type BookingFlowInput, type BookingStepId } from "@/components/ai-chat/booking-flow";
 import {
+  findJustCreatedBooking,
   processBookingCancel,
   processBookingControl,
   processBookingTurn,
+  resolveBookingSubmitSuccess,
   resolveSpotSelection,
   resolveSpotStep,
+  startBookingSubmit,
   startBookingTurn,
+  submitBookingWrite,
   type BookingSession,
   type BookingTurnResult,
   type SpotFetchOutcome,
@@ -119,6 +139,10 @@ export interface UseAiChatResult {
   onBookingEditGuests: () => void;
   /** CAM-640 — `ยกเลิกการจอง`, from any step. */
   onBookingCancel: () => void;
+  /** CAM-702 (ADR-018 D1/D2) — the camper's tap on ยืนยันการจอง (or F1's re-enabled confirm). The ONE async booking-flow handler; a guest/session-expired tap is a safe no-op (login gate is CAM-703). */
+  onBookingConfirm: () => Promise<void>;
+  /** CAM-702 (ADR-018 D6, design brief §8 F2) — `ตรวจสอบแล้วลองใหม่`: checks for an already-created row BEFORE ever submitting again. */
+  onBookingCheckAndRetry: () => Promise<void>;
 }
 
 export function useAiChat(): UseAiChatResult {
@@ -134,6 +158,8 @@ export function useAiChat(): UseAiChatResult {
   const streamAbortRef = useRef<AbortController | null>(null);
   /** CAM-640 — the live booking flow, `null` when no flow is active. React STATE never holds this (see file header) — only `sendMessage`'s branch and the handlers below ever read/write it. */
   const bookingRef = useRef<BookingSession | null>(null);
+  /** CAM-702 (ADR-018 D2) — guard 1 of the three double-tap guards: a synchronous check, set BEFORE the first `await` in `onBookingConfirm`/`onBookingCheckAndRetry` and cleared on every exit path. Never React state (same reasoning as `bookingRef` — nothing here should trigger a re-render). */
+  const bookingSubmitInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!authed || hasResumedRef.current) return;
@@ -290,7 +316,7 @@ export function useAiChat(): UseAiChatResult {
           await handleSpotSelection({ kind: "text", text }, text);
           return;
         }
-        const result = processBookingTurn(entries, bookingRef.current, { kind: "text", text }, text, t, language, new Date());
+        const result = processBookingTurn(entries, bookingRef.current, { kind: "text", text }, text, t, language, new Date(), authed);
         await settleBookingTurn(result);
         return;
       }
@@ -298,7 +324,7 @@ export function useAiChat(): UseAiChatResult {
       setEntries(withUser);
       await runTurn(withUser, text);
     },
-    [entries, sending, runTurn, t, language, handleSpotSelection, settleBookingTurn]
+    [entries, sending, runTurn, t, language, authed, handleSpotSelection, settleBookingTurn]
   );
 
   const retryLast = useCallback(async () => {
@@ -357,7 +383,8 @@ export function useAiChat(): UseAiChatResult {
           formatDateEcho(value, session.camp, t, language),
           t,
           language,
-          new Date()
+          new Date(),
+          authed
         );
         await settleBookingTurn(result);
       } else if (step === "nights") {
@@ -369,7 +396,8 @@ export function useAiChat(): UseAiChatResult {
           formatNightsEcho(nights, t),
           t,
           language,
-          new Date()
+          new Date(),
+          authed
         );
         await settleBookingTurn(result);
       } else if (step === "guests") {
@@ -381,7 +409,8 @@ export function useAiChat(): UseAiChatResult {
           formatGuestsEcho(guests, t),
           t,
           language,
-          new Date()
+          new Date(),
+          authed
         );
         await settleBookingTurn(result);
       } else if (step === "spot") {
@@ -395,7 +424,7 @@ export function useAiChat(): UseAiChatResult {
         );
       }
     },
-    [entries, t, language, settleBookingTurn, handleSpotSelection]
+    [entries, t, language, authed, settleBookingTurn, handleSpotSelection]
   );
 
   const onBookingBack = useCallback(
@@ -418,6 +447,84 @@ export function useAiChat(): UseAiChatResult {
     setEntries(result.entries);
   }, [entries, t]);
 
+  /**
+   * CAM-702 (ADR-018 D1/D2) — the confirm tap. Guard 1 (synchronous,
+   * BEFORE the first `await`) + guard 2 (`startBookingSubmit` supersedes
+   * the prior summary) are both here; guard 3 lives in the rendered
+   * `submitting` view itself (AiChatBookingStep.tsx, no `onClick`). Never
+   * touches `sending` — see this file's own header.
+   */
+  const onBookingConfirm = useCallback(async () => {
+    const session = bookingRef.current;
+    if (!session) return;
+    if (bookingSubmitInFlightRef.current) return; // guard 1
+    // ADR-018 D2/design brief §5 — only an authed member's tap ever reaches
+    // the network in THIS story (`buildSummaryView` only ever offers
+    // `kind:'confirm'` to an authed whole-camp camper in the first place).
+    // A guest/session-expired tap on F3's reverted `loginToConfirm` label is
+    // a safe no-op until the login modal (CAM-703) wires onto this button.
+    if (!authed) return;
+
+    bookingSubmitInFlightRef.current = true;
+    const now = new Date();
+    const started = startBookingSubmit(entries, session, t, language, now); // guard 2
+    bookingRef.current = started.booking;
+    setEntries(started.entries);
+
+    const result = await submitBookingWrite(started.entries, session, bookingAPI.create, bookingAPI.list, t, language, now);
+
+    bookingSubmitInFlightRef.current = false;
+    // The flow may have been cancelled while the write was in flight —
+    // discard a now-orphaned result rather than resurrect it (code.md
+    // CAM-359 guard, the same discipline `settleBookingTurn` already uses).
+    if (!bookingRef.current) return;
+    bookingRef.current = result.booking;
+    setEntries(result.entries);
+  }, [entries, authed, t, language]);
+
+  /**
+   * CAM-702 (ADR-018 D6, design brief §8 F2) — `ตรวจสอบแล้วลองใหม่`: checks
+   * for an already-created row BEFORE ever submitting again ("the button's
+   * contract: look for a booking matching this camper, camp and span; if
+   * one exists, render the `booked` card for it; only if none exists,
+   * submit"). Self-contained (does not call `onBookingConfirm`) so it never
+   * depends on the `!authed` guard there — F2 can only ever be reached from
+   * an authed member's own failed submit in this story's scope.
+   */
+  const onBookingCheckAndRetry = useCallback(async () => {
+    const session = bookingRef.current;
+    if (!session) return;
+    if (bookingSubmitInFlightRef.current) return; // guard 1
+    bookingSubmitInFlightRef.current = true;
+    const now = new Date();
+
+    const list = await bookingAPI.list();
+    // The flow may have been cancelled while the reconcile check itself was
+    // in flight — never resurrect it into a fresh submit below.
+    if (!bookingRef.current) {
+      bookingSubmitInFlightRef.current = false;
+      return;
+    }
+    const candidate = findJustCreatedBooking(session, list.data ?? [], now);
+    if (candidate) {
+      const result = resolveBookingSubmitSuccess(entries, session, candidate.id, candidate.totalPrice, t, language);
+      bookingRef.current = result.booking;
+      setEntries(result.entries);
+      bookingSubmitInFlightRef.current = false;
+      return;
+    }
+
+    // No matching row — design brief §8 F2: "only if none exists, submit".
+    const started = startBookingSubmit(entries, session, t, language, now);
+    bookingRef.current = started.booking;
+    setEntries(started.entries);
+    const result = await submitBookingWrite(started.entries, session, bookingAPI.create, bookingAPI.list, t, language, now);
+    bookingSubmitInFlightRef.current = false;
+    if (!bookingRef.current) return;
+    bookingRef.current = result.booking;
+    setEntries(result.entries);
+  }, [entries, t, language]);
+
   return {
     entries,
     sending,
@@ -434,5 +541,7 @@ export function useAiChat(): UseAiChatResult {
     onBookingEditDate,
     onBookingEditGuests,
     onBookingCancel,
+    onBookingConfirm,
+    onBookingCheckAndRetry,
   };
 }

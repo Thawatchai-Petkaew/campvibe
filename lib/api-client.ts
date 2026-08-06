@@ -3,6 +3,7 @@ import type {
     CampgroundDTO,
     CampSiteDTO,
     BookingDTO,
+    BookingStatus,
     ReviewDTO,
     ApiResponse,
     PaginatedResponse,
@@ -101,15 +102,97 @@ export const campgroundAPI = {
     },
 };
 
-// Booking API
+// Booking API — ADR-018 D1: `POST /api/bookings` is the ONE deterministic
+// write path, shared unmodified by the camp page's own raw `fetch`
+// (components/CampgroundDetailClient.tsx) and this facade's first real
+// caller, the in-chat booking flow (CAM-702). `create` below REPLACES the
+// pre-CAM-702 shape (`BookingDTO` in/out, wrapped `ApiResponse`) — that
+// shape had zero callers anywhere in the repo (verified: `grep -rn
+// "bookingAPI" app components lib` matched only this declaration), so this
+// is not a breaking change to any live caller.
+export interface BookingCreateInput {
+    campSiteId: string;
+    checkInDate: string;
+    checkOutDate: string;
+    guests: number;
+    spotId?: string;
+}
+
+/** The atomic fields the chat needs from the raw created-Booking row (`route.ts`'s `apiSuccess(booking, 201)` — the row itself IS the body, never wrapped in `{data}`, per ADR-018 D1's contract table). */
+export interface BookingCreatedRow {
+    id: string;
+    status: BookingStatus;
+    /** [Financial] the server-recorded total (ADR-018 D3/D8) — never re-derived client-side. `null` only if the DB column is genuinely unset (defensive; the write path always sets it). */
+    snapshotTotalAmount: number | null;
+}
+
+/** Network I/O is an input boundary (code.md CAM-305) — narrowed before ever being trusted as a `BookingCreatedRow`. */
+function isBookingCreatedRow(value: unknown): value is BookingCreatedRow {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        typeof v.id === 'string' &&
+        typeof v.status === 'string' &&
+        (v.snapshotTotalAmount === null || typeof v.snapshotTotalAmount === 'number')
+    );
+}
+
+export type BookingCreateOutcome =
+    | { kind: 'created'; booking: BookingCreatedRow }
+    | { kind: 'conflict' }
+    | { kind: 'unauthorized' }
+    | { kind: 'rateLimited'; retryAfterSec: number }
+    | { kind: 'error' }
+    | { kind: 'network' };
+
 export const bookingAPI = {
-    create: async (data: BookingDTO): Promise<ApiResponse<BookingDTO>> => {
-        return fetchAPI<BookingDTO>('/bookings', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
+    /**
+     * POST /api/bookings (ADR-018 D1) — `source: 'CHAT'` is a CODE CONSTANT
+     * at THIS call site, hardcoded below and never read from `input`, a
+     * prop, or a model/chat payload (ADR-018 D1/R2, CAM-642's own
+     * constraint) — `BookingCreateInput` carries no `source` field at all,
+     * so a caller cannot even attempt to pass one.
+     *
+     * Parses BOTH failure shapes the route can return (ADR-018 D1's
+     * contract table): the `apiError` JSON shape (`{error,details?}`, every
+     * 4xx/5xx except 429) AND the raw 429 body (`{error:'rate_limited'}` +
+     * a `Retry-After` header, `route.ts:297`) — a client that reads only
+     * one shape mis-reads the other.
+     */
+    create: async (input: BookingCreateInput): Promise<BookingCreateOutcome> => {
+        try {
+            const response = await fetch(`${API_BASE}/bookings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    campSiteId: input.campSiteId,
+                    checkInDate: input.checkInDate,
+                    checkOutDate: input.checkOutDate,
+                    guests: input.guests,
+                    ...(input.spotId ? { spotId: input.spotId } : {}),
+                    source: 'CHAT', // ADR-018 D1 — hardcoded here, never from `input`.
+                }),
+            });
+
+            if (response.status === 401) return { kind: 'unauthorized' };
+            if (response.status === 409) return { kind: 'conflict' };
+            if (response.status === 429) {
+                // Raw body `{error:'rate_limited'}` — NOT the apiError shape
+                // (route.ts:297); the real number lives on the header.
+                const header = response.headers.get('Retry-After');
+                const parsed = header ? Number(header) : NaN;
+                return { kind: 'rateLimited', retryAfterSec: Number.isFinite(parsed) && parsed > 0 ? parsed : 60 };
+            }
+            if (!response.ok) return { kind: 'error' };
+
+            const data: unknown = await response.json();
+            return isBookingCreatedRow(data) ? { kind: 'created', booking: data } : { kind: 'error' };
+        } catch {
+            return { kind: 'network' };
+        }
     },
 
+    /** GET /api/bookings — newest-first, capped at 100 (`route.ts`). Used by the bookings list UI AND by the chat's post-write reconcile heuristic (ADR-018 D6, `findJustCreatedBooking` in `components/ai-chat/booking-turn.ts`). */
     list: async (): Promise<ApiResponse<BookingDTO[]>> => {
         return fetchAPI<BookingDTO[]>('/bookings');
     },
