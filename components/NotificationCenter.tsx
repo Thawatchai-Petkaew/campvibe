@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Bell, CalendarDays, ClipboardList, Users, Check, X, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import { Bell, ClipboardList, Users, Check, X, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,21 +13,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { cn } from "@/lib/utils";
 import { fetchJsonSafe, type SafeJsonResult } from "@/lib/safe-fetch";
-
-type NotificationType = "BOOKING_PENDING" | "BOOKING_UPDATE" | "INVITE";
+import type { NotificationDTO } from "@/types/api";
 
 type NotificationItem =
   | {
       id: string;
-      type: "BOOKING_PENDING";
+      type: "NOTIFICATION";
+      // CAM-684: a persisted row (GET /api/notifications) never has a verb
+      // (accept/decline lives on invites only), so it is never "action" in
+      // that sense — but the Action tab means "needs your attention", and
+      // an UNREAD row still does. It drops off the Action tab the moment
+      // it is opened (isRead flips), while staying visible under All/Bookings.
       requiresAction: boolean;
-      campSiteName: string;
-      status: string;
-      checkInDate?: string;
-      checkOutDate?: string;
-      href: string;
+      title: string;
+      body?: string | null;
+      link?: string | null;
+      isRead: boolean;
     }
   | {
       id: string;
@@ -48,8 +52,6 @@ type NotificationItem =
     };
 
 interface NotificationCenterProps {
-  /** Operator (Host) booking notifications: pending bookings needing action. */
-  showHostBookings?: boolean;
   /** Camper booking notifications: status updates from host (informational). */
   showCamperBookingUpdates?: boolean;
   /** Show team invites for the current user. */
@@ -60,20 +62,7 @@ interface NotificationCenterProps {
 
 const SEEN_KEY = "campvibe:notifications:bookingUpdatesSeen";
 
-function safeDateLabel(from?: string, to?: string) {
-  try {
-    if (!from || !to) return null;
-    const fromD = new Date(from);
-    const toD = new Date(to);
-    if (Number.isNaN(fromD.getTime()) || Number.isNaN(toD.getTime())) return null;
-    return `${fromD.toLocaleDateString()} - ${toD.toLocaleDateString()}`;
-  } catch {
-    return null;
-  }
-}
-
 export function NotificationCenter({
-  showHostBookings = false,
   showCamperBookingUpdates = false,
   showInvites = true,
   pollMs = 30000,
@@ -82,11 +71,16 @@ export function NotificationCenter({
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"action" | "all" | "bookings" | "invites">("action");
   const [isLoading, setIsLoading] = useState(true);
-  const [hostBookings, setHostBookings] = useState<any[]>([]);
+  // CAM-684: host booking items now come from the caller's own persisted
+  // rows (GET /api/notifications) instead of being derived from the
+  // operator's pending-bookings list — that derived fetch and its
+  // visibility-gating prop are gone. Always fetched (scoped server-side to
+  // the caller, so it is safe/cheap for a camper too).
+  const [notifications, setNotifications] = useState<NotificationDTO[]>([]);
   const [camperBookings, setCamperBookings] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
-  // CAM-616: hostBookings/camperBookings/invites are THREE INDEPENDENT
+  // CAM-616: notifications/camperBookings/invites are THREE INDEPENDENT
   // sources that used to share one try/catch (the CAM-362 anti-pattern) —
   // one source's hiccup wiped every list to [], so a host with real pending
   // booking requests saw "no new notifications" during an outage. Each
@@ -94,28 +88,26 @@ export function NotificationCenter({
   // fetchJsonSafe (lib/safe-fetch.ts, the CAM-362/555 sanctioned shape);
   // its list is left untouched (not wiped) on failure so a transient error
   // never erases data that already loaded.
-  const [hostBookingsError, setHostBookingsError] = useState(false);
+  const [notificationsError, setNotificationsError] = useState(false);
   const [camperBookingsError, setCamperBookingsError] = useState(false);
   const [invitesError, setInvitesError] = useState(false);
-  const hasLoadError = hostBookingsError || camperBookingsError || invitesError;
+  const hasLoadError = notificationsError || camperBookingsError || invitesError;
 
   const fetchAll = async () => {
     setIsLoading(true);
 
     const skip: SafeJsonResult<any[]> = { ok: true, data: [] };
-    const [hostResult, camperResult, invitesResult] = await Promise.all([
-      showHostBookings ? fetchJsonSafe<any[]>("/api/operator/bookings?status=PENDING") : Promise.resolve(skip),
+    const [notificationsResult, camperResult, invitesResult] = await Promise.all([
+      fetchJsonSafe<NotificationDTO[]>("/api/notifications"),
       showCamperBookingUpdates ? fetchJsonSafe<any[]>("/api/bookings") : Promise.resolve(skip),
       showInvites ? fetchJsonSafe<any[]>("/api/team/invitations") : Promise.resolve(skip),
     ]);
 
-    if (showHostBookings) {
-      if (hostResult.ok) {
-        setHostBookings(Array.isArray(hostResult.data) ? hostResult.data : []);
-        setHostBookingsError(false);
-      } else {
-        setHostBookingsError(true);
-      }
+    if (notificationsResult.ok) {
+      setNotifications(Array.isArray(notificationsResult.data) ? notificationsResult.data : []);
+      setNotificationsError(false);
+    } else {
+      setNotificationsError(true);
     }
 
     if (showCamperBookingUpdates) {
@@ -144,7 +136,7 @@ export function NotificationCenter({
     const interval = setInterval(fetchAll, pollMs);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showHostBookings, showCamperBookingUpdates, showInvites, pollMs]);
+  }, [showCamperBookingUpdates, showInvites, pollMs]);
 
   const bookingUpdateSeenMap = useMemo(() => {
     if (typeof window === "undefined") return {} as Record<string, string>;
@@ -157,18 +149,15 @@ export function NotificationCenter({
   }, [open]); // refresh when dropdown opens/closes
 
   const items: NotificationItem[] = useMemo(() => {
-    const pendingItems: NotificationItem[] = showHostBookings
-      ? hostBookings.map((b) => ({
-          id: b.id,
-          type: "BOOKING_PENDING",
-          requiresAction: true,
-          campSiteName: b?.campSite?.nameTh || b?.campSite?.nameEn || "Camp Site",
-          status: (b.status || "PENDING").toUpperCase(),
-          checkInDate: b.checkInDate,
-          checkOutDate: b.checkOutDate,
-          href: "/dashboard/bookings?status=PENDING",
-        }))
-      : [];
+    const notificationItems: NotificationItem[] = notifications.map((n) => ({
+      id: n.id,
+      type: "NOTIFICATION",
+      requiresAction: !n.isRead,
+      title: n.title,
+      body: n.body,
+      link: n.link,
+      isRead: n.isRead,
+    }));
 
     const updateItems: NotificationItem[] = showCamperBookingUpdates
       ? camperBookings
@@ -203,34 +192,35 @@ export function NotificationCenter({
         }))
       : [];
 
-    return [...inviteItems, ...updateItems, ...pendingItems];
+    return [...inviteItems, ...updateItems, ...notificationItems];
   }, [
-    hostBookings,
+    notifications,
     camperBookings,
     invites,
-    showHostBookings,
     showCamperBookingUpdates,
     showInvites,
     bookingUpdateSeenMap,
   ]);
 
+  // CAM-684: the bell badge counts UNREAD only — updateItems/inviteItems are
+  // already filtered down to "needs your attention" (unseen / pending), so
+  // they count in full; a persisted NOTIFICATION item only counts while
+  // isRead is false (the list itself still shows read rows as history).
   const counts = useMemo(() => {
-    const byType: Record<NotificationType, number> = {
-      BOOKING_PENDING: 0,
-      BOOKING_UPDATE: 0,
-      INVITE: 0,
-    };
-    let action = 0;
+    let total = 0;
     items.forEach((it) => {
-      byType[it.type] += 1;
-      if (it.requiresAction) action += 1;
+      if (it.type === "NOTIFICATION") {
+        if (!it.isRead) total += 1;
+      } else {
+        total += 1;
+      }
     });
-    return { total: items.length, action, byType };
+    return { total };
   }, [items]);
 
   const filtered = useMemo(() => {
     if (activeTab === "action") return items.filter((i) => i.requiresAction);
-    if (activeTab === "bookings") return items.filter((i) => i.type === "BOOKING_PENDING" || i.type === "BOOKING_UPDATE");
+    if (activeTab === "bookings") return items.filter((i) => i.type === "NOTIFICATION" || i.type === "BOOKING_UPDATE");
     if (activeTab === "invites") return items.filter((i) => i.type === "INVITE");
     return items;
   }, [activeTab, items]);
@@ -247,6 +237,19 @@ export function NotificationCenter({
     } catch (e) {
       console.error("Failed to update invitation", e);
     }
+  };
+
+  // CAM-684: opening a persisted notification marks it read and decrements
+  // the badge immediately (no full refetch) — an optimistic local update.
+  // If the PATCH silently fails, the next 30s poll re-fetches the real
+  // server state and reconciles (no manual rollback needed).
+  const handleOpenNotification = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
+    fetch(`/api/notifications/${id}`, { method: "PATCH" }).catch(() => {
+      // ignore — the next poll reconciles from the server
+    });
   };
 
   // Mark camper booking updates as "seen" when the dropdown is opened (informational notifications).
@@ -328,37 +331,45 @@ export function NotificationCenter({
                 <div className="py-8 text-sm text-muted-foreground text-center">
                   <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
                 </div>
-              ) : filtered.length === 0 && hasLoadError ? (
-                // CAM-616: a load failure must not render as "no new
-                // notifications" — that told a host with real pending
-                // booking requests that nothing awaited them.
-                <div className="py-10 text-center" data-testid="banner--notifications-error" role="alert">
-                  <div className="text-sm font-semibold text-destructive">
-                    {(t as any).notifications?.loadError || "Couldn't load notifications"}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 rounded-full"
-                    onClick={() => fetchAll()}
-                    data-testid="btn--notifications-retry"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
-                    {t.common.retry}
-                  </Button>
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="py-10 text-center">
-                  <div className="text-sm font-semibold text-foreground">
-                    {(t as any).common?.noNotifications || "No new notifications"}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {(t as any).common?.checkBackLater || "Check back later."}
-                  </div>
-                </div>
               ) : (
-                <div className="max-h-[420px] overflow-y-auto">
+                <>
+                  {/* CAM-616/684: a source failure must be VISIBLE alongside
+                      any sibling data that DID load — never swallowed into
+                      the plain empty copy, and never hidden just because
+                      another source (e.g. invites) rendered fine. */}
+                  {hasLoadError && (
+                    <div className="px-4 pb-2 flex flex-col items-start gap-2">
+                      <ErrorBanner
+                        message={(t as any).notifications?.loadError || "Couldn't load notifications"}
+                        data-testid="banner--notifications-error"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => fetchAll()}
+                        data-testid="btn--notifications-retry"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
+                        {t.common.retry}
+                      </Button>
+                    </div>
+                  )}
+
+                  {filtered.length === 0 ? (
+                    hasLoadError ? null : (
+                      <div className="py-10 text-center">
+                        <div className="text-sm font-semibold text-foreground">
+                          {(t as any).common?.noNotifications || "No new notifications"}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {(t as any).common?.checkBackLater || "Check back later."}
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="max-h-[420px] overflow-y-auto">
                   {filtered.map((item) => {
                     if (item.type === "INVITE") {
                       return (
@@ -457,60 +468,64 @@ export function NotificationCenter({
                       );
                     }
 
-                    const dateLabel = safeDateLabel(item.checkInDate, item.checkOutDate);
-                    return (
-                      <div key={item.id} className="px-4 py-2 border-t border-border/50">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 w-9 h-9 rounded-full bg-secondary/10 text-secondary flex items-center justify-center">
-                            <ClipboardList className="w-4 h-4" />
+                    // item.type === "NOTIFICATION" — a persisted row from
+                    // GET /api/notifications (CAM-684). title/body are
+                    // already Thai, composed server-side — rendered as
+                    // stored, never re-translated client-side.
+                    const iconToneClass = item.isRead
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-secondary/10 text-secondary";
+                    const titleToneClass = item.isRead
+                      ? "font-normal text-muted-foreground"
+                      : "font-semibold text-foreground";
+                    const rowContent = (
+                      <div className="flex items-start gap-3">
+                        <div className={cn("mt-0.5 w-9 h-9 rounded-full flex items-center justify-center", iconToneClass)}>
+                          <ClipboardList className="w-4 h-4" aria-hidden="true" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            {!item.isRead && (
+                              <span className="w-2 h-2 rounded-full bg-primary shrink-0" aria-hidden="true" />
+                            )}
+                            <div className={cn("text-sm truncate", titleToneClass)}>{item.title}</div>
                           </div>
-                          <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-foreground">
-                                {(t as any).common?.newBooking || "New Booking"}
-                              </div>
-                              <div className="text-xs text-muted-foreground truncate mt-0.5">
-                                {item.campSiteName}
-                              </div>
-                              {dateLabel ? (
-                                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                                  <CalendarDays className="w-3.5 h-3.5" />
-                                  {dateLabel}
-                                </div>
-                              ) : null}
-                            </div>
-
-                            {/* Primary action aligned right, vertically centered */}
-                            <div className="shrink-0 pt-0.5 self-center">
-                              <Link href={item.href}>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-5"
-                                >
-                                  {(t as any).common?.review || "Review"}
-                                </Button>
-                              </Link>
-                            </div>
-                          </div>
+                          {item.body ? (
+                            <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.body}</div>
+                          ) : null}
                         </div>
                       </div>
                     );
+                    const rowClassName =
+                      "block w-full text-start px-4 py-2 border-t border-border/50 hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+                    const markReadOnOpen = () => {
+                      if (!item.isRead) handleOpenNotification(item.id);
+                    };
+
+                    return item.link ? (
+                      <Link key={item.id} href={item.link} onClick={markReadOnOpen} className={rowClassName}>
+                        {rowContent}
+                      </Link>
+                    ) : (
+                      <button key={item.id} type="button" onClick={markReadOnOpen} className={rowClassName}>
+                        {rowContent}
+                      </button>
+                    );
                   })}
-                </div>
+                    </div>
+                  )}
+                </>
               )}
             </TabsContent>
           </Tabs>
         </div>
 
         {/* Footer actions */}
-        {((showHostBookings || showCamperBookingUpdates) || showInvites) && (
-          <div className="p-3">
-            <Button variant="outline" className="rounded-full w-full" onClick={() => fetchAll()}>
-              {(t as any).common?.refresh || "Refresh"}
-            </Button>
-          </div>
-        )}
+        <div className="p-3">
+          <Button variant="outline" className="rounded-full w-full" onClick={() => fetchAll()}>
+            {(t as any).common?.refresh || "Refresh"}
+          </Button>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -1,6 +1,17 @@
 # ADR-012 — HostOS core data model: lead → quote → hold → deposit → manual stay
 
-**Status:** Accepted — owner approved 2026-07-04 (G2, PR #306) · **Epic:** HostOS core (M1.2) · **Date:** 2026-07-04
+**Status:** Accepted — owner approved 2026-07-04 (G2, PR #306) · **§6 + Alternatives (a) SUPERSEDED IN PART 2026-08-06 by [ADR-017](ADR-017-host-recorded-stay-and-booking-discriminator.md)** · **Epic:** HostOS core (M1.2) · **Date:** 2026-07-04
+
+> **Amendment 2026-08-06 ([ADR-017](ADR-017-host-recorded-stay-and-booking-discriminator.md), CAM-686 Discovery) — read before building anything from this ADR.**
+>
+> **What actually shipped from this ADR:** exactly one model, `InternalHold`, and as a reduced slice (`prisma/schema.prisma:911-915` — no `leadId`/`quoteId`/`bookingId`, so `HoldStatus.CONVERTED` at `:921` is unreachable). `HostLead`, `LeadConversation`, `Quote`, `QuoteLine`, `DepositRecord` and the ManualStay extension **do not exist**; the "Ships in M1.2-core: Yes" column in §0 records intent, not state.
+>
+> **Superseded — §6 (ManualStay) and Alternatives (a):**
+> 1. **`enum BookingSource { PLATFORM, MANUAL }` is dead.** `BookingSource` shipped as `{ WEB, CHAT }` (CAM-642, `schema.prisma:115-118`) for chat attribution, documented at `:644-646` as "attribution only — never an authz/pricing/capacity input". ADR-017 D2 puts the manual/platform discriminator on a **new** column `origin` (`enum BookingOrigin`) and leaves `BookingSource` untouched — which also keeps the migration reversible (Postgres has no `DROP VALUE`).
+> 2. **§6's "every `MANUAL` Booking carries a `leadId`" invariant is dropped** (ADR-017 D3). It put three unbuilt models on the critical path of a capability that needs none of them. Guest identity for a host-recorded stay lives in two new Pixels on `Booking` (`guestName`, `guestContact`); `leadId` arrives later, additively, when `HostLead` ships.
+> 3. **§6's migration-risk framing is corrected** (ADR-017 → Migration). `DROP NOT NULL` on `userId` is safe at any volume of existing bookings; the rollback caveat at :455/:457 applies only to the **new** host-recorded rows, which this feature creates and therefore controls.
+>
+> **Still stands, unchanged:** §1–§5 (`HostLead`, `LeadConversation`, `Quote`/`QuoteLine`, `InternalHold`, `DepositRecord`), §7 (`GuestProfile` deferred), §8 (POS/Rental/Daily Close sketches), and §6's core conclusion that a manual stay reuses `Booking` rather than a separate table — ADR-017 re-affirms that on stronger evidence (the availability seam has grown from 2 readers to 5 since this ADR was written).
 
 ## Context
 
