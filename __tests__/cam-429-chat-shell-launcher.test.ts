@@ -79,7 +79,11 @@ describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
     // (a multi-line destructure now) — the guarantee this test protects
     // (exactly one hook call, the original fields still present) still
     // holds; only the exact single-line string grew.
-    expect((panelSrc.match(/\} = useAiChat\(\);/g) || []).length).toBe(1);
+    // CAM-703 (2026-08-06 dated supersede) — `useAiChat()` now takes an
+    // `{ onNeedsLogin }` options object (the login-gate wiring), so the
+    // empty-parens call no longer exists; the invariant this test protects
+    // (exactly ONE hook call) is re-asserted against the new call shape.
+    expect((panelSrc.match(/\} = useAiChat\(\{/g) || []).length).toBe(1);
     for (const field of ["entries", "sending", "disabled", "resuming", "sendMessage", "retryLast", "abortActiveStream"]) {
       expect(panelSrc).toContain(`    ${field},`);
     }

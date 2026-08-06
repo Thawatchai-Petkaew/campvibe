@@ -208,10 +208,23 @@ export interface AiChatBookingStepProps {
   onEditDate?: () => void;
   onEditGuests?: () => void;
   onCancel?: () => void;
-  /** CAM-701 — the summary confirm CTA (member `ยืนยันการจอง` / guest `เข้าสู่ระบบเพื่อยืนยันการจอง`, design brief §5) and F1/F3's re-armed CTA (§8) all reuse this ONE prop; undefined-safe (this story never calls it), wired by CAM-702. */
+  /** CAM-701 — the summary confirm CTA (member `ยืนยันการจอง` / guest `เข้าสู่ระบบเพื่อยืนยันการจอง`, design brief §5) and F1/F3's re-armed CTA (§8) all reuse this ONE prop; undefined-safe (this story never calls it), wired by CAM-702. CAM-703: the tap handler is unchanged — a guest tap still calls this same prop, and `use-ai-chat.ts`'s `onBookingConfirm` is what decides submit-vs-open-LoginModal (never a decision made in this file). */
   onConfirm?: () => void;
   /** CAM-701 — F2's `ตรวจสอบแล้วลองใหม่` (design brief §8, "must check before it writes"); undefined-safe, wired by CAM-702. */
   onCheckAndRetry?: () => void;
+  /**
+   * CAM-703 (ADR-018 D2) — the LIVE `useSession()` authed status (never a
+   * server-rendered/build-time-baked value, CAM-396). Overrides the
+   * confirm control's DISPLAYED label + `data-auth` for a `confirm`-kind
+   * cta at render time, in BOTH `summary` and `bookingFailed` — so the
+   * label flips to `ยืนยันการจอง` the instant a guest signs in, with no
+   * rebuild of the underlying (possibly build-time-stale) view. The tap
+   * target itself (`onConfirm`, above) is unchanged — reused verbatim from
+   * CAM-701; only the label/attribute computation is new. Defaults `false`
+   * so every pre-CAM-703 direct-render fixture (`kind:'handoff'` cta, or no
+   * cta at all) keeps compiling and rendering unchanged.
+   */
+  liveAuthed?: boolean;
 }
 
 export function AiChatBookingStep({
@@ -223,6 +236,7 @@ export function AiChatBookingStep({
   onCancel,
   onConfirm,
   onCheckAndRetry,
+  liveAuthed = false,
 }: AiChatBookingStepProps) {
   const { t, language } = useLanguage();
 
@@ -318,11 +332,11 @@ export function AiChatBookingStep({
             size="lg"
             className="w-full"
             data-testid="btn--ai-chat-booking-confirm"
-            data-auth={view.cta.authState}
+            data-auth={liveAuthed ? "member" : "guest"}
             disabled={controlsDisabled || undefined}
             onClick={controlsDisabled ? undefined : onConfirm}
           >
-            {view.cta.label}
+            {liveAuthed ? t.aiChat.booking.confirm : t.aiChat.booking.loginToConfirm}
           </Button>
         )}
 
@@ -471,10 +485,10 @@ export function AiChatBookingStep({
             size="lg"
             className="w-full"
             data-testid="btn--ai-chat-booking-confirm"
-            data-auth={view.cta.authState}
+            data-auth={liveAuthed ? "member" : "guest"}
             onClick={onConfirm}
           >
-            {view.cta.label}
+            {liveAuthed ? t.aiChat.booking.confirm : t.aiChat.booking.loginToConfirm}
           </Button>
         ) : null}
       </div>

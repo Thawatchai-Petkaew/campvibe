@@ -108,11 +108,21 @@ describe("AC-2/BR-3 — the '+' new-chat button is removed from the panel header
     expect(panelSrc).toContain("onClick={() => handleOpenChange(false)}");
   });
 
-  it("[unit] the panel no longer destructures isAuthenticated/startNewChat from useAiChat (unused-var clean)", () => {
-    const destructureLine = panelSrc.split("\n").find((l) => l.includes("= useAiChat();"));
-    expect(destructureLine).toBeDefined();
-    expect(destructureLine).not.toContain("isAuthenticated");
-    expect(destructureLine).not.toContain("startNewChat");
+  // CAM-703 (2026-08-06 dated supersede) — `isAuthenticated` IS now
+  // destructured (the login gate's `liveAuthed` prop needs it, threaded to
+  // AiChatMessageList); `startNewChat` stays unused (this story's surface
+  // never touches the CAM-425 decision). Scoped to the destructure BLOCK
+  // (the closing `} = useAiChat({` line through the matching call), not a
+  // single line — CAM-703 also changed the call from `useAiChat()` to
+  // `useAiChat({ onNeedsLogin })`.
+  it("[unit] the panel destructures isAuthenticated (CAM-703) but still not startNewChat, from useAiChat", () => {
+    const start = panelSrc.indexOf("  const {\n    entries,");
+    const end = panelSrc.indexOf("} = useAiChat({", start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const destructureBlock = panelSrc.slice(start, end);
+    expect(destructureBlock).toContain("isAuthenticated,");
+    expect(destructureBlock).not.toContain("startNewChat");
   });
 });
 

@@ -100,8 +100,11 @@ describe("(3) KEEP-list survives — CAM-451/453/454 behavior is not regressed",
 
   it("[normal] the manual scroll-lock class is still applied only while open && expanded", () => {
     expect(panelSrc).toContain('root.classList.add("ai-chat-scroll-lock", "no-scrollbar");');
+    // CAM-703 (2026-08-06 dated supersede) — one more OR clause suspends the
+    // lock while LoginModal is open; the `!(open && expanded)` core this
+    // test protects is unchanged.
     expect(panelSrc).toMatch(
-      /if \(typeof document === "undefined" \|\| !\(open && expanded\)\) return;/
+      /if \(typeof document === "undefined" \|\| !\(open && expanded\) \|\| loginModalOpen\) return;/
     );
   });
 

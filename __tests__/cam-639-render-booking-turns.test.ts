@@ -56,6 +56,10 @@ function renderEntries(entries: ChatEntry[]) {
         entries,
         sending: false,
         resuming: false,
+        // CAM-703 (2026-08-06) — AiChatMessageListProps grew a required
+        // liveAuthed prop; false is neutral for every fixture this file
+        // renders (none of them use a `confirm`-kind cta).
+        liveAuthed: false,
         onSuggestion: vi.fn(),
         onRetry: vi.fn(),
         onSelectCamp: vi.fn(),

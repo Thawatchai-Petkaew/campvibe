@@ -394,19 +394,35 @@ export interface SummaryParams {
   /** `bangkokTodayISO(now)` — the SAME injected-`today` contract `buildBookingPrefillQuery` requires (BR-2 there); never a naive UTC read. */
   today: string;
   /**
-   * CAM-702 (ADR-018 D1/D2) — the LIVE session's authed status at the
-   * moment this view is built. Optional, defaults `false` (the pre-CAM-702
-   * behaviour byte-for-byte) so every caller written before this story
-   * keeps compiling and keeps producing the exact same `handoff` cta it
-   * always has. Only a WHOLE-CAMP (`!camp.useSpotView`) summary for an
-   * authed camper ever gets `kind:'confirm'` — a per-pitch camp and a guest
-   * both keep `handoff` for now (per-pitch confirm + the guest login gate
-   * are later stories, CAM-703+).
+   * CAM-702/CAM-703 (ADR-018 D1/D2) — the LIVE session's authed status at
+   * the moment this view is built. Optional, defaults `false` (the
+   * pre-CAM-702 behaviour byte-for-byte for a per-pitch camp) so every
+   * caller written before CAM-702 keeps compiling. A WHOLE-CAMP
+   * (`!camp.useSpotView`) summary now ALWAYS gets `kind:'confirm'`
+   * (CAM-703) — a member gets the real `confirm` label, a guest gets the
+   * `loginToConfirm` label, and `AiChatBookingStep` re-derives the
+   * DISPLAYED label from the LIVE session on every render rather than
+   * trusting this build-time snapshot (design brief §5's critical note —
+   * the flip must never lag a login that happens after this view is
+   * built). A per-pitch camp keeps `handoff` unconditionally — no confirm
+   * story of its own yet.
    */
   authed?: boolean;
+  /**
+   * CAM-703 (ADR-018 §4, safety) — set by `resolveSpotStep`'s data-failure
+   * downgrade path ONLY: a genuinely per-pitch camp whose `/spots` fetch
+   * failed is relabeled `useSpotView:false` for the rest of the flow so it
+   * can `handoff` to the camp page — but it must NEVER pick up the
+   * whole-camp `confirm` rule, or the chat could write a pitch-less
+   * booking for a camp that requires one (`spotId` is optional server-side,
+   * `lib/validations/booking.ts:23` — the exact divergence ADR-018 D7
+   * names). Optional, defaults `false` (every genuinely whole-camp caller
+   * keeps compiling and keeps getting `confirm`).
+   */
+  forceHandoff?: boolean;
 }
 
-export function buildSummaryView({ slots, camp, t, language, today, authed = false }: SummaryParams): BookingSummaryView {
+export function buildSummaryView({ slots, camp, t, language, today, authed = false, forceHandoff = false }: SummaryParams): BookingSummaryView {
   const checkIn = slots.checkIn!;
   const checkOut = slots.checkOut!;
   const guests = slots.guests!;
@@ -450,14 +466,20 @@ export function buildSummaryView({ slots, camp, t, language, today, authed = fal
     guestsValue: t.aiChat.booking.summary.guestsValue.replace('{count}', String(guests)),
     spotValue,
     totalValue,
-    // CAM-702 (ADR-018 D1/D2) — a whole-camp summary for an AUTHED camper
-    // gets the real write CTA; a per-pitch camp (still no confirm story of
-    // its own) and a guest (login gate is CAM-703) both keep the interim
-    // `handoff` escape so nothing is ever a dead button.
-    cta:
-      authed && !camp.useSpotView
+    // CAM-703 (ADR-018 D2) — a WHOLE-CAMP summary always gets the real
+    // write CTA now, member or guest; a per-pitch camp (still no confirm
+    // story of its own) keeps the interim `handoff` escape so nothing is
+    // ever a dead button. `forceHandoff` is the one override (ADR-018 §4
+    // safety, see this param's own doc comment) — a data-failure downgrade
+    // must never pick up the whole-camp confirm rule. The guest branch's
+    // label/authState here are the build-time snapshot only —
+    // `AiChatBookingStep` re-derives the DISPLAYED label from the live
+    // session (see that file's own note).
+    cta: !camp.useSpotView && !forceHandoff
+      ? authed
         ? { kind: 'confirm', label: t.aiChat.booking.confirm, authState: 'member' }
-        : { kind: 'handoff', href: `/campgrounds/${camp.slug}?${query}` },
+        : { kind: 'confirm', label: t.aiChat.booking.loginToConfirm, authState: 'guest' }
+      : { kind: 'handoff', href: `/campgrounds/${camp.slug}?${query}` },
     controls: spotValue
       ? [{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'editSpot' }, { kind: 'cancel' }]
       : [{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'cancel' }],

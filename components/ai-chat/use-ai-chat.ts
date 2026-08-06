@@ -61,7 +61,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { aiChatAPI, bookingAPI, campSiteAvailabilityAPI } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { currentStep, type BookingFlowInput, type BookingStepId } from "@/components/ai-chat/booking-flow";
+import { currentStep, type BookingFlowInput, type BookingSlots, type BookingStepId } from "@/components/ai-chat/booking-flow";
 import {
   findJustCreatedBooking,
   processBookingCancel,
@@ -126,6 +126,64 @@ async function checkRemainingCapacityForFlow(campId: string, startDate: string, 
   return { ok: true, remaining: result.data.remaining, blockedByHost: result.data.blockedByHost };
 }
 
+// ---------------------------------------------------------------------------
+// CAM-703 (ADR-018 D2) — the guest login gate's Google-redirect round-trip.
+// `signIn("google", …)` (lib/actions.ts) throws a real Next.js redirect —
+// a FULL page navigation that destroys every in-memory React value,
+// including `bookingRef`. A credentials login never navigates (LoginModal's
+// own `signIn(redirect:false)` + `update()` + `router.refresh()`), so on
+// that path this key is simply written and never read — cleared instead the
+// moment a real submit starts through the still-live in-memory session
+// (`onBookingConfirm` below). Single-use (removed on every read attempt,
+// valid or not) + a 15-minute TTL. `BookingSlots` is flat/serialisable BY
+// DESIGN for exactly this (`booking-flow.ts`'s own file-header rule #2).
+// ---------------------------------------------------------------------------
+const BOOKING_RESUME_KEY = "ai-chat-booking-resume";
+const BOOKING_RESUME_TTL_MS = 15 * 60 * 1000;
+
+interface BookingResumePayload {
+  camp: BookingCampContext;
+  slots: BookingSlots;
+  savedAt: number;
+}
+
+/** Best-effort — `sessionStorage` can throw (privacy mode / quota); a failed write just means the camper re-answers after the redirect, never a crash. */
+export function writeBookingResume(session: BookingSession): void {
+  if (typeof window === "undefined") return;
+  try {
+    const payload: BookingResumePayload = { camp: session.camp, slots: session.state.slots, savedAt: Date.now() };
+    window.sessionStorage.setItem(BOOKING_RESUME_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore — see doc comment above
+  }
+}
+
+/** Single-use: the key is removed on every read attempt, valid or not — a stale/malformed/expired payload can never be misread again later. */
+export function readAndClearBookingResume(): { camp: BookingCampContext; slots: BookingSlots } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(BOOKING_RESUME_KEY);
+    if (raw === null) return null;
+    window.sessionStorage.removeItem(BOOKING_RESUME_KEY);
+    const parsed = JSON.parse(raw) as Partial<BookingResumePayload>;
+    if (!parsed.camp || !parsed.slots || typeof parsed.savedAt !== "number") return null;
+    if (Date.now() - parsed.savedAt > BOOKING_RESUME_TTL_MS) return null;
+    return { camp: parsed.camp, slots: parsed.slots };
+  } catch {
+    return null;
+  }
+}
+
+/** Defensive cleanup — a real submit (the live in-memory session is now authoritative) or an explicit cancel both make an earlier resume key stale. */
+export function clearBookingResume(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(BOOKING_RESUME_KEY);
+  } catch {
+    // ignore — see doc comment above
+  }
+}
+
 export interface UseAiChatResult {
   entries: ChatEntry[];
   /** True while a turn is in flight — gates the composer/send + shows the typing indicator (BR-3). */
@@ -154,13 +212,26 @@ export interface UseAiChatResult {
   onBookingEditGuests: () => void;
   /** CAM-640 — `ยกเลิกการจอง`, from any step. */
   onBookingCancel: () => void;
-  /** CAM-702 (ADR-018 D1/D2) — the camper's tap on ยืนยันการจอง (or F1's re-enabled confirm). The ONE async booking-flow handler; a guest/session-expired tap is a safe no-op (login gate is CAM-703). */
+  /** CAM-702/CAM-703 (ADR-018 D1/D2) — the camper's tap on ยืนยันการจอง (or F1/F3's re-armed confirm). The ONE async booking-flow handler; a guest (or a reverted F3 sessionExpired) tap never reaches the network — it serializes the flow and fires `options.onNeedsLogin` instead (CAM-703). */
   onBookingConfirm: () => Promise<void>;
   /** CAM-702 (ADR-018 D6, design brief §8 F2) — `ตรวจสอบแล้วลองใหม่`: checks for an already-created row BEFORE ever submitting again. */
   onBookingCheckAndRetry: () => Promise<void>;
 }
 
-export function useAiChat(): UseAiChatResult {
+export interface UseAiChatOptions {
+  /**
+   * CAM-703 (ADR-018 D2) — fired from `onBookingConfirm` the moment a guest
+   * (or a reverted F3 `sessionExpired` cta) taps the confirm control. The
+   * caller (`AiChatPanel`) opens `LoginModal` with the matching subtitle —
+   * this hook never touches UI/modal state itself, only signals the need.
+   * Never fired for an authed member; `onBookingConfirm` submits for real
+   * instead.
+   */
+  onNeedsLogin?: (reason: "confirm" | "sessionExpired") => void;
+}
+
+export function useAiChat(options: UseAiChatOptions = {}): UseAiChatResult {
+  const { onNeedsLogin } = options;
   const { status } = useSession();
   const authed = isAuthedSession(status);
   const { t, language } = useLanguage();
@@ -176,6 +247,78 @@ export function useAiChat(): UseAiChatResult {
   /** CAM-702 (ADR-018 D2) — guard 1 of the three double-tap guards: a synchronous check, set BEFORE the first `await` in `onBookingConfirm`/`onBookingCheckAndRetry` and cleared on every exit path. Never React state (same reasoning as `bookingRef` — nothing here should trigger a re-render). */
   const bookingSubmitInFlightRef = useRef(false);
 
+  /**
+   * CAM-647 — runs the ONE live pre-summary re-check once the flow reaches
+   * `summary` (an interim checking block, tagged `guests` for a whole-camp
+   * flow or `spot` for a per-pitch one, is already on screen — see
+   * `booking-turn.ts`'s `withChecking` call sites). `runSummaryCheckRef`
+   * exists for the SAME reason `handleSpotSelectionRef` does (below): the
+   * `checkFailed` block's own retry must call the LATEST version of this
+   * function without a genuine TDZ self-reference inside its own
+   * initializer. CAM-703 — declared ABOVE `restoreBookingFromStorage` (moved
+   * up from its original post-`runTurn` position) so that function's own
+   * direct (non-ref) call to `runSummaryCheck` never reads it before its
+   * declaration — `eslint-plugin-react-hooks`'s `immutability` rule flags a
+   * ref written in one effect and read via a plain forward-declared closure
+   * in another as unsafe, even though the runtime timing is safe (effects
+   * commit after the whole render function's `const`s have all run).
+   */
+  const runSummaryCheckRef = useRef<(checkEntries: ChatEntry[], booking: BookingSession) => Promise<void>>(async () => {});
+
+  const runSummaryCheck = useCallback(
+    async (checkEntries: ChatEntry[], booking: BookingSession) => {
+      const originStep: "guests" | "spot" = booking.camp.useSpotView ? "spot" : "guests";
+      const checked = await resolveSummaryCheck(checkEntries, booking, checkRemainingCapacityForFlow, t, language, new Date(), authed);
+      // The flow may have moved on (cancelled, or a faster follow-up turn)
+      // while the check was in flight — discard a now-orphaned result
+      // rather than resurrect a stale/cancelled flow (code.md CAM-359 guard).
+      if (!bookingRef.current || bookingRef.current.camp.campId !== booking.camp.campId) return;
+      if (checked.retryNeeded) {
+        const view: BookingCheckFailedView = {
+          kind: "checkFailed",
+          onRetry: () => {
+            void runSummaryCheckRef.current(checkEntries, booking);
+          },
+        };
+        bookingRef.current = checked.booking;
+        setEntries(appendBookingEntry(checked.entries, originStep, view));
+        return;
+      }
+      bookingRef.current = checked.booking;
+      setEntries(checked.entries);
+    },
+    [t, language, authed]
+  );
+  useEffect(() => {
+    runSummaryCheckRef.current = runSummaryCheck;
+  }, [runSummaryCheck]);
+
+  /**
+   * CAM-703 (ADR-018 D2) — restores a resume payload written just before a
+   * guest's full-page Google redirect. A hoisted function declaration (safe
+   * to reference from the effect below, which is textually declared first —
+   * `runSummaryCheck`, declared further down this file via `useCallback`, is
+   * only ever INVOKED once React has already finished this render's
+   * synchronous pass, never at define time — a plain closure read, never
+   * `runSummaryCheckRef.current`: this function is never itself stored
+   * anywhere long-lived, so it always closes over the CURRENT render's
+   * `runSummaryCheck` with no staleness risk, and using the ref here would
+   * make the ref both read AND written across two different effects, which
+   * `eslint-plugin-react-hooks`'s `immutability` rule correctly rejects).
+   * Called from all THREE exit points of the conversation-resume effect
+   * below, always AFTER any persisted history has already been applied via
+   * `setEntries` — a booking-resume attempted before that could be stomped
+   * by a later `setEntries` call that replaces the whole array wholesale.
+   */
+  async function restoreBookingFromStorage(base: ChatEntry[]) {
+    if (bookingRef.current) return; // an active flow already exists this mount — never clobber it
+    const resume = readAndClearBookingResume();
+    if (!resume) return;
+    const session: BookingSession = { state: { slots: resume.slots, consecutiveMisses: 0 }, camp: resume.camp };
+    bookingRef.current = session;
+    await runSummaryCheck(base, session);
+  }
+
   useEffect(() => {
     if (!authed || hasResumedRef.current) return;
     hasResumedRef.current = true;
@@ -186,17 +329,29 @@ export function useAiChat(): UseAiChatResult {
       const conversations = list.data?.conversations ?? [];
       if (conversations.length === 0) {
         setResuming(false); // EC: no saved conversation (or the list fetch failed) -> stay on the fresh welcome state
+        await restoreBookingFromStorage([]); // CAM-703 — a Google-redirect resume can still land on an otherwise-empty thread
         return;
       }
       const detail = await aiChatAPI.getConversation(conversations[0].id);
       if (!detail.data) {
         setResuming(false); // EC: detail fetch failed (e.g. deleted between the two calls) -> graceful fallback, never a crash
+        await restoreBookingFromStorage([]); // CAM-703 — same as above
         return;
       }
       conversationIdRef.current = detail.data.id;
-      setEntries(restoreEntriesFromMessages(detail.data.messages));
+      const restoredEntries = restoreEntriesFromMessages(detail.data.messages);
+      setEntries(restoredEntries);
       setResuming(false);
+      await restoreBookingFromStorage(restoredEntries); // CAM-703 — only after history has settled, never before
     })();
+    // CAM-703 — `restoreBookingFromStorage` is intentionally omitted: it is
+    // a plain (non-memoized) function declaration, always fresh per render,
+    // called synchronously inside this SAME effect invocation — never
+    // stored, never awaited-then-called-later against a stale closure.
+    // Listing it would only make this effect re-run on every render
+    // (harmless, since `hasResumedRef` already gates it to a no-op after
+    // the first qualifying run, but noisy).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authed]);
 
   const runTurn = useCallback(
@@ -233,46 +388,6 @@ export function useAiChat(): UseAiChatResult {
     },
     [authed]
   );
-
-  /**
-   * CAM-647 — runs the ONE live pre-summary re-check once the flow reaches
-   * `summary` (an interim checking block, tagged `guests` for a whole-camp
-   * flow or `spot` for a per-pitch one, is already on screen — see
-   * `booking-turn.ts`'s `withChecking` call sites). `runSummaryCheckRef`
-   * exists for the SAME reason `handleSpotSelectionRef` does (below): the
-   * `checkFailed` block's own retry must call the LATEST version of this
-   * function without a genuine TDZ self-reference inside its own
-   * initializer.
-   */
-  const runSummaryCheckRef = useRef<(checkEntries: ChatEntry[], booking: BookingSession) => Promise<void>>(async () => {});
-
-  const runSummaryCheck = useCallback(
-    async (checkEntries: ChatEntry[], booking: BookingSession) => {
-      const originStep: "guests" | "spot" = booking.camp.useSpotView ? "spot" : "guests";
-      const checked = await resolveSummaryCheck(checkEntries, booking, checkRemainingCapacityForFlow, t, language, new Date(), authed);
-      // The flow may have moved on (cancelled, or a faster follow-up turn)
-      // while the check was in flight — discard a now-orphaned result
-      // rather than resurrect a stale/cancelled flow (code.md CAM-359 guard).
-      if (!bookingRef.current || bookingRef.current.camp.campId !== booking.camp.campId) return;
-      if (checked.retryNeeded) {
-        const view: BookingCheckFailedView = {
-          kind: "checkFailed",
-          onRetry: () => {
-            void runSummaryCheckRef.current(checkEntries, booking);
-          },
-        };
-        bookingRef.current = checked.booking;
-        setEntries(appendBookingEntry(checked.entries, originStep, view));
-        return;
-      }
-      bookingRef.current = checked.booking;
-      setEntries(checked.entries);
-    },
-    [t, language, authed]
-  );
-  useEffect(() => {
-    runSummaryCheckRef.current = runSummaryCheck;
-  }, [runSummaryCheck]);
 
   /**
    * CAM-700 — applies a synchronous `booking-turn.ts` result, THEN checks
@@ -507,13 +622,14 @@ export function useAiChat(): UseAiChatResult {
 
   const onBookingCancel = useCallback(() => {
     if (!bookingRef.current) return;
+    clearBookingResume(); // CAM-703 — cancelling abandons any pending login-resume intent too
     const result = processBookingCancel(entries, t);
     bookingRef.current = result.booking;
     setEntries(result.entries);
   }, [entries, t]);
 
   /**
-   * CAM-702 (ADR-018 D1/D2) — the confirm tap. Guard 1 (synchronous,
+   * CAM-702/CAM-703 (ADR-018 D1/D2) — the confirm tap. Guard 1 (synchronous,
    * BEFORE the first `await`) + guard 2 (`startBookingSubmit` supersedes
    * the prior summary) are both here; guard 3 lives in the rendered
    * `submitting` view itself (AiChatBookingStep.tsx, no `onClick`). Never
@@ -523,14 +639,31 @@ export function useAiChat(): UseAiChatResult {
     const session = bookingRef.current;
     if (!session) return;
     if (bookingSubmitInFlightRef.current) return; // guard 1
-    // ADR-018 D2/design brief §5 — only an authed member's tap ever reaches
-    // the network in THIS story (`buildSummaryView` only ever offers
-    // `kind:'confirm'` to an authed whole-camp camper in the first place).
-    // A guest/session-expired tap on F3's reverted `loginToConfirm` label is
-    // a safe no-op until the login modal (CAM-703) wires onto this button.
-    if (!authed) return;
+
+    // CAM-703 (ADR-018 D2) — the login gate. A guest's tap (or a reverted
+    // F3 sessionExpired tap, still guest-shaped by definition) never
+    // reaches the network: serialize the flow — the Google-redirect path
+    // needs it, a credentials login never navigates so the key just goes
+    // unread — then hand off to the caller to open LoginModal. The reason
+    // is read off the CURRENT entry, never guessed: a fresh guest tap on
+    // the summary gets `confirm` (-> loginPrompt), a guest tap on F3's
+    // reverted button gets `sessionExpired`.
+    if (!authed) {
+      writeBookingResume(session);
+      const last = entries[entries.length - 1];
+      const reason: "confirm" | "sessionExpired" =
+        last?.role === "assistant" &&
+        last.kind === "booking" &&
+        last.view.kind === "bookingFailed" &&
+        last.view.reason === "sessionExpired"
+          ? "sessionExpired"
+          : "confirm";
+      onNeedsLogin?.(reason);
+      return;
+    }
 
     bookingSubmitInFlightRef.current = true;
+    clearBookingResume(); // a real submit is starting through the LIVE session — any earlier resume key is now stale
     const now = new Date();
     const started = startBookingSubmit(entries, session, t, language, now); // guard 2
     bookingRef.current = started.booking;
@@ -545,7 +678,7 @@ export function useAiChat(): UseAiChatResult {
     if (!bookingRef.current) return;
     bookingRef.current = result.booking;
     setEntries(result.entries);
-  }, [entries, authed, t, language]);
+  }, [entries, authed, t, language, onNeedsLogin]);
 
   /**
    * CAM-702 (ADR-018 D6, design brief §8 F2) — `ตรวจสอบแล้วลองใหม่`: checks
@@ -580,6 +713,7 @@ export function useAiChat(): UseAiChatResult {
     }
 
     // No matching row — design brief §8 F2: "only if none exists, submit".
+    clearBookingResume(); // CAM-703 — a real submit is starting; any earlier resume key is now stale
     const started = startBookingSubmit(entries, session, t, language, now);
     bookingRef.current = started.booking;
     setEntries(started.entries);

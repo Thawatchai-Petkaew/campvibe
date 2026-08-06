@@ -132,9 +132,13 @@ describe('buildSummaryView — CAM-700 spotValue + editSpot control', () => {
   it('[boundary] a per-pitch camp whose spot step was bypassed (fail-toward-handoff, no spotId) ALSO renders no spotValue', () => {
     // CAM-700 — this is the exact shape resolveSpotStep's fail-open downgrade
     // produces: useSpotView flips false, slots never gained a spotId.
+    // CAM-703 (2026-08-06 dated supersede) — `forceHandoff:true` is what the
+    // REAL `resolveSpotStep` call site now passes for this exact downgrade
+    // (ADR-018 §4 safety: never a pitch-less confirm) — omitting it here
+    // would test a shape the real code no longer produces.
     const noSpotSlots = { checkIn: '2026-08-01', checkOut: '2026-08-03', nights: 2, guests: 2 };
     const downgradedCamp: BookingCampContext = { ...CAMP, useSpotView: false };
-    const view = buildSummaryView({ slots: noSpotSlots, camp: downgradedCamp, t, language: 'th', today: '2026-07-22' });
+    const view = buildSummaryView({ slots: noSpotSlots, camp: downgradedCamp, t, language: 'th', today: '2026-07-22', forceHandoff: true });
     expect(view.spotValue).toBeUndefined();
     expect(view.controls).toEqual([{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'cancel' }]);
     // CAM-701 — `handoffHref` renamed to the `cta` discriminator.

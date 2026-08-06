@@ -161,6 +161,8 @@ interface AiChatMessageListProps {
   sending: boolean;
   /** CAM-423 — the camper's latest conversation is being fetched on open (loading.md inline indicator, not a skeleton). */
   resuming: boolean;
+  /** CAM-703 (ADR-018 D2) — the LIVE `useSession()` authed status, passed straight through to `AiChatBookingStep` for the confirm control's label flip (never a server-rendered/build-time prop, CAM-396). */
+  liveAuthed: boolean;
   onSuggestion: (text: string) => void;
   onRetry: () => void;
   /** CAM-447 — opens the floating detail card for a selected result card. */
@@ -181,6 +183,7 @@ export function AiChatMessageList({
   entries,
   sending,
   resuming,
+  liveAuthed,
   onSuggestion,
   onRetry,
   onSelectCamp,
@@ -262,6 +265,7 @@ export function AiChatMessageList({
         <AiChatEntryRow
           key={entry.id}
           entry={entry}
+          liveAuthed={liveAuthed}
           onRetry={onRetry}
           onSuggestion={onSuggestion}
           onSelectCamp={onSelectCamp}
@@ -304,6 +308,8 @@ export function AiChatMessageList({
 
 interface AiChatEntryRowProps {
   entry: ChatEntry;
+  /** CAM-703 — see AiChatMessageListProps's own doc comment. */
+  liveAuthed: boolean;
   onRetry: () => void;
   onSuggestion: (text: string) => void;
   onSelectCamp: (card: AiChatCardResponse) => void;
@@ -320,6 +326,7 @@ interface AiChatEntryRowProps {
 
 function AiChatEntryRow({
   entry,
+  liveAuthed,
   onRetry,
   onSuggestion,
   onSelectCamp,
@@ -489,6 +496,7 @@ function AiChatEntryRow({
       <AiChatBookingStep
         key={step}
         view={entry.view}
+        liveAuthed={liveAuthed}
         onChipSelect={isCurrent ? onBookingChipSelect : undefined}
         onBack={isCurrent ? onBookingBack : undefined}
         onEditDate={isCurrent ? onBookingEditDate : undefined}
