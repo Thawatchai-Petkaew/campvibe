@@ -28,7 +28,12 @@ describe("AC-1/AC-2 — launcher mounts globally from the root layout, not Home"
   });
 
   it("[structural] the mount sits inside LanguageProvider (useLanguage() must be in scope)", () => {
-    const providerIdx = layoutSrc.indexOf("<LanguageProvider>");
+    // CAM-688 widened this pin from a literal `<LanguageProvider>` string to
+    // a regex — the fix adds an `initialLanguage` prop (`<LanguageProvider
+    // initialLanguage={lang}>`), which would otherwise collapse the old
+    // exact-string match to -1 and fail both ordering assertions below.
+    const providerMatch = layoutSrc.match(/<LanguageProvider[\s>]/);
+    const providerIdx = providerMatch?.index ?? -1;
     const launcherIdx = layoutSrc.indexOf("<AiChatLauncher />");
     const closeIdx = layoutSrc.indexOf("</LanguageProvider>");
     expect(providerIdx).toBeGreaterThan(-1);
