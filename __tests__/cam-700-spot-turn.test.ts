@@ -15,6 +15,16 @@
  *      handoff summary — never a pitch-less confirm, never a stall.
  *   2. Picking a pitch that turns out occupied re-offers with the brief's
  *      copy, excludes that pitch, and NEVER commits `spotId` to state.
+ *
+ * CAM-647 SUPERSEDES (2026-08-06) — a FREED pitch pick no longer reaches
+ * `summary` synchronously: it renders the interim checking state on `spot`
+ * first (the live pre-summary re-check is the ONE async transition into
+ * `summary`, ADR-016 decision point 5), and the "whole-camp flow never
+ * lands on spot" end-to-end test's own final step does the same. Both are
+ * updated in place; `resolveSpotStep`'s own fail-toward-handoff branch
+ * (network/data failure) is UNCHANGED — it already never offers a live
+ * confirm CTA (no `authed`), so there is nothing for a live re-check to
+ * protect there.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { getTranslations } from '@/locales/translations';
@@ -23,11 +33,19 @@ import {
   processBookingTurn,
   resolveSpotSelection,
   resolveSpotStep,
+  resolveSummaryCheck,
   type BookingSession,
+  type RemainingCapacityFetchOutcome,
   type SpotFetchOutcome,
 } from '@/components/ai-chat/booking-turn';
 import type { BookingCampContext } from '@/components/ai-chat/booking-view';
 import type { ChatEntry } from '@/components/ai-chat/conversation';
+
+const okCheck: (campId: string, startDate: string, endDate: string) => Promise<RemainingCapacityFetchOutcome> = async () => ({
+  ok: true,
+  remaining: 5,
+  blockedByHost: false,
+});
 
 const t = getTranslations('th');
 const NOW = new Date('2026-07-22T10:00:00Z');
@@ -127,7 +145,7 @@ describe('resolveSpotSelection — occupancy is checked BEFORE a pitch is ever c
     return sessionAtSpot({ spotCandidates: CANDIDATES });
   }
 
-  it('[normal] a chip pick that IS free commits: spotId/spotName land in state, the newest block is `summary` with the spotValue row', async () => {
+  it('[normal][CAM-647] a chip pick that IS free commits: spotId/spotName land in state; the interim checking state renders on `spot`, then the live re-check reaches `summary` with the spotValue row', async () => {
     const checkAvailability = vi.fn(async () => true);
     const session = sessionWithCandidates();
     const outcome = await resolveSpotSelection(
@@ -145,7 +163,13 @@ describe('resolveSpotSelection — occupancy is checked BEFORE a pitch is ever c
     expect(checkAvailability).toHaveBeenCalledWith('cs-700', 'spot-a', '2026-08-01', '2026-08-02'); // last NIGHT, not checkout
     expect(outcome.booking?.state.slots.spotId).toBe('spot-a');
     expect(outcome.booking?.state.slots.spotName).toBe('ริมน้ำ A');
-    const newest = bookingEntries(outcome.entries).at(-1);
+    // CAM-647 — commits the pitch but does NOT reach `summary` synchronously.
+    const checking = bookingEntries(outcome.entries).at(-1);
+    expect(checking).toMatchObject({ step: 'spot' });
+    expect(checking && 'view' in checking && checking.view.kind === 'question' ? checking.view.isChecking : null).toBe(true);
+
+    const result = await resolveSummaryCheck(outcome.entries, outcome.booking!, okCheck, t, language(), NOW, false);
+    const newest = bookingEntries(result.entries).at(-1);
     expect(newest).toMatchObject({ step: 'summary' });
     expect(newest && 'view' in newest && newest.view.kind === 'summary' ? newest.view.spotValue : null).toBe('ริมน้ำ A');
   });
@@ -270,13 +294,15 @@ describe('resolveSpotSelection — occupancy is checked BEFORE a pitch is ever c
 });
 
 describe('end-to-end — a whole-camp flow never lands on `spot` (mirrors the story\'s own done_when)', () => {
-  it('[normal] date+nights filled, answering `guests` on a useSpotView:false camp advances straight to `summary`, `spot` never appears', () => {
+  it('[normal][CAM-647] date+nights filled, answering `guests` on a useSpotView:false camp advances straight to the checking state (never `spot`), then the live re-check reaches `summary`', async () => {
     const wholeCamp: BookingCampContext = { ...CAMP, useSpotView: false };
     const filled: BookingSession = {
       state: { slots: { checkIn: '2026-08-01', checkOut: '2026-08-03', nights: 2 }, consecutiveMisses: 0 },
       camp: wholeCamp,
     };
-    const result = processBookingTurn([], filled, { kind: 'chip', slots: { guests: 2 } }, '2 คน', t, language(), NOW);
+    const guestsStep = processBookingTurn([], filled, { kind: 'chip', slots: { guests: 2 } }, '2 คน', t, language(), NOW);
+    expect(bookingEntries(guestsStep.entries).at(-1)).toMatchObject({ step: 'guests' });
+    const result = await resolveSummaryCheck(guestsStep.entries, guestsStep.booking!, okCheck, t, language(), NOW, false);
     expect(bookingEntries(result.entries).at(-1)).toMatchObject({ step: 'summary' });
   });
 });

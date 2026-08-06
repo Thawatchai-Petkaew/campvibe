@@ -198,6 +198,32 @@ export const bookingAPI = {
     },
 };
 
+// Remaining-capacity API — CAM-647: the in-chat booking flow's ONE
+// pre-summary live re-check (GET /api/campsites/[id]/remaining-capacity,
+// CAM-267 PREP-1, the SAME route the camp page's own booking widget already
+// calls). `remaining` is number|null (null = no per-day cap set, NEVER
+// treated as full — the caller, `components/ai-chat/booking-turn.ts`'s
+// `resolveSummaryCheck`, owns that rule) and `blockedByHost` is atomic
+// alongside it, per the route's own response shape.
+export interface RemainingCapacityDTO {
+    campSiteId: string;
+    capacity: number | null;
+    remaining: number | null;
+    blockedByHost: boolean;
+}
+
+export const campSiteAvailabilityAPI = {
+    /** GET /api/campsites/[id]/remaining-capacity?startDate&endDate — always dynamic server-side (`route.ts`'s own `force-dynamic`), never cached here either. */
+    getRemainingCapacity: async (
+        campSiteId: string,
+        startDate: string,
+        endDate: string
+    ): Promise<ApiResponse<RemainingCapacityDTO>> => {
+        const params = new URLSearchParams({ startDate, endDate });
+        return fetchAPI<RemainingCapacityDTO>(`/campsites/${campSiteId}/remaining-capacity?${params}`);
+    },
+};
+
 // Review API
 export const reviewAPI = {
     create: async (data: ReviewDTO): Promise<ApiResponse<ReviewDTO>> => {

@@ -16,6 +16,14 @@
  *     STRUCTURAL half of "the composer is never disabled during a booking
  *     turn" (the other half — the intercept sitting after the sending guard
  *     in `use-ai-chat.ts` — is proved by cam-640-use-ai-chat-wiring.test.ts).
+ *
+ * CAM-647 SUPERSEDES (2026-08-06) — the "guests chip tap advances straight
+ * to summary" test below no longer holds byte-for-byte: `processBookingTurn`
+ * now renders the interim checking state on `guests` instead of building
+ * `summary` directly (the live pre-summary re-check is the ONE async
+ * transition into `summary`, ADR-016 decision point 5). The test is updated
+ * in place to reach the SAME real summary via `resolveSummaryCheck` (a fake
+ * `checkCapacity` resolving `ok:true`), keeping its original assertions.
  */
 import { readFileSync } from "fs";
 import { resolve } from "path";
@@ -25,8 +33,10 @@ import {
   processBookingCancel,
   processBookingControl,
   processBookingTurn,
+  resolveSummaryCheck,
   startBookingTurn,
   type BookingSession,
+  type RemainingCapacityFetchOutcome,
 } from "@/components/ai-chat/booking-turn";
 import { createInitialBookingFlowState } from "@/components/ai-chat/booking-flow";
 import { formatBookingDate, type BookingCampContext } from "@/components/ai-chat/booking-view";
@@ -88,7 +98,7 @@ describe("processBookingTurn — a chip advances", () => {
     expect(result.booking?.state.slots).toEqual({ checkIn: "2026-08-01", checkOut: "2026-08-02" });
   });
 
-  it("[normal][CAM-699] a guests chip tap advances straight to summary once nights AND guests are filled", () => {
+  it("[normal][CAM-699][CAM-647] a guests chip tap lands on the interim checking state first, then the live re-check reaches summary once nights AND guests are filled", async () => {
     const start = startBookingTurn([], CAMP, t, "th");
     const dateStep = processBookingTurn(
       start.entries,
@@ -100,7 +110,21 @@ describe("processBookingTurn — a chip advances", () => {
       NOW
     );
     const nightsStep = processBookingTurn(dateStep.entries, dateStep.booking!, { kind: "chip", slots: { nights: 2 } }, "2 คืน", t, "th", NOW);
-    const result = processBookingTurn(nightsStep.entries, nightsStep.booking!, { kind: "chip", slots: { guests: 2 } }, "2 คน", t, "th", NOW);
+    const guestsStep = processBookingTurn(nightsStep.entries, nightsStep.booking!, { kind: "chip", slots: { guests: 2 } }, "2 คน", t, "th", NOW);
+    // CAM-647 — the guests chip does NOT reach `summary` synchronously
+    // anymore: it renders the SAME `guests` step, flagged checking, while
+    // `use-ai-chat.ts` runs the live remaining-capacity re-check.
+    const checkingEntry = bookingEntries(guestsStep.entries).at(-1);
+    expect(checkingEntry).toMatchObject({ step: "guests" });
+    expect(checkingEntry && "view" in checkingEntry && checkingEntry.view.kind === "question" ? checkingEntry.view.isChecking : null).toBe(true);
+    expect(guestsStep.booking?.state.slots).toEqual({ checkIn: "2026-08-01", checkOut: "2026-08-03", nights: 2, guests: 2 });
+
+    const okCheck: (campId: string, startDate: string, endDate: string) => Promise<RemainingCapacityFetchOutcome> = async () => ({
+      ok: true,
+      remaining: 5,
+      blockedByHost: false,
+    });
+    const result = await resolveSummaryCheck(guestsStep.entries, guestsStep.booking!, okCheck, t, "th", NOW, false);
     const newest = bookingEntries(result.entries).at(-1);
     expect(newest).toMatchObject({ step: "summary" });
     // `checkOut` was RE-DERIVED from checkIn + the chosen 2 nights (2026-08-01 + 2 = 2026-08-03), never the date chip's 1-night placeholder.

@@ -54,12 +54,14 @@ import {
   extractDisplayNumber,
   isDateFull,
   remainingForDate,
+  withChecking,
   type BookingCampContext,
 } from '@/components/ai-chat/booking-view';
 import type {
   BookingConfirmCta,
   BookingControlSpec,
   BookingFailedReason,
+  BookingQuestionView,
   BookingSummaryRows,
 } from '@/components/ai-chat/AiChatBookingStep';
 import type { BookingCreateInput, BookingCreateOutcome } from '@/lib/api-client';
@@ -84,6 +86,20 @@ export interface BookingTurnResult {
   entries: ChatEntry[];
   /** `null` means the flow just exited (cancelled, or handed to the assistant) — the caller's ref goes back to `null` too. */
   booking: BookingSession | null;
+}
+
+/**
+ * CAM-647 (design brief round1 §7 / round2 §10 focus table) — tags a
+ * freshly-built question view with whether ITS mount should move focus to
+ * its own caption: every trigger EXCEPT a typed answer (`input.kind ===
+ * 'text'`), which keeps the caret in the composer. Applied once per
+ * returned view at every `processBookingTurn`/`resolveSpotSelection`
+ * branch that can be reached from either a chip or typed input — the
+ * default (field absent) already means "focus", so this only ever needs
+ * to SET `false`, never `true`.
+ */
+function applyFocusTag(view: BookingQuestionView, inputKind: BookingFlowInput['kind']): BookingQuestionView {
+  return inputKind === 'text' ? { ...view, focusCaption: false } : view;
 }
 
 /** "เริ่มจอง" tapped (`AiChatDetailCard`) — appends the first (date) question, from a fresh flow state. */
@@ -112,9 +128,10 @@ export function processBookingTurn(
   t: TranslationType,
   language: Language,
   now: Date,
-  /** CAM-702 (ADR-018 D1/D2) — the LIVE session's authed status, threaded through to `buildSummaryView` so a whole-camp summary reaching `summary` for an authed camper gets the real confirm CTA. Optional, defaults `false` (byte-identical pre-CAM-702 behaviour) so every call site written before this story keeps compiling unchanged. */
+  /** CAM-702 (ADR-018 D1/D2) — kept for call-site compatibility (`cam-702-use-ai-chat-confirm.test.ts` pins every call site passing this trailing arg). CAM-647: the `guests`->`summary` transition no longer builds `summary` directly here (it renders the interim checking state instead — see the `newStep.id === 'summary'` branch below), so the authed-gated CTA is now resolved one layer up, by `resolveSummaryCheck` (called from `use-ai-chat.ts`, which holds the live session) once the pre-summary re-check clears. Optional, defaults `false`. */
   authed = false
 ): BookingTurnResult {
+  void authed; // see this param's own doc comment — genuinely unused in THIS function post-CAM-647
   const { state, camp } = session;
   const spotCandidates = session.spotCandidates ?? null;
   const withEcho = appendUserQuestion(entries, echoText);
@@ -151,19 +168,35 @@ export function processBookingTurn(
       outcome.state.slots.checkIn &&
       isDateFull(camp.weekendAvailability, outcome.state.slots.checkIn)
     ) {
-      const view = buildDateQuestionView({ camp, t, language, reason: 'full', fullDate: outcome.state.slots.checkIn });
+      const view = applyFocusTag(
+        buildDateQuestionView({ camp, t, language, reason: 'full', fullDate: outcome.state.slots.checkIn }),
+        input.kind
+      );
       return { entries: appendBookingEntry(withEcho, 'date', view), booking: { state, camp } };
     }
     if (newStep.id === 'summary') {
-      const view = buildSummaryView({ slots: outcome.state.slots, camp, t, language, today: bangkokTodayISO(now), authed });
-      return { entries: appendBookingEntry(withEcho, 'summary', view), booking: { state: outcome.state, camp } };
+      // CAM-647 (ADR-016 decision point 5, design brief CAM-637 §5 E1/E3) —
+      // the live pre-summary re-check is the ONE async transition into
+      // `summary`; render the interim checking state on `guests` (the step
+      // that just completed) rather than building the summary directly.
+      // `use-ai-chat.ts`'s `settleBookingTurn` runs the real GET
+      // remaining-capacity check (`resolveSummaryCheck`, below) and
+      // finalizes into the real summary / the E1 rewind / E3 `checkFailed`.
+      const view = applyFocusTag(
+        withChecking(buildGuestsQuestionView({ slots: outcome.state.slots, camp, t, language, reason: 'ask' })),
+        input.kind
+      );
+      return { entries: appendBookingEntry(withEcho, 'guests', view), booking: { state: outcome.state, camp } };
     }
     if (newStep.id === 'nights') {
       // CAM-699 — reached whenever `date` advances but the span was NOT a
       // genuine multi-night typed range (see `acceptDateCandidate`'s own
       // comment) — this is the camper who tapped a date CHIP, or typed a
       // single day.
-      const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'ask', useSpotView: camp.useSpotView });
+      const view = applyFocusTag(
+        buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'ask', useSpotView: camp.useSpotView }),
+        input.kind
+      );
       return { entries: appendBookingEntry(withEcho, 'nights', view), booking: { state: outcome.state, camp } };
     }
     if (newStep.id === 'spot') {
@@ -172,20 +205,22 @@ export function processBookingTurn(
       // via `resolveSpotStep`, right after this result is applied) — render
       // the immediate "checking" feedback (loading.md §1) and let the caller
       // replace it once the fetch resolves.
-      const view = buildSpotQuestionView({ t, useSpotView: camp.useSpotView, reason: 'loading', candidates: [] });
+      const view = applyFocusTag(buildSpotQuestionView({ t, useSpotView: camp.useSpotView, reason: 'loading', candidates: [] }), input.kind);
       return { entries: appendBookingEntry(withEcho, 'spot', view), booking: { state: outcome.state, camp, spotCandidates: null } };
     }
-    const view =
+    const view = applyFocusTag(
       newStep.id === 'guests'
         ? buildGuestsQuestionView({ slots: outcome.state.slots, camp, t, language, reason: 'ask' })
-        : buildDateQuestionView({ camp, t, language, reason: 'ask' });
+        : buildDateQuestionView({ camp, t, language, reason: 'ask' }),
+      input.kind
+    );
     return { entries: appendBookingEntry(withEcho, newStep.id, view), booking: { state: outcome.state, camp } };
   }
 
   if (outcome.kind === 'reprompt') {
     const step = currentStep(outcome.state.slots, camp.useSpotView);
     if (step.id === 'date') {
-      const view = buildDateQuestionView({ camp, t, language, reason: 'unreadable' });
+      const view = applyFocusTag(buildDateQuestionView({ camp, t, language, reason: 'unreadable' }), input.kind);
       return { entries: appendBookingEntry(withEcho, 'date', view), booking: { state: outcome.state, camp } };
     }
     if (step.id === 'nights') {
@@ -195,10 +230,16 @@ export function processBookingTurn(
       // its own non-`over_capacity` rejections just below.
       if (outcome.reason === 'rejected' && outcome.reasonKey === 'too_long') {
         const max = (outcome.data as { max: number } | undefined)?.max;
-        const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'tooLong', max, useSpotView: camp.useSpotView });
+        const view = applyFocusTag(
+          buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'tooLong', max, useSpotView: camp.useSpotView }),
+          input.kind
+        );
         return { entries: appendBookingEntry(withEcho, 'nights', view), booking: { state: outcome.state, camp } };
       }
-      const view = buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'unreadable', useSpotView: camp.useSpotView });
+      const view = applyFocusTag(
+        buildNightsQuestionView({ slots: outcome.state.slots, t, language, reason: 'unreadable', useSpotView: camp.useSpotView }),
+        input.kind
+      );
       return { entries: appendBookingEntry(withEcho, 'nights', view), booking: { state: outcome.state, camp } };
     }
     if (step.id === 'spot') {
@@ -206,7 +247,10 @@ export function processBookingTurn(
       // candidate at `spot`; every non-specific rejection reuses `unreadable`
       // (the same precedent `nights`/`guests` set above for THEIR own
       // non-primary rejections).
-      const view = buildSpotQuestionView({ t, useSpotView: camp.useSpotView, reason: 'unreadable', candidates: spotCandidates ?? [] });
+      const view = applyFocusTag(
+        buildSpotQuestionView({ t, useSpotView: camp.useSpotView, reason: 'unreadable', candidates: spotCandidates ?? [] }),
+        input.kind
+      );
       return { entries: appendBookingEntry(withEcho, 'spot', view), booking: { state: outcome.state, camp, spotCandidates } };
     }
     // step.id === 'guests'
@@ -215,21 +259,24 @@ export function processBookingTurn(
       const remaining = outcome.state.slots.checkIn
         ? remainingForDate(camp.weekendAvailability, outcome.state.slots.checkIn)
         : null;
-      const view = buildGuestsQuestionView({
-        slots: outcome.state.slots,
-        camp,
-        t,
-        language,
-        reason: 'overCapacity',
-        overCapacityData: {
-          remaining: remaining ?? limit,
-          requested: extractDisplayNumber(input.kind === 'text' ? input.text : ''),
-          limit,
-        },
-      });
+      const view = applyFocusTag(
+        buildGuestsQuestionView({
+          slots: outcome.state.slots,
+          camp,
+          t,
+          language,
+          reason: 'overCapacity',
+          overCapacityData: {
+            remaining: remaining ?? limit,
+            requested: extractDisplayNumber(input.kind === 'text' ? input.text : ''),
+            limit,
+          },
+        }),
+        input.kind
+      );
       return { entries: appendBookingEntry(withEcho, 'guests', view), booking: { state: outcome.state, camp } };
     }
-    const view = buildGuestsQuestionView({ slots: outcome.state.slots, camp, t, language, reason: 'unreadable' });
+    const view = applyFocusTag(buildGuestsQuestionView({ slots: outcome.state.slots, camp, t, language, reason: 'unreadable' }), input.kind);
     return { entries: appendBookingEntry(withEcho, 'guests', view), booking: { state: outcome.state, camp } };
   }
 
@@ -680,11 +727,96 @@ export async function resolveSpotSelection(
     // Occupied — fresh chip row, this pitch excluded, `spot` stays current
     // (design brief §4 "Occupied → re-offer, one shape for three routes").
     const remaining = (spotCandidates ?? []).filter((c) => c.id !== spotId);
-    const view = buildSpotQuestionView({ t, useSpotView: camp.useSpotView, reason: 'occupied', candidates: remaining, occupiedName: spotName });
+    const view = applyFocusTag(
+      buildSpotQuestionView({ t, useSpotView: camp.useSpotView, reason: 'occupied', candidates: remaining, occupiedName: spotName }),
+      input.kind
+    );
     return { entries: appendBookingEntry(withEcho, 'spot', view), booking: { state, camp, spotCandidates: remaining } };
   }
 
-  // Free — commit for real.
-  const summaryView = buildSummaryView({ slots: peek.state.slots, camp, t, language, today: bangkokTodayISO(now) });
-  return { entries: appendBookingEntry(withEcho, 'summary', summaryView), booking: { state: peek.state, camp, spotCandidates } };
+  // Free — commit for real, but reach `summary` through the SAME live
+  // pre-summary re-check every path uses (CAM-647): render the interim
+  // checking state on `spot` rather than building the summary directly.
+  // `use-ai-chat.ts` runs `resolveSummaryCheck` right after applying this
+  // result (see `settleBookingTurn`).
+  const view = applyFocusTag(
+    withChecking(buildSpotQuestionView({ t, useSpotView: camp.useSpotView, reason: 'ask', candidates: spotCandidates ?? [] })),
+    input.kind
+  );
+  return { entries: appendBookingEntry(withEcho, 'spot', view), booking: { state: peek.state, camp, spotCandidates } };
+}
+
+// ---------------------------------------------------------------------------
+// CAM-647 (epic CAM-695, ADR-016 decision point 5) — the live pre-summary
+// re-check. `resolveSummaryCheck` below is async and DOES reach the network,
+// but only through an INJECTED function parameter (the same dependency-
+// injection pattern `resolveSpotStep`/`resolveSpotSelection` already
+// establish), so this module still imports zero of `lib/api-client.ts`'s
+// runtime code and stays unit-testable with a fake fetcher. Callers:
+// `processBookingTurn`'s `guests`->`summary` branch and
+// `resolveSpotSelection`'s `spot`->`summary` "Free" branch both already
+// appended the interim checking block (`withChecking`, above) BEFORE this
+// runs — `use-ai-chat.ts`'s `settleBookingTurn` is what notices the flow has
+// reached `summary` and calls this.
+// ---------------------------------------------------------------------------
+
+/** The injected GET remaining-capacity fetch outcome — `ok:false` = the fetch itself failed or returned an off-contract body (E3, design brief CAM-637 §5). */
+export type RemainingCapacityFetchOutcome =
+  | { ok: true; remaining: number | null; blockedByHost: boolean }
+  | { ok: false };
+
+export interface SummaryCheckOutcome {
+  entries: ChatEntry[];
+  booking: BookingSession | null;
+  /**
+   * Present ONLY on E3 (the fetch itself failed) — `entries`/`booking` are
+   * UNCHANGED (design brief §5 E3: "slots are untouched, retry is one tap
+   * and re-runs the same check"). The caller (`use-ai-chat.ts`) builds the
+   * real `onRetry` closure and appends the `checkFailed` block itself —
+   * this module owns no React callback, the same discipline
+   * `resolveSpotSelection`'s own `retry` field already establishes.
+   */
+  retryNeeded?: boolean;
+}
+
+/**
+ * Runs the ONE live GET remaining-capacity check for the chosen span and
+ * finalizes the interim checking block into exactly one of:
+ *   - the REAL summary — enough capacity, OR `remaining === null` (no
+ *     per-day cap set — NEVER fabricated as full, the load-bearing
+ *     correctness rule this story pins with a test)
+ *   - E1 — full or `blockedByHost`; reuses `resolveBookingSubmitConflict`'s
+ *     own rewind verbatim (clear `checkIn`/`checkOut`/`spotId`/`spotName`,
+ *     keep `nights`/`guests` — the SAME shape the design brief's F6/409
+ *     rewind already uses, since both are "the dates went while the camper
+ *     was deciding")
+ *   - E3 (`retryNeeded: true`) — the fetch itself failed
+ *
+ * `authed` is threaded straight to `buildSummaryView` (never read from
+ * `session` — the caller's LIVE `useSession()` value, same contract
+ * `processBookingTurn`'s own `authed` param used to serve before this
+ * story moved the summary build here).
+ */
+export async function resolveSummaryCheck(
+  entries: ChatEntry[],
+  session: BookingSession,
+  checkCapacity: (campId: string, startDate: string, endDate: string) => Promise<RemainingCapacityFetchOutcome>,
+  t: TranslationType,
+  language: Language,
+  now: Date,
+  authed: boolean
+): Promise<SummaryCheckOutcome> {
+  const checkIn = session.state.slots.checkIn!;
+  const checkOut = session.state.slots.checkOut!;
+  const outcome = await checkCapacity(session.camp.campId, checkIn, checkOut);
+
+  if (!outcome.ok) {
+    return { entries, booking: session, retryNeeded: true };
+  }
+  if (outcome.blockedByHost || outcome.remaining === 0) {
+    return resolveBookingSubmitConflict(entries, session, t, language);
+  }
+  // `remaining === null` (no cap) OR `remaining > 0` — proceed for real.
+  const view = buildSummaryView({ slots: session.state.slots, camp: session.camp, t, language, today: bangkokTodayISO(now), authed });
+  return { entries: appendBookingEntry(entries, 'summary', view), booking: session };
 }
