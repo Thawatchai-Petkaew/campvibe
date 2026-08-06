@@ -40,7 +40,7 @@ Agent files (`.claude/agents/*.md`) are the stable prefix every dispatch reuses.
 
 ### 2. Pass pointers, not content
 
-The dispatch envelope = ticket id · spec file path · allowed file surface · deltas (only facts that live nowhere on disk — chat decisions, distilled) · a machine-checkable `done_when` (the exact grep/command the orchestrator re-runs at acceptance). Target ≤ ~300 tokens. Anything on disk is a path, never a paste — pasted content duplicates what the agent would read anyway and goes stale on the first edit.
+The dispatch envelope = ticket id · spec file path · allowed file surface · deltas (only facts that live nowhere on disk — chat decisions, distilled) · a machine-checkable `done_when` (the exact grep/command the orchestrator re-runs at acceptance). State it as an **outcome the command's output proves**, not as the shape of the code you expect — a criterion that greps for an implementation detail pre-commits the agent to a solution you have not verified is possible (CAM-670). Target ≤ ~300 tokens. Anything on disk is a path, never a paste — pasted content duplicates what the agent would read anyway and goes stale on the first edit.
 
 ### 3. Return JSON, not prose
 
@@ -123,6 +123,7 @@ $/story lands in the G3 packet (orchestrator §Per-dispatch caps). A budget blow
 | "The run died — re-run the story from scratch." | Resume from artifacts (branch, commits, files) and cite them in the re-dispatch. A re-fire throws away everything already paid for. |
 | "Hard story — just bump the model." | Tier policy is LOCKED; escalation only via the circuit-breaker ladder. Try the `effort` dial first. |
 | "I'll fix the agent file while the dispatch runs." | Frozen prefix: batch the edit and land it before the next dispatch. |
+| "`done_when` = grep for the line I expect the fix to contain." | That is a hypothesis wearing an acceptance criterion's clothes, and it pre-commits the agent to a solution the orchestrator has not proven POSSIBLE. CAM-670's `done_when` demanded `onDelete: SetNull` on `Booking.spot`; Prisma can only emit a blanket SET NULL there, which would null the NOT NULL `campSiteId` — the agent tested the instruction against real Postgres, found it impossible, and shipped a column-scoped raw FK instead (accepted, criterion waived). Write `done_when` as the behaviour a command's output proves; if you must name a code shape, label it a hypothesis the agent may refute (CAM-670). |
 | "I wrote the spec — dispatch the builder." | A spec authored in the orchestrator's uncommitted MAIN tree never rides the PR: the builder branches off origin/dev without it (orphaned CAM-506/509, recurred CAM-513/514). Commit the story spec to the feature branch FIRST (or have the builder author it in-worktree, as the one slice that shipped its spec did), THEN dispatch the builder onto that branch (CAM-513/514). |
 
 ## Verify (exit criteria)

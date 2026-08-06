@@ -15,10 +15,12 @@
  *     login per run stays comfortably under the 10-attempts/15-min rate
  *     limit on `authorize()` (lib/auth.ts).
  *  4. Force Thai copy for every regression spec — LanguageContext
- *     (contexts/LanguageContext.tsx) defaults to "en" unless localStorage
- *     carries `campvibe_lang`; setting it here means it is captured into
+ *     (contexts/LanguageContext.tsx) defaults to "en" unless the
+ *     `campvibe_lang` cookie (read server-side, CAM-688) or localStorage
+ *     carries it. Setting BOTH here means they are captured into
  *     storageState below, so every spec that reuses this state loads
- *     already in Thai (AC copy is asserted verbatim in Thai).
+ *     already in Thai from the very first (server-rendered) paint, not
+ *     just after client hydration (AC copy is asserted verbatim in Thai).
  *  5. Prove the storageState will actually authenticate: navigate straight
  *     into a `/dashboard`-only route and confirm the middleware does NOT
  *     bounce back to `/login` (lib/auth.config.ts `isRouteAllowed`).
@@ -74,7 +76,15 @@ setup("authenticate as the seeded host (BR-1 guard + real /login form + storageS
   // pushes the sanitized callbackUrl on success, default "/").
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 15_000 });
 
-  // 4. Force Thai copy for every regression spec.
+  // 4. Force Thai copy for every regression spec. CAM-688: the cookie is
+  // what the SERVER reads (app/layout.tsx) to render Thai from the first
+  // byte — localStorage alone only flips it after client hydration (the
+  // one-time migration effect), which the old `addInitScript`-only pattern
+  // silently relied on. Set both so storageState below captures a state
+  // that matches a real returning-Thai camper.
+  await page.context().addCookies([
+    { name: "campvibe_lang", value: "th", domain: "localhost", path: "/" },
+  ]);
   await page.evaluate(() => localStorage.setItem("campvibe_lang", "th"));
 
   // 5. Prove storageState will actually authenticate before persisting it —

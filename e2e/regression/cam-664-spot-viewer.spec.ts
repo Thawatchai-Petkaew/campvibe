@@ -161,6 +161,13 @@ test("[tablist--spot-strip-360-tap-floor] at 360px the strip scrolls horizontall
     viewport: { width: 360, height: 800 },
     storageState: { cookies: [], origins: [] },
   });
+  // CAM-688: the `campvibe_lang` cookie is what the SERVER reads
+  // (app/layout.tsx) to render Thai from the first byte; localStorage alone
+  // only flips it client-side after hydration, via the one-time migration
+  // effect. Setting both mirrors a real returning-Thai guest.
+  await guestContext.addCookies([
+    { name: "campvibe_lang", value: "th", domain: "localhost", path: "/" },
+  ]);
   const page = await guestContext.newPage();
   await page.addInitScript(() => window.localStorage.setItem("campvibe_lang", "th"));
   await page.goto(CAMP_URL, { waitUntil: "networkidle", timeout: 60_000 });
