@@ -89,6 +89,7 @@ const DETAIL_OK_BODY = {
   reviewSummary: { hasReviews: false, avgRating: null, count: 0 },
   price: { low: 500, high: null, currency: "THB", extraFeeAmount: null, extraFeeLabel: null, feeInfo: null, isFree: false },
   capacity: { maxGuestsPerDay: 10, maxTentsPerDay: 5 },
+  useSpotView: false, // CAM-707 — CAM-700 added a client parse guard requiring this boolean
   cancellationPolicy: null,
   isVerified: false,
   checkInTime: "14:00",
