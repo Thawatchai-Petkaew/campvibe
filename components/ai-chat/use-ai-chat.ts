@@ -59,7 +59,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { aiChatAPI, bookingAPI } from "@/lib/api-client";
+import { aiChatAPI, bookingAPI, campSiteAvailabilityAPI } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { currentStep, type BookingFlowInput, type BookingStepId } from "@/components/ai-chat/booking-flow";
 import {
@@ -70,11 +70,13 @@ import {
   resolveBookingSubmitSuccess,
   resolveSpotSelection,
   resolveSpotStep,
+  resolveSummaryCheck,
   startBookingSubmit,
   startBookingTurn,
   submitBookingWrite,
   type BookingSession,
   type BookingTurnResult,
+  type RemainingCapacityFetchOutcome,
   type SpotFetchOutcome,
 } from "@/components/ai-chat/booking-turn";
 import { addOneDayIso, formatDateEcho, formatGuestsEcho, formatNightsEcho, formatSpotEcho, type BookingCampContext } from "@/components/ai-chat/booking-view";
@@ -109,6 +111,19 @@ async function fetchSpotsForFlow(campId: string, guests: number): Promise<SpotFe
     .map((s) => ({ id: s.id, name: s.name, pricePerNight: s.pricePerNight }))
     .sort((a, b) => a.pricePerNight - b.pricePerNight);
   return { ok: true, candidates };
+}
+
+/**
+ * CAM-647 — the `resolveSummaryCheck` injection point: the ONE
+ * GET remaining-capacity call for the chosen span, right before a summary
+ * ever renders. `ok:false` covers BOTH a network/HTTP failure and an
+ * off-contract body — `resolveSummaryCheck` treats either the same way
+ * (E3, never a silent "assume it's fine").
+ */
+async function checkRemainingCapacityForFlow(campId: string, startDate: string, endDate: string): Promise<RemainingCapacityFetchOutcome> {
+  const result = await campSiteAvailabilityAPI.getRemainingCapacity(campId, startDate, endDate);
+  if (!result.data) return { ok: false };
+  return { ok: true, remaining: result.data.remaining, blockedByHost: result.data.blockedByHost };
 }
 
 export interface UseAiChatResult {
@@ -220,13 +235,55 @@ export function useAiChat(): UseAiChatResult {
   );
 
   /**
+   * CAM-647 — runs the ONE live pre-summary re-check once the flow reaches
+   * `summary` (an interim checking block, tagged `guests` for a whole-camp
+   * flow or `spot` for a per-pitch one, is already on screen — see
+   * `booking-turn.ts`'s `withChecking` call sites). `runSummaryCheckRef`
+   * exists for the SAME reason `handleSpotSelectionRef` does (below): the
+   * `checkFailed` block's own retry must call the LATEST version of this
+   * function without a genuine TDZ self-reference inside its own
+   * initializer.
+   */
+  const runSummaryCheckRef = useRef<(checkEntries: ChatEntry[], booking: BookingSession) => Promise<void>>(async () => {});
+
+  const runSummaryCheck = useCallback(
+    async (checkEntries: ChatEntry[], booking: BookingSession) => {
+      const originStep: "guests" | "spot" = booking.camp.useSpotView ? "spot" : "guests";
+      const checked = await resolveSummaryCheck(checkEntries, booking, checkRemainingCapacityForFlow, t, language, new Date(), authed);
+      // The flow may have moved on (cancelled, or a faster follow-up turn)
+      // while the check was in flight — discard a now-orphaned result
+      // rather than resurrect a stale/cancelled flow (code.md CAM-359 guard).
+      if (!bookingRef.current || bookingRef.current.camp.campId !== booking.camp.campId) return;
+      if (checked.retryNeeded) {
+        const view: BookingCheckFailedView = {
+          kind: "checkFailed",
+          onRetry: () => {
+            void runSummaryCheckRef.current(checkEntries, booking);
+          },
+        };
+        bookingRef.current = checked.booking;
+        setEntries(appendBookingEntry(checked.entries, originStep, view));
+        return;
+      }
+      bookingRef.current = checked.booking;
+      setEntries(checked.entries);
+    },
+    [t, language, authed]
+  );
+  useEffect(() => {
+    runSummaryCheckRef.current = runSummaryCheck;
+  }, [runSummaryCheck]);
+
+  /**
    * CAM-700 — applies a synchronous `booking-turn.ts` result, THEN checks
    * whether it just landed on `spot` with no candidates cached yet (a fresh
    * `guests` → `spot` transition); if so, runs `resolveSpotStep` (the /spots
-   * fetch + guest filter) and applies ITS result on top. Every existing
-   * date/nights/guests/back/cancel call site routes through this so a future
-   * step insertion never needs its own bespoke "did I just enter `spot`"
-   * check — the guard here is a no-op whenever it doesn't apply.
+   * fetch + guest filter) and applies ITS result on top. CAM-647: the SAME
+   * check also covers landing on `summary` (the live pre-summary re-check —
+   * `runSummaryCheck`, above). Every existing date/nights/guests/back/cancel
+   * call site routes through this so a future step insertion never needs its
+   * own bespoke "did I just enter `spot`/`summary`" check — the guard here
+   * is a no-op whenever it doesn't apply.
    */
   const settleBookingTurn = useCallback(
     async (result: BookingTurnResult) => {
@@ -234,6 +291,10 @@ export function useAiChat(): UseAiChatResult {
       setEntries(result.entries);
       if (!result.booking) return;
       const step = currentStep(result.booking.state.slots, result.booking.camp.useSpotView);
+      if (step.id === "summary") {
+        await runSummaryCheck(result.entries, result.booking);
+        return;
+      }
       if (step.id !== "spot" || (result.booking.spotCandidates ?? null) !== null) return;
       const resolved = await resolveSpotStep(result.entries, result.booking, fetchSpotsForFlow, t, language, new Date());
       // The flow may have moved on (cancelled, or a faster follow-up turn)
@@ -243,7 +304,7 @@ export function useAiChat(): UseAiChatResult {
       bookingRef.current = resolved.booking;
       setEntries(resolved.entries);
     },
-    [t, language]
+    [t, language, runSummaryCheck]
   );
 
   /**
@@ -291,10 +352,14 @@ export function useAiChat(): UseAiChatResult {
         setEntries(appendBookingEntry(outcome.entries, "spot", view));
         return;
       }
-      bookingRef.current = outcome.booking;
-      setEntries(outcome.entries);
+      // CAM-647 — a freed pitch now lands on the interim summary-checking
+      // state (`booking-turn.ts`'s own "Free — commit for real" branch),
+      // so this routes through `settleBookingTurn` exactly like every other
+      // booking turn — it applies the result AND notices the flow just
+      // reached `summary`, running the live pre-summary re-check.
+      await settleBookingTurn({ entries: outcome.entries, booking: outcome.booking });
     },
-    [entries, t, language]
+    [entries, t, language, settleBookingTurn]
   );
   useEffect(() => {
     handleSpotSelectionRef.current = handleSpotSelection;

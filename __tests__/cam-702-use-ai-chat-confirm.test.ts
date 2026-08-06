@@ -103,12 +103,30 @@ describe("!authed guards onBookingConfirm before it ever reaches the network", (
 });
 
 describe("authed is threaded into processBookingTurn so a whole-camp summary can offer the real confirm", () => {
+  // CAM-647 SUPERSEDES (2026-08-06) — the original assertion counted ANY
+  // `new Date(), authed)` shape file-wide, which coincidentally also matched
+  // the new `resolveSummaryCheck(...)` call this story adds (a genuinely
+  // separate authed-gated call, unrelated to this invariant). Scoped here to
+  // each `processBookingTurn(` call's OWN argument list instead, so the
+  // guarantee this test protects — every processBookingTurn call site passes
+  // authed — stays precise regardless of what else the file calls.
   it("[unit] every processBookingTurn( call site inside use-ai-chat.ts passes authed as the trailing arg", () => {
     const calls = useAiChatSrc.split("processBookingTurn(").length - 1;
-    const authedTrailingCalls = (useAiChatSrc.match(/new Date\(\),\s*\n?\s*authed\s*\)/g) ?? []).length;
     // sendMessage's single-line call + onBookingChipSelect's 3 multi-line calls = 4 total.
     expect(calls).toBe(4);
-    expect(authedTrailingCalls).toBe(4);
+
+    let searchFrom = 0;
+    let scopedAuthedCalls = 0;
+    for (let i = 0; i < calls; i++) {
+      const start = useAiChatSrc.indexOf("processBookingTurn(", searchFrom);
+      expect(start).toBeGreaterThan(-1);
+      const end = useAiChatSrc.indexOf(");", start);
+      expect(end).toBeGreaterThan(start);
+      const callArgs = useAiChatSrc.slice(start, end);
+      if (/new Date\(\),\s*\n?\s*authed\s*$/.test(callArgs)) scopedAuthedCalls++;
+      searchFrom = end;
+    }
+    expect(scopedAuthedCalls).toBe(4);
   });
 });
 

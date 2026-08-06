@@ -57,6 +57,7 @@
  */
 "use client";
 
+import { useEffect, useRef, type RefObject } from "react";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -118,6 +119,8 @@ export interface BookingQuestionView {
   controls: readonly BookingControlSpec[];
   /** CAM-700 — per-camp step total for the caption (`resolveBookingSteps(useSpotView).length`). Optional so every view literal written before this story keeps compiling + rendering unchanged (default `false` = whole-camp, byte-identical to the old `BOOKING_STEPS.length`). */
   useSpotView?: boolean;
+  /** CAM-647 (design brief round1 §7 / round2 §10 focus table) — whether THIS newly-mounted block should move focus to its own caption. `true`/absent = every trigger except one; `false` = this block was built from a TYPED answer, so focus stays in the composer (the caret never leaves it). Set by `booking-turn.ts`, never guessed here. */
+  focusCaption?: boolean;
 }
 
 /** CAM-701 (design brief §0, §5) — the pre-confirm escape: `buildSummaryView` still produces this today (it has no session param to compute a real confirm label from). Also the interim shape a per-spot summary renders (this story's own scope note — see `AiChatBookingStep.tsx`'s file header). */
@@ -223,9 +226,30 @@ export function AiChatBookingStep({
 }: AiChatBookingStepProps) {
   const { t, language } = useLanguage();
 
+  // CAM-647 (design brief round1 §7 / round2 §10) — step-transition focus
+  // management. Every distinct booking entry mounts its OWN
+  // `AiChatBookingStep` instance exactly once (`AiChatMessageList` keys the
+  // row on `entry.id`; a SUPERSEDED entry re-renders in place — same id,
+  // same instance — it never remounts, per `appendBookingEntry`'s own
+  // same-id supersede), so a plain empty-deps effect that runs once on
+  // mount is exactly "this block just became the newest one". One ref +
+  // one effect covers every view kind below, since exactly one branch ever
+  // renders per instance. The ONE exception: a `question` view built from a
+  // TYPED answer (`focusCaption === false`, set by `booking-turn.ts`) keeps
+  // the caret in the composer — nothing here moves focus for it.
+  const focusTargetRef = useRef<HTMLElement>(null);
+  const shouldFocusOnMount = view.kind !== "question" || view.focusCaption !== false;
+  useEffect(() => {
+    if (shouldFocusOnMount) focusTargetRef.current?.focus();
+    // Mount-only, by design — see the comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (view.kind === "checkFailed") {
     // Same shape as AiChatMessageList.tsx:454-467 — no new pattern, no new
-    // copy for the retry button (design brief §5 E3).
+    // copy for the retry button (design brief §5 E3). Focus: "the ลองใหม่
+    // button — the row that had focus is gone and retry is the only next
+    // action" (design brief round1 §7).
     return (
       <div className="flex w-full flex-col gap-2">
         <ErrorBanner
@@ -233,7 +257,14 @@ export function AiChatBookingStep({
           className="rounded-2xl"
           data-testid="error--ai-chat-booking-check-failed"
         />
-        <Button type="button" variant="outline" size="sm" data-testid="btn--ai-chat-retry" onClick={view.onRetry}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          ref={focusTargetRef as RefObject<HTMLButtonElement | null>}
+          data-testid="btn--ai-chat-retry"
+          onClick={view.onRetry}
+        >
           {t.aiChat.retry}
         </Button>
       </div>
@@ -259,7 +290,7 @@ export function AiChatBookingStep({
     const introText = view.cta.kind === "confirm" ? t.aiChat.booking.summary.introConfirm : t.aiChat.booking.summary.intro;
     return (
       <div role="group" aria-label={t.aiChat.booking.groupLabel} data-testid="msg--ai-chat-booking-step" data-step={step} className="space-y-3">
-        <StepCaption step={step} isCurrent={view.isCurrent} useSpotView={view.useSpotView ?? false} />
+        <StepCaption ref={focusTargetRef as RefObject<HTMLParagraphElement | null>} step={step} isCurrent={view.isCurrent} useSpotView={view.useSpotView ?? false} />
         <p className="text-sm leading-relaxed text-foreground">{introText}</p>
 
         <div
@@ -323,11 +354,12 @@ export function AiChatBookingStep({
           <SummaryCardRows rows={view} totalLabel={t.aiChat.booking.summary.totalRow} note={t.aiChat.booking.summary.estimateNote} />
         </div>
 
-        {/* CAM-701 (design brief §6 Critical) — aria-disabled, NEVER `disabled`: this is the element that has focus at the instant of the tap, and `disabled` would drop focus to <body>, stranding a keyboard camper with nothing to read the status line from. No onClick — a second tap is a silent no-op, satisfying "an onClick guard keeps the focus... and still refuses the second press". */}
+        {/* CAM-701 (design brief §6 Critical) — aria-disabled, NEVER `disabled`: this is the element that has focus at the instant of the tap, and `disabled` would drop focus to <body>, stranding a keyboard camper with nothing to read the status line from. No onClick — a second tap is a silent no-op, satisfying "an onClick guard keeps the focus... and still refuses the second press". CAM-647: this block is a FRESH mount (a new entry superseding the summary's), so it re-focuses itself explicitly — "stays on the button" (design brief round2 §10) is not automatic across a remount. */}
         <Button
           type="button"
           size="lg"
           className="w-full"
+          ref={focusTargetRef as RefObject<HTMLButtonElement | null>}
           data-testid="btn--ai-chat-booking-confirm"
           data-auth="member"
           aria-disabled="true"
@@ -355,7 +387,12 @@ export function AiChatBookingStep({
   if (view.kind === "booked") {
     return (
       <div className="space-y-3">
-        <h3 tabIndex={-1} data-testid="text--ai-chat-booking-success-title" className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <h3
+          ref={focusTargetRef as RefObject<HTMLHeadingElement | null>}
+          tabIndex={-1}
+          data-testid="text--ai-chat-booking-success-title"
+          className="flex items-center gap-2 text-sm font-medium text-foreground"
+        >
           <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden="true" />
           {t.aiChat.booking.success.title}
         </h3>
@@ -394,7 +431,7 @@ export function AiChatBookingStep({
           : t.aiChat.booking.sessionExpired;
     return (
       <div role="group" aria-label={t.aiChat.booking.groupLabel} data-testid="msg--ai-chat-booking-step" data-step={step} className="space-y-3">
-        <div tabIndex={-1} data-testid="error--ai-chat-booking-failed" data-reason={view.reason}>
+        <div ref={focusTargetRef as RefObject<HTMLDivElement | null>} tabIndex={-1} data-testid="error--ai-chat-booking-failed" data-reason={view.reason}>
           <ErrorBanner message={message} className="rounded-2xl" />
         </div>
 
@@ -456,7 +493,7 @@ export function AiChatBookingStep({
 
   return (
     <div role="group" aria-label={t.aiChat.booking.groupLabel} data-testid="msg--ai-chat-booking-step" data-step={step} className="space-y-3">
-      <StepCaption step={step} isCurrent={view.isCurrent} useSpotView={view.useSpotView ?? false} />
+      <StepCaption ref={focusTargetRef as RefObject<HTMLParagraphElement | null>} step={step} isCurrent={view.isCurrent} useSpotView={view.useSpotView ?? false} />
       <p
         className="text-sm leading-relaxed text-foreground"
         data-testid={isEmpty ? (step === "spot" ? "empty--ai-chat-booking-no-spots" : "empty--ai-chat-booking-no-dates") : undefined}
@@ -495,7 +532,18 @@ export function AiChatBookingStep({
 // Internal pieces
 // ---------------------------------------------------------------------------
 
-function StepCaption({ step, isCurrent, useSpotView }: { step: BookingStepId; isCurrent: boolean; useSpotView: boolean }) {
+function StepCaption({
+  step,
+  isCurrent,
+  useSpotView,
+  ref,
+}: {
+  step: BookingStepId;
+  isCurrent: boolean;
+  useSpotView: boolean;
+  /** CAM-647 — React 19 accepts `ref` as a plain prop on a function component (no `forwardRef`); the caller attaches the shared focus-target ref here. */
+  ref?: RefObject<HTMLParagraphElement | null>;
+}) {
   const { t } = useLanguage();
   // CAM-700 — `{total}` now reads the step list RESOLVED FOR THIS CAMP
   // (`resolveBookingSteps(useSpotView)`), never the static whole-camp
@@ -507,6 +555,7 @@ function StepCaption({ step, isCurrent, useSpotView }: { step: BookingStepId; is
   const stepName = t.aiChat.booking.stepName[step];
   return (
     <p
+      ref={ref}
       data-testid="text--ai-chat-booking-step-caption"
       data-step={step}
       aria-current={isCurrent ? "step" : undefined}

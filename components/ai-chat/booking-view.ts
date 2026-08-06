@@ -370,6 +370,21 @@ export function buildSpotQuestionView({ t, useSpotView, reason, candidates, occu
   };
 }
 
+/**
+ * CAM-647 (design brief CAM-637 §2/§4 "the row goes disabled and a status
+ * line appears below it") — the interim treatment shared by the
+ * `guests`->`summary` (whole-camp) and `spot`->`summary` (per-pitch)
+ * transitions: the SAME question view already computed, just flagged
+ * `isChecking` so `AiChatBookingStep` disables its chips and renders the
+ * `status--ai-chat-booking-checking` line beneath them. `booking-turn.ts`
+ * appends this in place of building `summary` directly; `use-ai-chat.ts`
+ * then runs the live re-check and replaces it with the real summary / the
+ * E1 rewind / E3 `checkFailed`.
+ */
+export function withChecking(view: BookingQuestionView): BookingQuestionView {
+  return { ...view, isChecking: true };
+}
+
 export interface SummaryParams {
   /** Requires `checkIn`/`checkOut`/`nights`/`guests` all set — only ever called once `currentStep` derives to `summary`. */
   slots: BookingSlots;

@@ -20,6 +20,14 @@
  *     `use-ai-chat.ts` does.
  *
  * No React, no network — same discipline as cam-633/634/640.
+ *
+ * CAM-647 SUPERSEDES (2026-08-06) — the three "done_when" end-to-end tests
+ * below no longer reach `summary` synchronously from the final guests chip
+ * (the live pre-summary re-check is now the ONE async transition into
+ * `summary`, ADR-016 decision point 5). Each is updated in place: the
+ * guests chip lands on the interim checking state first, then
+ * `resolveSummaryCheck` (a fake `checkCapacity` resolving `ok:true`) reaches
+ * the SAME real summary the original assertions checked.
  */
 import { describe, expect, it } from 'vitest';
 import { getTranslations } from '@/locales/translations';
@@ -41,8 +49,20 @@ import {
   MAX_BOOKING_NIGHT_CHIPS,
   type BookingCampContext,
 } from '@/components/ai-chat/booking-view';
-import { processBookingTurn, startBookingTurn, type BookingSession } from '@/components/ai-chat/booking-turn';
+import {
+  processBookingTurn,
+  resolveSummaryCheck,
+  startBookingTurn,
+  type BookingSession,
+  type RemainingCapacityFetchOutcome,
+} from '@/components/ai-chat/booking-turn';
 import type { ChatEntry } from '@/components/ai-chat/conversation';
+
+const okCheck: (campId: string, startDate: string, endDate: string) => Promise<RemainingCapacityFetchOutcome> = async () => ({
+  ok: true,
+  remaining: 5,
+  blockedByHost: false,
+});
 
 const t = getTranslations('th');
 const TODAY = new Date('2026-07-22T10:00:00Z'); // Bangkok Wednesday — same fixture cam-633/640 already use
@@ -301,7 +321,7 @@ describe('buildNightsQuestionView', () => {
 // ---------------------------------------------------------------------------
 
 describe('CAM-699 done_when — the chip path: date chip -> nights chip "2" -> guests chip "2"', () => {
-  it('[normal] a PER_SITE ฿500 camp shows "พัก 2 คืน" and ฿1,000 — the handoff prefill URL carries the REAL checkOut', () => {
+  it('[normal][CAM-647] a PER_SITE ฿500 camp shows "พัก 2 คืน" and ฿1,000 — the handoff prefill URL carries the REAL checkOut', async () => {
     const start = startBookingTurn([], CAMP, t, 'th');
     const dateStep = processBookingTurn(
       start.entries,
@@ -318,7 +338,11 @@ describe('CAM-699 done_when — the chip path: date chip -> nights chip "2" -> g
     expect(bookingEntries(nightsStep.entries).at(-1)).toMatchObject({ step: 'guests' });
     expect(nightsStep.booking?.state.slots).toEqual({ checkIn: '2026-08-01', checkOut: '2026-08-03', nights: 2 });
 
-    const result = processBookingTurn(nightsStep.entries, nightsStep.booking!, { kind: 'chip', slots: { guests: 2 } }, '2 คน', t, 'th', TODAY);
+    const guestsStep = processBookingTurn(nightsStep.entries, nightsStep.booking!, { kind: 'chip', slots: { guests: 2 } }, '2 คน', t, 'th', TODAY);
+    // CAM-647 — the guests chip lands on the interim checking state; the
+    // real summary only renders once the live re-check clears.
+    expect(bookingEntries(guestsStep.entries).at(-1)).toMatchObject({ step: 'guests' });
+    const result = await resolveSummaryCheck(guestsStep.entries, guestsStep.booking!, okCheck, t, 'th', TODAY, false);
     const summaryEntry = bookingEntries(result.entries).at(-1);
     expect(summaryEntry).toMatchObject({ step: 'summary' });
     if (!summaryEntry || !('view' in summaryEntry) || summaryEntry.view.kind !== 'summary') {
@@ -339,14 +363,15 @@ describe('CAM-699 done_when — the chip path: date chip -> nights chip "2" -> g
 });
 
 describe('CAM-699 done_when — RED-FIRST: a typed multi-night range must price for the REAL span, not the old hardcoded 1', () => {
-  it('[normal][regression] typed "สุดสัปดาห์นี้" -> nights pre-filled -> guests chip "2" -> summary shows "พัก 2 คืน" and the REAL 2-night total (was a hardcoded 1-night ฿500 total before CAM-699)', () => {
+  it('[normal][regression][CAM-647] typed "สุดสัปดาห์นี้" -> nights pre-filled -> guests chip "2" -> summary shows "พัก 2 คืน" and the REAL 2-night total (was a hardcoded 1-night ฿500 total before CAM-699)', async () => {
     const start = startBookingTurn([], CAMP, t, 'th');
     const dateStep = processBookingTurn(start.entries, start.booking!, { kind: 'text', text: 'สุดสัปดาห์นี้' }, 'สุดสัปดาห์นี้', t, 'th', TODAY);
     // Pre-filled — the flow goes STRAIGHT to `guests`, never asking `nights` again.
     expect(bookingEntries(dateStep.entries).at(-1)).toMatchObject({ step: 'guests' });
     expect(dateStep.booking?.state.slots).toEqual({ checkIn: '2026-07-25', checkOut: '2026-07-27', nights: 2 });
 
-    const result = processBookingTurn(dateStep.entries, dateStep.booking!, { kind: 'chip', slots: { guests: 2 } }, '2 คน', t, 'th', TODAY);
+    const guestsStep = processBookingTurn(dateStep.entries, dateStep.booking!, { kind: 'chip', slots: { guests: 2 } }, '2 คน', t, 'th', TODAY);
+    const result = await resolveSummaryCheck(guestsStep.entries, guestsStep.booking!, okCheck, t, 'th', TODAY, false);
     const summaryEntry = bookingEntries(result.entries).at(-1);
     expect(summaryEntry).toMatchObject({ step: 'summary' });
     if (!summaryEntry || !('view' in summaryEntry) || summaryEntry.view.kind !== 'summary') {
@@ -360,7 +385,7 @@ describe('CAM-699 done_when — RED-FIRST: a typed multi-night range must price 
 });
 
 describe('CAM-699 done_when — typed "3" at the nights step works end to end', () => {
-  it('[normal] date chip -> typed "3" -> guests chip "1" prices 3 nights', () => {
+  it('[normal][CAM-647] date chip -> typed "3" -> guests chip "1" prices 3 nights', async () => {
     const start = startBookingTurn([], CAMP, t, 'th');
     const dateStep = processBookingTurn(
       start.entries,
@@ -374,7 +399,8 @@ describe('CAM-699 done_when — typed "3" at the nights step works end to end', 
     const nightsStep = processBookingTurn(dateStep.entries, dateStep.booking!, { kind: 'text', text: '3' }, '3', t, 'th', TODAY);
     expect(nightsStep.booking?.state.slots).toEqual({ checkIn: '2026-08-01', checkOut: '2026-08-04', nights: 3 });
 
-    const result = processBookingTurn(nightsStep.entries, nightsStep.booking!, { kind: 'chip', slots: { guests: 1 } }, '1 คน', t, 'th', TODAY);
+    const guestsStep = processBookingTurn(nightsStep.entries, nightsStep.booking!, { kind: 'chip', slots: { guests: 1 } }, '1 คน', t, 'th', TODAY);
+    const result = await resolveSummaryCheck(guestsStep.entries, guestsStep.booking!, okCheck, t, 'th', TODAY, false);
     const summaryEntry = bookingEntries(result.entries).at(-1) as (ChatEntry & { view: { kind: string } }) | undefined;
     expect(summaryEntry).toMatchObject({ step: 'summary' });
     if (!summaryEntry || summaryEntry.view.kind !== 'summary') throw new Error('expected a summary view');
