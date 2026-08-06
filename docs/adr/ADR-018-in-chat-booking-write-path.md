@@ -145,11 +145,11 @@ The obvious shape, and the one ADR-016 §Alternatives (b) and the conversation-t
 - **R5 — this round inherits CAM-705.** Reusing the existing write gate means reusing its missing visibility predicate (`route.ts:131`): a hidden or soft-deleted camp is bookable by uuid today. The chat cannot reach such a camp through its own read tools, so this round does not *widen* the hole — but the sentence *"we reused the hardened path"* only becomes true once CAM-705 lands. It should land in or alongside this round.
 - **R6 — ADR-016's RISK-1 and RISK-2 are still open.** Hosts now do receive an email on a new booking (CAM-685), but it is **off until the owner enables it** (domain + PDPA pending). A `PENDING` booking with no payment and no host acceptance remains a promise the platform cannot enforce; epic CAM-289 still owns it. Making booking easier in chat increases the volume flowing into that gap. This ADR does not close it and does not claim to.
 
-**Open trade-offs for the G2 tap** (none of these blocks the build starting; all of them need to be *seen*)
+**Open trade-offs — all three DECIDED 2026-08-06** by the orchestrator under the owner's standing G1–G4 grant. Kept here as a record of what was weighed, not as questions still open.
 
-1. The reconcile window is written here as **~2 minutes**, a deliberate tightening of the planning session's "~10 minutes" (D6, reasoning stated). Confirm, or restore the original.
-2. **R2's letter-vs-purpose reading of the CAM-642 constraint.** Accepting D1 means accepting that `source` integrity rests on a schema comment plus this ADR's tripwire, not on a server-side assignment.
-3. **R5 sequencing:** whether CAM-705 *blocks* CAM-702 or merely accompanies it.
+1. **Reconcile window — DECIDED 2026-08-06: the tightening is ACCEPTED.** ~2 minutes, `PENDING` filter, `spotId` in the match tuple, exactly as written in D6. The reasoning stands: the uncertainty being resolved is *"did the POST I just fired commit"*, which is a matter of seconds, and the plan's ~10 minutes only raised the false-match rate without buying coverage. The plan's "~10 minutes" is superseded by this record.
+2. **R2 — DECIDED 2026-08-06: ACCEPTED AS RECORDED, with the tripwire kept.** The client-side `source:'CHAT'` constant stands. Three facts decided it: `Booking.source` is attribution-only and pinned so by ADR-017; the camp page already ships the **identical** client-side constant at `components/CampgroundDetailClient.tsx:632`, so the chat facade introduces **no new trust** — it inherits an existing posture rather than creating one; and the CAM-642 constraint's *spirit* — the model never chooses the value — is fully honoured, because the facade is deterministic code the model cannot reach. **The tripwire is retained and is binding: the day any code reads `source` for a decision, BOTH call sites move server-side in the same change.**
+3. **R5 — DECIDED 2026-08-06: CAM-705 does NOT block CAM-702.** The chat only ever offers camps that arrived through search, which serves published camps, so the chat path cannot reach a hidden camp. The visibility hole predates this round and is reachable today by anyone with a uuid and `curl` — this round neither widens it nor depends on it. CAM-705 proceeds independently on its own ticket. The wording in R5 below ("should land in or alongside this round") is a preference, not a dependency.
 
 ## Confirmation
 
@@ -163,7 +163,7 @@ There is no single CI check that proves this decision, because most of it is the
 - CAM-702's localhost AC verify: the Booking row's `snapshotTotalAmount` equals the success card's total exactly — D8.
 - `grep -n "nights: 1" components/ai-chat/booking-view.ts` returns nothing after CAM-699 — D8.
 
-**Known gap in this PR, reported rather than fixed:** `docs/adr/ADR-000-index.md` has no row for **ADR-017** or **ADR-018**. CAM-631's own AC-5 made the index row part of an ADR story, and it was already missed once. The index is outside this dispatch's stated file surface, so it is reported here (and in the handoff) instead of edited.
+- `docs/adr/ADR-000-index.md` carries a row for every ADR-001..018 with no gap. Found missing for **both ADR-017 and ADR-018** while writing this record — CAM-631's own AC-5 made the index row part of an ADR story, and it had already been missed once. Fixed in this PR after the dispatch surface was extended for it (2026-08-06); ADR-017's row records its real state, `PROPOSED`, not `Accepted`.
 
 ## Links
 
