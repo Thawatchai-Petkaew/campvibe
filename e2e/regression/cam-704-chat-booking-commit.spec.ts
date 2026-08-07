@@ -270,6 +270,17 @@ test.describe("CAM-704 — guest gate: a guest's confirm tap opens LoginModal, n
     const page = await guestContext.newPage();
     await page.addInitScript(() => window.localStorage.setItem("campvibe_lang", "th"));
 
+    // Diagnostic capture (kept, not temporary) — CAM-704 caught a real
+    // integration gap on this exact path once (a red e2e is a defect report
+    // until root-caused, ops.md); this is the fastest way to see WHY if it
+    // ever regresses, without a local Playwright run.
+    const pageErrors: string[] = [];
+    const consoleErrors: string[] = [];
+    page.on("pageerror", (err) => pageErrors.push(String(err?.stack ?? err)));
+    page.on("console", (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text());
+    });
+
     await routeAssistant(page, camp.id, checkIn, false);
     await driveToSummary(page, checkIn);
 
@@ -289,9 +300,21 @@ test.describe("CAM-704 — guest gate: a guest's confirm tap opens LoginModal, n
     // the booking-confirm reason, not just any dialog), and a real login
     // control from LoginModal itself is present (unambiguous — the chat
     // panel's own dialog tree never carries this copy or this control).
-    const loginDialog = page.getByRole("dialog").filter({ hasText: "เข้าสู่ระบบก่อน จะได้จองให้เสร็จในแชทนี้เลย" });
-    await expect(loginDialog).toBeVisible({ timeout: 10_000 });
-    await expect(loginDialog.getByTestId("btn--login-google")).toBeVisible();
+    try {
+      const loginDialog = page.getByRole("dialog").filter({ hasText: "เข้าสู่ระบบก่อน จะได้จองให้เสร็จในแชทนี้เลย" });
+      await expect(loginDialog).toBeVisible({ timeout: 10_000 });
+      await expect(loginDialog.getByTestId("btn--login-google")).toBeVisible();
+    } catch (e) {
+      // Diagnostic dump — read via `gh run view --log` / the uploaded
+      // playwright-report artifact when this fails; never guess (qa.md).
+      const resumeKey = await page.evaluate(() => window.sessionStorage.getItem("ai-chat-booking-resume")).catch(() => "<eval failed>");
+      const dialogCount = await page.getByRole("dialog").count().catch(() => -1);
+      console.log("CAM-704 guest-gate diagnostic :: pageerrors =", JSON.stringify(pageErrors));
+      console.log("CAM-704 guest-gate diagnostic :: console errors =", JSON.stringify(consoleErrors));
+      console.log("CAM-704 guest-gate diagnostic :: sessionStorage[ai-chat-booking-resume] =", resumeKey);
+      console.log("CAM-704 guest-gate diagnostic :: role=dialog count on page =", dialogCount);
+      throw e;
+    }
 
     // System result — no booking was written for this guest tap.
     const listRes = await request.get("/api/bookings");
