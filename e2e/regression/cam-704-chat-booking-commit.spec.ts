@@ -273,12 +273,26 @@ test.describe("CAM-704 — guest gate: a guest's confirm tap opens LoginModal, n
     // Diagnostic capture (kept, not temporary) — CAM-704 caught a real
     // integration gap on this exact path once (a red e2e is a defect report
     // until root-caused, ops.md); this is the fastest way to see WHY if it
-    // ever regresses, without a local Playwright run.
+    // ever regresses, without a local Playwright run. Round 2 (2026-08-07):
+    // round 1's console-text capture proved the three 429s were
+    // `/api/vitals` (web-vitals telemetry, fire-and-forget via
+    // `navigator.sendBeacon` — never surfaces a status to app code, so it
+    // cannot itself break anything) — a red herring, not the real cause.
+    // This round captures every failed RESPONSE with its URL (not just the
+    // text) plus every navigation, to find what actually removed the panel.
     const pageErrors: string[] = [];
     const consoleErrors: string[] = [];
+    const failedResponses: string[] = [];
+    const navigations: string[] = [];
     page.on("pageerror", (err) => pageErrors.push(String(err?.stack ?? err)));
     page.on("console", (msg) => {
       if (msg.type() === "error") consoleErrors.push(msg.text());
+    });
+    page.on("response", (res) => {
+      if (res.status() >= 400) failedResponses.push(`${res.status()} ${res.url()}`);
+    });
+    page.on("framenavigated", (frame) => {
+      if (frame === page.mainFrame()) navigations.push(frame.url());
     });
 
     await routeAssistant(page, camp.id, checkIn, false);
@@ -296,6 +310,12 @@ test.describe("CAM-704 — guest gate: a guest's confirm tap opens LoginModal, n
     // the flow and signals the caller to open LoginModal instead.
     await confirmButton.click();
 
+    // Round 2 diagnostic — a snapshot taken IMMEDIATELY after the click
+    // (before any waitFor polling), so a later 0-dialog reading can be
+    // compared against what existed right after the tap.
+    const dialogCountImmediatelyAfterClick = await page.getByRole("dialog").count().catch(() => -1);
+    const urlImmediatelyAfterClick = page.url();
+
     // Assert — LoginModal opens, subtitle verbatim (proves it is genuinely
     // the booking-confirm reason, not just any dialog), and a real login
     // control from LoginModal itself is present (unambiguous — the chat
@@ -311,8 +331,11 @@ test.describe("CAM-704 — guest gate: a guest's confirm tap opens LoginModal, n
       const dialogCount = await page.getByRole("dialog").count().catch(() => -1);
       console.log("CAM-704 guest-gate diagnostic :: pageerrors =", JSON.stringify(pageErrors));
       console.log("CAM-704 guest-gate diagnostic :: console errors =", JSON.stringify(consoleErrors));
+      console.log("CAM-704 guest-gate diagnostic :: failed responses (status>=400, with URL) =", JSON.stringify(failedResponses));
+      console.log("CAM-704 guest-gate diagnostic :: main-frame navigations =", JSON.stringify(navigations));
       console.log("CAM-704 guest-gate diagnostic :: sessionStorage[ai-chat-booking-resume] =", resumeKey);
-      console.log("CAM-704 guest-gate diagnostic :: role=dialog count on page =", dialogCount);
+      console.log("CAM-704 guest-gate diagnostic :: role=dialog count immediately after click =", dialogCountImmediatelyAfterClick, "at url", urlImmediatelyAfterClick);
+      console.log("CAM-704 guest-gate diagnostic :: role=dialog count at failure (after 10s wait) =", dialogCount, "at url", page.url());
       throw e;
     }
 
