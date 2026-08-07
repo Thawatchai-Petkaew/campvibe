@@ -56,7 +56,7 @@ const jsonSchema = {
     text: {
       type: 'string',
       description:
-        'The camper\'s Thai relative or holiday date phrase, verbatim (for example "พรุ่งนี้", "เสาร์อาทิตย์นี้", "วันหยุดยาวหน้า").',
+        'The camper\'s Thai date phrase, verbatim — relative (for example "พรุ่งนี้", "เสาร์อาทิตย์นี้"), holiday ("วันหยุดยาวหน้า"), or an explicit absolute date ("15 ส.ค.", "วันที่ 15 สิงหาคม 2569", "15/8").',
     },
   },
   required: ['text'],
@@ -91,7 +91,7 @@ async function executeResolveDates(args: ResolveDatesArgs): Promise<ResolveDates
 export const resolveDatesTool: ToolDefinition<ResolveDatesArgs, ResolveDatesResult> = {
   name: 'resolveDates',
   description:
-    'Deterministically resolve a Thai relative or holiday date phrase (e.g. "พรุ่งนี้", "เสาร์อาทิตย์นี้", "วันหยุดยาวหน้า") into exact ISO date range(s). Call this instead of computing dates yourself; on ok:false, ask the camper to specify the dates instead of guessing.',
+    'Deterministically resolve a Thai relative, holiday, or absolute date phrase (e.g. "พรุ่งนี้", "เสาร์อาทิตย์นี้", "วันหยุดยาวหน้า", "15 ส.ค.") into exact ISO date range(s). Call this instead of computing dates yourself; on ok:false, ask the camper to specify the dates instead of guessing.',
   tier: 'guest',
   parameters: resolveDatesArgsSchema,
   jsonSchema,

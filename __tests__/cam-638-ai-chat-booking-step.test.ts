@@ -101,7 +101,8 @@ describe("date question — AC-1 default/hover/focus states + BR-8 testids", () 
     expect(block.getAttribute("role")).toBe("group");
 
     const caption = screen.getByTestId("text--ai-chat-booking-step-caption");
-    expect(caption.textContent).toContain("Step 1 of 3");
+    // CAM-699 — `nights` inserted into the registry; the total is now 4.
+    expect(caption.textContent).toContain("Step 1 of 4");
     expect(caption.textContent).toContain("Choose a date");
     expect(caption.getAttribute("aria-current")).toBe("step");
     expect(caption.getAttribute("tabIndex")).toBe("-1");
@@ -247,7 +248,16 @@ describe("E1 — the day filled up rewinds to a normal date question (fresh chip
   });
 });
 
-describe("summary — AC-4 the draft card + honest total + non-confirming handoff", () => {
+// CAM-638's original title read "non-confirming handoff": CAM-637 §3 banned
+// ยืนยัน/confirm on this CTA because "nothing has been written". That premise
+// is superseded 2026-08-06 (CAM-697/CAM-701, ADR-018) for the round-2 WRITE
+// surface — see `BookingSummaryView.cta`'s `kind:'confirm'` variant, proven
+// by its own describe block below. The reasoning is NOT deleted: this block
+// still renders the `kind:'handoff'` shape (round-1's non-writing escape,
+// still `buildSummaryView`'s live output today, per `booking-view.ts`), so
+// "never confirm/book now" remains true FOR THIS SHAPE and the assertion is
+// kept, only the view literal's `handoffHref` field is renamed to `cta`.
+describe("summary — AC-4 the draft card + honest total + non-confirming handoff (kind:'handoff', CAM-701 dated note above)", () => {
   it("[normal] renders all 4 rows, the not-charged + estimate captions, and a <Link> handoff (never confirmation copy)", () => {
     const onEditDate = vi.fn();
     const onEditGuests = vi.fn();
@@ -259,13 +269,14 @@ describe("summary — AC-4 the draft card + honest total + non-confirming handof
         datesValue: "Sat, 8 Aug, 1 night",
         guestsValue: "2 people",
         totalValue: "฿500",
-        handoffHref: "/campgrounds/phu-chi-fa?checkIn=2026-08-08&checkOut=2026-08-09&guests=2",
+        cta: { kind: "handoff", href: "/campgrounds/phu-chi-fa?checkIn=2026-08-08&checkOut=2026-08-09&guests=2" },
         controls: [{ kind: "editDate" }, { kind: "editGuests" }, { kind: "cancel" }],
       },
       { onEditDate, onEditGuests }
     );
 
-    expect(screen.getByTestId("text--ai-chat-booking-step-caption").textContent).toContain("Step 3 of 3");
+    // CAM-699 — `summary` is now step 4 of 4 (date, nights, guests, summary).
+    expect(screen.getByTestId("text--ai-chat-booking-step-caption").textContent).toContain("Step 4 of 4");
 
     const rows = screen.getAllByTestId("row--ai-chat-booking-summary-line");
     expect(rows).toHaveLength(4);
@@ -274,8 +285,11 @@ describe("summary — AC-4 the draft card + honest total + non-confirming handof
     expect(rows[3]!.textContent).toBe("Estimated total฿500");
 
     expect(screen.getByText("You won't be charged yet")).toBeTruthy();
+    // CAM-701 (design brief §13.2) — the round-1 estimate note text was
+    // superseded (both halves were factually wrong, see cam-638-booking-
+    // copy.test.ts's own dated note on `summary.estimateNote`).
     expect(
-      screen.getByText("The camp's own fees aren't included here. See the full amount at the booking page.")
+      screen.getByText("This is worked out from the latest information I have. The real amount is confirmed when the booking goes through.")
     ).toBeTruthy();
 
     // Button asChild + Slot clones the anchor itself (no separate wrapper element).

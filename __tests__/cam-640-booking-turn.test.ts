@@ -16,6 +16,14 @@
  *     STRUCTURAL half of "the composer is never disabled during a booking
  *     turn" (the other half — the intercept sitting after the sending guard
  *     in `use-ai-chat.ts` — is proved by cam-640-use-ai-chat-wiring.test.ts).
+ *
+ * CAM-647 SUPERSEDES (2026-08-06) — the "guests chip tap advances straight
+ * to summary" test below no longer holds byte-for-byte: `processBookingTurn`
+ * now renders the interim checking state on `guests` instead of building
+ * `summary` directly (the live pre-summary re-check is the ONE async
+ * transition into `summary`, ADR-016 decision point 5). The test is updated
+ * in place to reach the SAME real summary via `resolveSummaryCheck` (a fake
+ * `checkCapacity` resolving `ok:true`), keeping its original assertions.
  */
 import { readFileSync } from "fs";
 import { resolve } from "path";
@@ -25,8 +33,10 @@ import {
   processBookingCancel,
   processBookingControl,
   processBookingTurn,
+  resolveSummaryCheck,
   startBookingTurn,
   type BookingSession,
+  type RemainingCapacityFetchOutcome,
 } from "@/components/ai-chat/booking-turn";
 import { createInitialBookingFlowState } from "@/components/ai-chat/booking-flow";
 import { formatBookingDate, type BookingCampContext } from "@/components/ai-chat/booking-view";
@@ -44,6 +54,9 @@ const CAMP: BookingCampContext = {
     { date: "2026-08-08", remaining: 0, blockedByHost: false }, // full
   ],
   maxGuestsPerDay: 10,
+  // CAM-700 — this file drives only the whole-camp path; the `spot` step's
+  // own turns are covered in cam-700-*.test.ts.
+  useSpotView: false,
   unitPrice: 500,
   priceUnit: "PER_SITE",
   priceIsFree: false,
@@ -64,7 +77,7 @@ describe("startBookingTurn — starting a flow appends a booking entry", () => {
 });
 
 describe("processBookingTurn — a chip advances", () => {
-  it("[normal] a date chip tap echoes a user bubble then advances to the guests question", () => {
+  it("[normal][CAM-699] a date chip tap echoes a user bubble then advances to the NIGHTS question (nights inserted before guests)", () => {
     const start = startBookingTurn([], CAMP, t, "th");
     const session = start.booking!;
     const result = processBookingTurn(
@@ -79,11 +92,13 @@ describe("processBookingTurn — a chip advances", () => {
     const userEcho = result.entries[result.entries.length - 2];
     expect(userEcho).toMatchObject({ role: "user", text: "ส. 1 ส.ค. เหลือ 6 ที่" });
     const newest = bookingEntries(result.entries).at(-1);
-    expect(newest).toMatchObject({ step: "guests" });
+    expect(newest).toMatchObject({ step: "nights" });
+    // `checkOut` is the date chip's own 1-night PLACEHOLDER — `nights` is
+    // deliberately unset (the camper has not answered the nights step yet).
     expect(result.booking?.state.slots).toEqual({ checkIn: "2026-08-01", checkOut: "2026-08-02" });
   });
 
-  it("[normal] a guests chip tap advances straight to summary once both slots are filled", () => {
+  it("[normal][CAM-699][CAM-647] a guests chip tap lands on the interim checking state first, then the live re-check reaches summary once nights AND guests are filled", async () => {
     const start = startBookingTurn([], CAMP, t, "th");
     const dateStep = processBookingTurn(
       start.entries,
@@ -94,15 +109,31 @@ describe("processBookingTurn — a chip advances", () => {
       "th",
       NOW
     );
-    const result = processBookingTurn(dateStep.entries, dateStep.booking!, { kind: "chip", slots: { guests: 2 } }, "2 คน", t, "th", NOW);
+    const nightsStep = processBookingTurn(dateStep.entries, dateStep.booking!, { kind: "chip", slots: { nights: 2 } }, "2 คืน", t, "th", NOW);
+    const guestsStep = processBookingTurn(nightsStep.entries, nightsStep.booking!, { kind: "chip", slots: { guests: 2 } }, "2 คน", t, "th", NOW);
+    // CAM-647 — the guests chip does NOT reach `summary` synchronously
+    // anymore: it renders the SAME `guests` step, flagged checking, while
+    // `use-ai-chat.ts` runs the live remaining-capacity re-check.
+    const checkingEntry = bookingEntries(guestsStep.entries).at(-1);
+    expect(checkingEntry).toMatchObject({ step: "guests" });
+    expect(checkingEntry && "view" in checkingEntry && checkingEntry.view.kind === "question" ? checkingEntry.view.isChecking : null).toBe(true);
+    expect(guestsStep.booking?.state.slots).toEqual({ checkIn: "2026-08-01", checkOut: "2026-08-03", nights: 2, guests: 2 });
+
+    const okCheck: (campId: string, startDate: string, endDate: string) => Promise<RemainingCapacityFetchOutcome> = async () => ({
+      ok: true,
+      remaining: 5,
+      blockedByHost: false,
+    });
+    const result = await resolveSummaryCheck(guestsStep.entries, guestsStep.booking!, okCheck, t, "th", NOW, false);
     const newest = bookingEntries(result.entries).at(-1);
     expect(newest).toMatchObject({ step: "summary" });
-    expect(result.booking?.state.slots).toEqual({ checkIn: "2026-08-01", checkOut: "2026-08-02", guests: 2 });
+    // `checkOut` was RE-DERIVED from checkIn + the chosen 2 nights (2026-08-01 + 2 = 2026-08-03), never the date chip's 1-night placeholder.
+    expect(result.booking?.state.slots).toEqual({ checkIn: "2026-08-01", checkOut: "2026-08-03", nights: 2, guests: 2 });
   });
 });
 
 describe("processBookingTurn — typing advances IDENTICALLY to the equivalent chip", () => {
-  it("[normal] typed 'เสาร์หน้า' resolves to the SAME date + next step as the matching chip", () => {
+  it("[normal][CAM-699] typed 'เสาร์หน้า' resolves to the SAME date + next step (nights) as the matching chip", () => {
     const start = startBookingTurn([], CAMP, t, "th");
 
     const typed = processBookingTurn(start.entries, start.booking!, { kind: "text", text: "เสาร์หน้า" }, "เสาร์หน้า", t, "th", NOW);
@@ -117,8 +148,9 @@ describe("processBookingTurn — typing advances IDENTICALLY to the equivalent c
     );
 
     expect(typed.booking?.state.slots).toEqual(chipped.booking?.state.slots);
-    expect(bookingEntries(typed.entries).at(-1)).toMatchObject({ step: "guests" });
-    expect(bookingEntries(chipped.entries).at(-1)).toMatchObject({ step: "guests" });
+    // "เสาร์หน้า" resolves to a SINGLE day (1 night) — not pre-filled, still asks `nights`.
+    expect(bookingEntries(typed.entries).at(-1)).toMatchObject({ step: "nights" });
+    expect(bookingEntries(chipped.entries).at(-1)).toMatchObject({ step: "nights" });
   });
 
   it("[error/validation] typed 'อยากกินไก่ทอด' (unrelated) is a miss — reprompts on `date`, same as the flow's own reprompt shape", () => {
@@ -158,7 +190,7 @@ describe("§1 — a typed full day is answered immediately (synchronous, against
 });
 
 describe("E2 — over capacity stays on `guests`, offers exactly the ceiling chip", () => {
-  it("[error/validation] a typed count above the ceiling reprompts on `guests` with one capChip, never advances", () => {
+  it("[error/validation][CAM-699] a typed count above the ceiling reprompts on `guests` with one capChip, never advances", () => {
     const start = startBookingTurn([], CAMP, t, "th");
     const dateStep = processBookingTurn(
       start.entries,
@@ -169,7 +201,8 @@ describe("E2 — over capacity stays on `guests`, offers exactly the ceiling chi
       "th",
       NOW
     );
-    const result = processBookingTurn(dateStep.entries, dateStep.booking!, { kind: "text", text: "9999 คน" }, "9999 คน", t, "th", NOW);
+    const nightsStep = processBookingTurn(dateStep.entries, dateStep.booking!, { kind: "chip", slots: { nights: 1 } }, "1 คืน", t, "th", NOW);
+    const result = processBookingTurn(nightsStep.entries, nightsStep.booking!, { kind: "text", text: "9999 คน" }, "9999 คน", t, "th", NOW);
     const newest = bookingEntries(result.entries).at(-1);
     expect(newest).toMatchObject({ step: "guests" });
     expect(newest && "view" in newest && newest.view.kind === "question" ? newest.view.chips : null).toEqual([
@@ -191,7 +224,7 @@ describe("processBookingCancel — cancel clears, from any step", () => {
 });
 
 describe("processBookingControl — back / edit clears only the returned-to field(s), keeps the rest", () => {
-  it("[normal] back to `date` from `guests` clears checkIn/checkOut, currentStep derives to `date`", () => {
+  it("[normal][CAM-699] back to `date` from `nights` clears checkIn/checkOut/nights, currentStep derives to `date`", () => {
     const session: BookingSession = {
       state: { slots: { checkIn: "2026-08-01", checkOut: "2026-08-02" }, consecutiveMisses: 0 },
       camp: CAMP,
@@ -201,13 +234,33 @@ describe("processBookingControl — back / edit clears only the returned-to fiel
     expect(bookingEntries(result.entries).at(-1)).toMatchObject({ step: "date" });
   });
 
-  it("[normal] editGuests from `summary` clears ONLY guests — checkIn/checkOut are kept", () => {
+  it("[normal][CAM-699] back to `date` from `summary` ALSO clears `nights` — never leaves a stale checkOut/nights pair (see booking-turn.ts's own comment)", () => {
     const session: BookingSession = {
-      state: { slots: { checkIn: "2026-08-01", checkOut: "2026-08-02", guests: 2 }, consecutiveMisses: 0 },
+      state: { slots: { checkIn: "2026-08-01", checkOut: "2026-08-03", nights: 2, guests: 2 }, consecutiveMisses: 0 },
+      camp: CAMP,
+    };
+    const result = processBookingControl([], session, "date", t, "th");
+    expect(result.booking?.state.slots).toEqual({ guests: 2 });
+    expect(bookingEntries(result.entries).at(-1)).toMatchObject({ step: "date" });
+  });
+
+  it("[normal][CAM-699] back to `nights` from `guests` clears ONLY nights — checkIn/checkOut/guests are kept", () => {
+    const session: BookingSession = {
+      state: { slots: { checkIn: "2026-08-01", checkOut: "2026-08-03", nights: 2, guests: 2 }, consecutiveMisses: 0 },
+      camp: CAMP,
+    };
+    const result = processBookingControl([], session, "nights", t, "th");
+    expect(result.booking?.state.slots).toEqual({ checkIn: "2026-08-01", checkOut: "2026-08-03", guests: 2 });
+    expect(bookingEntries(result.entries).at(-1)).toMatchObject({ step: "nights" });
+  });
+
+  it("[normal][CAM-699] editGuests from `summary` clears ONLY guests — checkIn/checkOut/nights are kept", () => {
+    const session: BookingSession = {
+      state: { slots: { checkIn: "2026-08-01", checkOut: "2026-08-03", nights: 2, guests: 2 }, consecutiveMisses: 0 },
       camp: CAMP,
     };
     const result = processBookingControl([], session, "guests", t, "th");
-    expect(result.booking?.state.slots).toEqual({ checkIn: "2026-08-01", checkOut: "2026-08-02" });
+    expect(result.booking?.state.slots).toEqual({ checkIn: "2026-08-01", checkOut: "2026-08-03", nights: 2 });
     expect(bookingEntries(result.entries).at(-1)).toMatchObject({ step: "guests" });
   });
 });

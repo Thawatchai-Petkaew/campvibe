@@ -221,8 +221,11 @@ Widening M1/M2's blocking scope, or promoting M4 to blocking, is a follow-up tha
 ### §2.1 Sanctioned exception — น้องกองไฟ AI Expression Layer (CAM-426)
 
 **Scope: the assistant surface ONLY** — `components/ai-chat/*` (`AiChatPanel`, `AiChatMessageList`,
-`AiChatAvatar`, `AiAmbientCanvas`, `AiChatCampCard`, `AiChatDetailCard`). No standard page (Home / catalog /
-dashboard / booking / auth) may use this exception; those keep stock tokens and standard 120–250ms motion.
+`AiChatAvatar`, `AiAmbientCanvas`, `AiChatCampCard`, `AiChatDetailCard`, `AiChatLauncher`, `AiChatCardCarousel`,
+`AiChatBookingStep`, `ChatChipRow`). No standard page (Home / catalog / dashboard / booking / auth) may use this
+exception; those keep stock tokens and standard 120–250ms motion. (Inventory corrected CAM-697: the last four
+shipped after this list was written — `AiChatBookingStep` already uses `border-ai-tint/60` and `AiChatLauncher` is
+named by item 6 below — so they were using the exception without being inside its stated scope.)
 
 Within that scope, and using ONLY the closed `--ai-*` token set (`--ai-surface`, `--ai-tint`, `--ai-glow`,
 `--ai-gradient`, `--ai-ember`, `--ai-firefly`, `--ai-star`, `--ai-flame-aura`, `--ai-price` — derived in

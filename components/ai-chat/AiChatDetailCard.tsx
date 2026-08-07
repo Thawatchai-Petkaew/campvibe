@@ -270,16 +270,20 @@ export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: Ai
   // assertion.
   function handleStartBooking() {
     if (!detail) return;
-    // CAM-652: `get-camp-detail` (lib/ai/**) does not select CampSite.priceUnit
-    // yet — this surface cannot read a host's real unit choice today. `unit`
-    // below is the SAME `resolveUnitPrice` call this caller already made
-    // (campSitePriceUnit: null normalizes to PER_SITE, ADR-014 §2's documented
-    // "no unit recorded" default) — carried through so booking-view.ts routes
-    // the chat total through buildBookingPriceArgs like every other caller,
-    // instead of assembling its own ComputeBookingPriceInput.
+    // CAM-698 (fixes CAM-652's stale assumption): `get-camp-detail` (lib/ai/**)
+    // HAS selected + returned CampSite.priceUnit since CAM-656 —
+    // `detail.price.unit` is a real, NOT NULL column value (never fabricated,
+    // see CampDetailPrice's doc comment) — so it is threaded straight into
+    // `resolveUnitPrice` instead of a hardcoded `null` (which silently
+    // normalized every camp to PER_SITE and under-quoted the ~95% of camps
+    // that charge PER_PERSON, CAM-673). `unit` below is the SAME
+    // `resolveUnitPrice` call this caller already made — carried through so
+    // booking-view.ts routes the chat total through buildBookingPriceArgs
+    // like every other pricing call site, instead of assembling its own
+    // ComputeBookingPriceInput.
     const resolved = resolveUnitPrice({
       campSitePriceLow: detail.price.low,
-      campSitePriceUnit: null,
+      campSitePriceUnit: detail.price.unit,
       spotPricePerNight: null,
       spotPriceUnit: null,
     });
@@ -289,6 +293,10 @@ export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: Ai
       name,
       weekendAvailability: detail.weekendAvailability,
       maxGuestsPerDay: detail.capacity.maxGuestsPerDay,
+      // CAM-700 — `detail.useSpotView` is a real, NOT NULL boolean (get-camp-
+      // detail.ts's own additive field) so the booking flow can decide
+      // whether to show its `spot` step without a second query.
+      useSpotView: detail.useSpotView,
       unitPrice: resolved.unitPrice,
       priceUnit: resolved.unit,
       priceIsFree: detail.price.isFree,
@@ -366,9 +374,12 @@ export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: Ai
       // CAM-653 (supersedes CAM-643's private `aiChat.card.perNight` key):
       // every price caption on this card reads the ONE shared, unit-keyed
       // group (`common.priceUnitSuffix`, lib/price-unit-display.ts).
-      // `card.priceUnit` is undefined until `lib/ai/**` threads the real
-      // column through (CAM-656, out of this story's surface) — defaults to
-      // PER_SITE, so this renders byte-identically to before this story.
+      // CAM-698 correction: `card.priceUnit` is NOT undefined-by-default —
+      // `aiCampCardSelect` (lib/read-models/ai-camp-card.ts) already selects
+      // `CampSite.priceUnit` (inherited from `campCardSelect`, CAM-653) and
+      // it flows unchanged onto the wire, so a PER_PERSON camp's card
+      // renders the real per-person suffix; only an older/unaware wire body
+      // falls back to PER_SITE.
       label: priceUnitSuffix(t, card.priceUnit),
       testId: "text--ai-chat-detail-price",
     });

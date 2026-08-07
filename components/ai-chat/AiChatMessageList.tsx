@@ -161,6 +161,8 @@ interface AiChatMessageListProps {
   sending: boolean;
   /** CAM-423 — the camper's latest conversation is being fetched on open (loading.md inline indicator, not a skeleton). */
   resuming: boolean;
+  /** CAM-703 (ADR-018 D2) — the LIVE `useSession()` authed status, passed straight through to `AiChatBookingStep` for the confirm control's label flip (never a server-rendered/build-time prop, CAM-396). */
+  liveAuthed: boolean;
   onSuggestion: (text: string) => void;
   onRetry: () => void;
   /** CAM-447 — opens the floating detail card for a selected result card. */
@@ -171,12 +173,17 @@ interface AiChatMessageListProps {
   onBookingEditDate: () => void;
   onBookingEditGuests: () => void;
   onBookingCancel: () => void;
+  /** CAM-702 — the summary confirm CTA (and F1/F3's re-armed CTA); async, ADR-018 D1/D2. */
+  onBookingConfirm: () => Promise<void>;
+  /** CAM-702 — F2's check-and-retry action (ADR-018 D6). */
+  onBookingCheckAndRetry: () => Promise<void>;
 }
 
 export function AiChatMessageList({
   entries,
   sending,
   resuming,
+  liveAuthed,
   onSuggestion,
   onRetry,
   onSelectCamp,
@@ -185,6 +192,8 @@ export function AiChatMessageList({
   onBookingEditDate,
   onBookingEditGuests,
   onBookingCancel,
+  onBookingConfirm,
+  onBookingCheckAndRetry,
 }: AiChatMessageListProps) {
   const { t } = useLanguage();
   const lastEntry = entries[entries.length - 1];
@@ -256,6 +265,7 @@ export function AiChatMessageList({
         <AiChatEntryRow
           key={entry.id}
           entry={entry}
+          liveAuthed={liveAuthed}
           onRetry={onRetry}
           onSuggestion={onSuggestion}
           onSelectCamp={onSelectCamp}
@@ -264,6 +274,8 @@ export function AiChatMessageList({
           onBookingEditDate={onBookingEditDate}
           onBookingEditGuests={onBookingEditGuests}
           onBookingCancel={onBookingCancel}
+          onBookingConfirm={onBookingConfirm}
+          onBookingCheckAndRetry={onBookingCheckAndRetry}
           showSuggestions={!sending && index === entries.length - 1}
         />
       ))}
@@ -296,6 +308,8 @@ export function AiChatMessageList({
 
 interface AiChatEntryRowProps {
   entry: ChatEntry;
+  /** CAM-703 — see AiChatMessageListProps's own doc comment. */
+  liveAuthed: boolean;
   onRetry: () => void;
   onSuggestion: (text: string) => void;
   onSelectCamp: (card: AiChatCardResponse) => void;
@@ -304,12 +318,15 @@ interface AiChatEntryRowProps {
   onBookingEditDate: () => void;
   onBookingEditGuests: () => void;
   onBookingCancel: () => void;
+  onBookingConfirm: () => Promise<void>;
+  onBookingCheckAndRetry: () => Promise<void>;
   /** CAM-410 BR-7: true only for the newest entry while no turn is in flight. */
   showSuggestions: boolean;
 }
 
 function AiChatEntryRow({
   entry,
+  liveAuthed,
   onRetry,
   onSuggestion,
   onSelectCamp,
@@ -318,6 +335,8 @@ function AiChatEntryRow({
   onBookingEditDate,
   onBookingEditGuests,
   onBookingCancel,
+  onBookingConfirm,
+  onBookingCheckAndRetry,
   showSuggestions,
 }: AiChatEntryRowProps) {
   const { t } = useLanguage();
@@ -477,11 +496,14 @@ function AiChatEntryRow({
       <AiChatBookingStep
         key={step}
         view={entry.view}
+        liveAuthed={liveAuthed}
         onChipSelect={isCurrent ? onBookingChipSelect : undefined}
         onBack={isCurrent ? onBookingBack : undefined}
         onEditDate={isCurrent ? onBookingEditDate : undefined}
         onEditGuests={isCurrent ? onBookingEditGuests : undefined}
         onCancel={isCurrent ? onBookingCancel : undefined}
+        onConfirm={isCurrent ? onBookingConfirm : undefined}
+        onCheckAndRetry={isCurrent ? onBookingCheckAndRetry : undefined}
       />
     );
   }

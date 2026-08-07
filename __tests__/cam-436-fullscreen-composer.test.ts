@@ -76,7 +76,9 @@ describe("No-remount + standing rules", () => {
     // CAM-640 destructures MORE fields off the SAME single `useAiChat()`
     // call (a multi-line destructure now) — exactly one hook call, the
     // original fields still present.
-    expect((panelSrc.match(/\} = useAiChat\(\);/g) || []).length).toBe(1);
+    // CAM-703 (2026-08-06 dated supersede) — `useAiChat()` now takes an
+    // `{ onNeedsLogin }` options object; re-asserted against the new shape.
+    expect((panelSrc.match(/\} = useAiChat\(\{/g) || []).length).toBe(1);
     for (const field of ["entries", "sending", "disabled", "resuming", "sendMessage", "retryLast", "abortActiveStream"]) {
       expect(panelSrc).toContain(`    ${field},`);
     }

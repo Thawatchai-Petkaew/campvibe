@@ -27,21 +27,47 @@
 import {
   combineCapacityLimit,
   type BookingSlots,
+  type BookingSpotCandidate,
 } from '@/components/ai-chat/booking-flow';
 import type {
+  BookingBookedView,
+  BookingConfirmCta,
+  BookingControlSpec,
   BookingDateChipSpec,
+  BookingFailedReason,
+  BookingFailedView,
   BookingGuestsChipSpec,
+  BookingNightsChipSpec,
   BookingQuestionView,
+  BookingSpotChipSpec,
+  BookingSubmittingView,
+  BookingSummaryRows,
   BookingSummaryView,
 } from '@/components/ai-chat/AiChatBookingStep';
 import { buildBookingPriceArgs, computeBookingPrice, type PricingUnit } from '@/lib/booking-pricing';
 import { buildBookingPrefillQuery, type BookingPrefill } from '@/lib/booking-prefill';
+// CAM-699 — the SAME 30-night ceiling `booking-flow.ts`'s `nights` step
+// already enforces server-shaped, reused for the `nights.tooLong` fallback
+// default below (never a second independently-chosen 30).
+import { MAX_BOOKING_NIGHTS } from '@/lib/validations/booking';
 import type { WeekendAvailabilityEntry } from '@/lib/ai/tools/get-camp-detail';
 import type { Language, TranslationType } from '@/locales/translations';
 
-/** Layout constants (design brief §1/§2) — how many pills fit one row of the ~380px column, never a capacity number. */
+/** Layout constants (design brief §1/§2/§3) — how many pills fit one row of the ~380px column, never a capacity number. */
 export const MAX_BOOKING_DATE_CHIPS = 4;
 export const MAX_BOOKING_GUEST_CHIPS = 4;
+/**
+ * CAM-699 — design brief §3's full formula also truncates to the consecutive
+ * OPEN-night "run" from the chosen check-in date
+ * (`ceiling = min(run, MAX_BOOKING_NIGHTS)`); computing that run needs a scan
+ * across `weekendAvailability` this story does not add (out of scope — see
+ * `story.md`). Chips are therefore always `1..MAX_BOOKING_NIGHT_CHIPS`, the
+ * same "no run/cap data -> render the full row" fallback
+ * `buildGuestChipSpecs(null)` already uses below.
+ */
+export const MAX_BOOKING_NIGHT_CHIPS = 4;
+/** CAM-700 — design brief §4: "the 4 cheapest of `offered`" — a layout constant, never a capacity number. */
+export const MAX_BOOKING_SPOT_CHIPS = 4;
 
 /** The one snapshot a flow runs against — captured once when "เริ่มจอง" is tapped (`AiChatDetailCard`'s already-resolved detail fetch). */
 export interface BookingCampContext {
@@ -50,6 +76,8 @@ export interface BookingCampContext {
   name: string;
   weekendAvailability: readonly WeekendAvailabilityEntry[];
   maxGuestsPerDay: number | null;
+  /** CAM-700 — whether this camp shows the `spot` step (per-pitch booking, ADR-018 D7). From `GetCampDetailResult.useSpotView` (CAM-700's own additive tool field), threaded through by `AiChatDetailCard`'s `handleStartBooking`. */
+  useSpotView: boolean;
   /** Resolved via `resolveUnitPrice` by the caller (design brief §3: the SAME module the camp page uses). Ignored when `priceIsFree`. */
   unitPrice: number;
   /**
@@ -83,6 +111,12 @@ export function addOneDayIso(iso: string): string {
   return new Date(Date.UTC(y!, m! - 1, d! + 1)).toISOString().slice(0, 10);
 }
 
+/** CAM-700 — `iso` + `days` calendar days (UTC-safe), the general form `addOneDayIso` specializes. Used to derive the LAST NIGHT (checkIn + nights - 1) for a spot-availability query, since that route's own convention is inclusive-of-endDate (unlike this flow's exclusive-checkout `checkOut`). */
+export function addDaysToIso(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d! + days)).toISOString().slice(0, 10);
+}
+
 /** `null` = no entry for this date at all (never fabricated); a real entry's own `remaining` (itself nullable = no cap set) otherwise. */
 export function remainingForDate(weekendAvailability: readonly WeekendAvailabilityEntry[], date: string): number | null {
   return weekendAvailability.find((e) => e.date === date)?.remaining ?? null;
@@ -112,6 +146,20 @@ export function buildGuestChipSpecs(ceiling: number | null): BookingGuestsChipSp
   return Array.from({ length: max }, (_, i) => ({ kind: 'guests' as const, count: i + 1 }));
 }
 
+/** `1..MAX_BOOKING_NIGHT_CHIPS`, always (see that constant's own comment on the run-based truncation this story does not add). Never empty by construction (design brief §3/§9). */
+export function buildNightChipSpecs(): BookingNightsChipSpec[] {
+  return Array.from({ length: MAX_BOOKING_NIGHT_CHIPS }, (_, i) => ({ kind: 'nights' as const, count: i + 1 }));
+}
+
+/** CAM-700 — the `spot` step's chips: `candidates` is assumed ALREADY eligible (guest-capacity filtered, occupied excluded — the caller's job); this only sorts cheapest-first and caps at `MAX_BOOKING_SPOT_CHIPS` (design brief §4: "the 4 cheapest of offered"). Never empty by construction from a non-empty input; an empty input renders no chips (the `spot.empty` state, decided by the caller). */
+export function buildSpotChipSpecs(candidates: readonly BookingSpotCandidate[]): BookingSpotChipSpec[] {
+  return candidates
+    .slice()
+    .sort((a, b) => a.pricePerNight - b.pricePerNight)
+    .slice(0, MAX_BOOKING_SPOT_CHIPS)
+    .map((c) => ({ kind: 'spot' as const, id: c.id, name: c.name, pricePerNight: c.pricePerNight }));
+}
+
 /** Best-effort numeric echo of a REJECTED typed guest answer, for the over-capacity notice only — display, never policy (the state machine's own `accept()` already decided validity). */
 export function extractDisplayNumber(text: string): string {
   return text.match(/-?\d+(?:\.\d+)?/)?.[0] ?? text.trim();
@@ -130,25 +178,38 @@ export function formatGuestsEcho(count: number, t: TranslationType): string {
   return t.aiChat.booking.guests.chip.replace('{count}', String(count));
 }
 
+/** CAM-700 — the user-bubble echo for a picked pitch (chip tap or a resolved typed name). */
+export function formatSpotEcho(name: string, pricePerNight: number, t: TranslationType): string {
+  return t.aiChat.booking.spot.chip.replace('{name}', name).replace('{price}', `฿${THB_FORMAT.format(pricePerNight)}`);
+}
+
+/** The user-bubble echo for a tapped nights chip. */
+export function formatNightsEcho(count: number, t: TranslationType): string {
+  return t.aiChat.booking.nights.chip.replace('{count}', String(count));
+}
+
 export interface DateQuestionParams {
   camp: BookingCampContext;
   t: TranslationType;
   language: Language;
-  reason: 'ask' | 'unreadable' | 'full';
-  /** Only for `reason:'full'` — the specific checkIn date that turned out to be full. */
+  reason: 'ask' | 'unreadable' | 'full' | 'justFilled';
+  /** Only for `reason:'full'`/`'justFilled'` — the specific checkIn date that turned out to be full. */
   fullDate?: string;
 }
 
+/** CAM-702 (ADR-018 D3, design brief §8 F6) — `reason:'justFilled'` reuses the dormant `aiChat.booking.justFilled` copy round 1 wrote for exactly this: a `409` mid-flight (the dates went while the camper was deciding), never `date.full` (that copy is §1's SYNCHRONOUS local-snapshot check, a different trigger). */
 export function buildDateQuestionView({ camp, t, language, reason, fullDate }: DateQuestionParams): BookingQuestionView {
   const chips = buildDateChipSpecs(camp.weekendAvailability);
   const questionText =
     reason === 'unreadable'
       ? t.aiChat.booking.date.unreadable
-      : reason === 'full' && fullDate
-        ? t.aiChat.booking.date.full.replace('{date}', formatBookingDate(fullDate, language))
-        : chips.length === 0
-          ? t.aiChat.booking.date.empty
-          : t.aiChat.booking.date.ask.replace('{name}', camp.name);
+      : reason === 'justFilled' && fullDate
+        ? t.aiChat.booking.justFilled.replace('{date}', formatBookingDate(fullDate, language))
+        : reason === 'full' && fullDate
+          ? t.aiChat.booking.date.full.replace('{date}', formatBookingDate(fullDate, language))
+          : chips.length === 0
+            ? t.aiChat.booking.date.empty
+            : t.aiChat.booking.date.ask.replace('{name}', camp.name);
 
   return {
     kind: 'question',
@@ -157,6 +218,40 @@ export function buildDateQuestionView({ camp, t, language, reason, fullDate }: D
     questionText,
     chips,
     controls: [{ kind: 'cancel' }],
+    useSpotView: camp.useSpotView,
+  };
+}
+
+export interface NightsQuestionParams {
+  /** Only `slots.checkIn` is read (for the `{date}` in the `ask` sentence) — the step's own chips never depend on it (see `buildNightChipSpecs`). */
+  slots: BookingSlots;
+  t: TranslationType;
+  language: Language;
+  reason: 'ask' | 'unreadable' | 'tooLong';
+  /** Only for `reason:'tooLong'` — the real `MAX_BOOKING_NIGHTS` ceiling the rejection carried (never fabricated); falls back to the shared constant if somehow absent. */
+  max?: number;
+  /** CAM-700 — for the caption's per-camp `{total}`; `nights` itself never gains a spot-specific branch. */
+  useSpotView: boolean;
+}
+
+/** CAM-699 — the `nights` step's question view. The chip row is unconditional (never empty, design brief §3/§9), so there is no `empty` reason to branch on. */
+export function buildNightsQuestionView({ slots, t, language, reason, max, useSpotView }: NightsQuestionParams): BookingQuestionView {
+  const dateLabel = slots.checkIn ? formatBookingDate(slots.checkIn, language) : '';
+  const questionText =
+    reason === 'unreadable'
+      ? t.aiChat.booking.nights.unreadable
+      : reason === 'tooLong'
+        ? t.aiChat.booking.nights.tooLong.replace('{max}', String(max ?? MAX_BOOKING_NIGHTS))
+        : t.aiChat.booking.nights.ask.replace('{date}', dateLabel);
+
+  return {
+    kind: 'question',
+    step: 'nights',
+    isCurrent: true,
+    questionText,
+    chips: buildNightChipSpecs(),
+    controls: [{ kind: 'back', toStep: 'date' }, { kind: 'cancel' }],
+    useSpotView,
   };
 }
 
@@ -196,7 +291,10 @@ export function buildGuestsQuestionView({
       isCurrent: true,
       questionText,
       chips: [{ kind: 'guestsCap', count: overCapacityData.limit }],
-      controls: [{ kind: 'back', toStep: 'date' }, { kind: 'cancel' }],
+      // CAM-699 — `nights` now sits directly before `guests` in the
+      // registry; `back` returns to the IMMEDIATELY preceding step.
+      controls: [{ kind: 'back', toStep: 'nights' }, { kind: 'cancel' }],
+      useSpotView: camp.useSpotView,
     };
   }
 
@@ -215,24 +313,123 @@ export function buildGuestsQuestionView({
     isCurrent: true,
     questionText,
     chips,
-    controls: [{ kind: 'back', toStep: 'date' }, { kind: 'cancel' }],
+    controls: [{ kind: 'back', toStep: 'nights' }, { kind: 'cancel' }],
+    useSpotView: camp.useSpotView,
   };
 }
 
+export interface SpotQuestionParams {
+  t: TranslationType;
+  /** CAM-700 — always `true` in practice (this step only exists for a per-pitch camp); carried explicitly rather than assumed, matching every sibling builder's own `useSpotView` field. */
+  useSpotView: boolean;
+  reason: 'ask' | 'loading' | 'unreadable' | 'occupied' | 'empty';
+  /** Already ELIGIBLE (guest-capacity filtered, occupied excluded) — ignored for `reason:'loading'`/`'empty'`. */
+  candidates: readonly BookingSpotCandidate[];
+  /** Only for `reason:'occupied'` — the pitch name that turned out to be taken (never fabricated). */
+  occupiedName?: string;
+}
+
+/**
+ * CAM-700 — the `spot` step's question view (design brief §4). `reason`
+ * covers the step-entry fetch in flight (`'loading'`, chips disabled + a
+ * text status line, `isChecking` — the SAME dormant round-1 pattern the
+ * `guests` pre-check already established, never a spinner), the normal
+ * offer, a typed miss, a fresh re-offer after a pitch turned out occupied,
+ * and the real "nothing fits" empty state (unlike `guests`, this one is
+ * reachable — design brief §4 "Empty is real here").
+ */
+export function buildSpotQuestionView({ t, useSpotView, reason, candidates, occupiedName }: SpotQuestionParams): BookingQuestionView {
+  if (reason === 'empty') {
+    return {
+      kind: 'question',
+      step: 'spot',
+      isCurrent: true,
+      questionText: t.aiChat.booking.spot.empty,
+      chips: [],
+      controls: [{ kind: 'editDate' }, { kind: 'editNights' }, { kind: 'editGuests' }, { kind: 'cancel' }],
+      useSpotView,
+    };
+  }
+  const chips = reason === 'loading' ? [] : buildSpotChipSpecs(candidates);
+  const questionText =
+    reason === 'unreadable'
+      ? t.aiChat.booking.spot.unreadable
+      : reason === 'occupied'
+        ? t.aiChat.booking.spot.occupied.replace('{name}', occupiedName ?? '')
+        : t.aiChat.booking.spot.ask;
+
+  return {
+    kind: 'question',
+    step: 'spot',
+    isCurrent: true,
+    questionText,
+    chips,
+    isChecking: reason === 'loading' ? true : undefined,
+    controls: [{ kind: 'back', toStep: 'guests' }, { kind: 'cancel' }],
+    useSpotView,
+  };
+}
+
+/**
+ * CAM-647 (design brief CAM-637 §2/§4 "the row goes disabled and a status
+ * line appears below it") — the interim treatment shared by the
+ * `guests`->`summary` (whole-camp) and `spot`->`summary` (per-pitch)
+ * transitions: the SAME question view already computed, just flagged
+ * `isChecking` so `AiChatBookingStep` disables its chips and renders the
+ * `status--ai-chat-booking-checking` line beneath them. `booking-turn.ts`
+ * appends this in place of building `summary` directly; `use-ai-chat.ts`
+ * then runs the live re-check and replaces it with the real summary / the
+ * E1 rewind / E3 `checkFailed`.
+ */
+export function withChecking(view: BookingQuestionView): BookingQuestionView {
+  return { ...view, isChecking: true };
+}
+
 export interface SummaryParams {
-  /** Requires `checkIn`/`checkOut`/`guests` all set — only ever called once `currentStep` derives to `summary`. */
+  /** Requires `checkIn`/`checkOut`/`nights`/`guests` all set — only ever called once `currentStep` derives to `summary`. */
   slots: BookingSlots;
   camp: BookingCampContext;
   t: TranslationType;
   language: Language;
   /** `bangkokTodayISO(now)` — the SAME injected-`today` contract `buildBookingPrefillQuery` requires (BR-2 there); never a naive UTC read. */
   today: string;
+  /**
+   * CAM-702/CAM-703 (ADR-018 D1/D2) — the LIVE session's authed status at
+   * the moment this view is built. Optional, defaults `false` (the
+   * pre-CAM-702 behaviour byte-for-byte for a per-pitch camp) so every
+   * caller written before CAM-702 keeps compiling. A WHOLE-CAMP
+   * (`!camp.useSpotView`) summary now ALWAYS gets `kind:'confirm'`
+   * (CAM-703) — a member gets the real `confirm` label, a guest gets the
+   * `loginToConfirm` label, and `AiChatBookingStep` re-derives the
+   * DISPLAYED label from the LIVE session on every render rather than
+   * trusting this build-time snapshot (design brief §5's critical note —
+   * the flip must never lag a login that happens after this view is
+   * built). A per-pitch camp keeps `handoff` unconditionally — no confirm
+   * story of its own yet.
+   */
+  authed?: boolean;
+  /**
+   * CAM-703 (ADR-018 §4, safety) — set by `resolveSpotStep`'s data-failure
+   * downgrade path ONLY: a genuinely per-pitch camp whose `/spots` fetch
+   * failed is relabeled `useSpotView:false` for the rest of the flow so it
+   * can `handoff` to the camp page — but it must NEVER pick up the
+   * whole-camp `confirm` rule, or the chat could write a pitch-less
+   * booking for a camp that requires one (`spotId` is optional server-side,
+   * `lib/validations/booking.ts:23` — the exact divergence ADR-018 D7
+   * names). Optional, defaults `false` (every genuinely whole-camp caller
+   * keeps compiling and keeps getting `confirm`).
+   */
+  forceHandoff?: boolean;
 }
 
-export function buildSummaryView({ slots, camp, t, language, today }: SummaryParams): BookingSummaryView {
+export function buildSummaryView({ slots, camp, t, language, today, authed = false, forceHandoff = false }: SummaryParams): BookingSummaryView {
   const checkIn = slots.checkIn!;
   const checkOut = slots.checkOut!;
   const guests = slots.guests!;
+  // CAM-699 (ADR-018 D8) — the REAL night count, never the round-1 hardcoded
+  // `1`. Guaranteed set: `buildSummaryView` only ever runs once `currentStep`
+  // derives to `summary`, which requires the `nights` step `isSatisfied`.
+  const nights = slots.nights!;
   const dateLabel = formatBookingDate(checkIn, language);
   // CAM-652: routed through buildBookingPriceArgs (the ONE place every
   // pricing call site assembles a ComputeBookingPriceInput) instead of this
@@ -244,7 +441,7 @@ export function buildSummaryView({ slots, camp, t, language, today }: SummaryPar
     campSite: { priceLow: camp.unitPrice, priceUnit: camp.priceUnit, extraFeeAmount: null },
     spot: null,
     party: { guests },
-    nights: 1,
+    nights,
     vatRate: 0,
   });
   // `ok:false` (TENT_COUNT_UNAVAILABLE) is unreachable — `camp.priceUnit` is
@@ -255,15 +452,116 @@ export function buildSummaryView({ slots, camp, t, language, today }: SummaryPar
     : `฿${THB_FORMAT.format(priceArgs.ok ? computeBookingPrice(priceArgs.input).totalAmount : 0)}`;
   const prefill: BookingPrefill = { checkIn, checkOut, guests, from: 'chat' };
   const query = buildBookingPrefillQuery(prefill, { today });
+  // CAM-700 — present only for a per-pitch camp that actually picked a
+  // pitch; a camp whose `spot` step was bypassed (no data, ADR-018 §4's
+  // fail-toward-handoff) never sets `slots.spotId`, so this stays absent —
+  // no row, never a `—` (design brief §5 "1").
+  const spotValue = slots.spotId && slots.spotName ? slots.spotName : undefined;
 
   return {
     kind: 'summary',
     isCurrent: true,
     campValue: camp.name,
-    datesValue: t.aiChat.booking.summary.datesValue.replace('{date}', dateLabel),
+    datesValue: t.aiChat.booking.summary.datesValue.replace('{date}', dateLabel).replace('{nights}', String(nights)),
     guestsValue: t.aiChat.booking.summary.guestsValue.replace('{count}', String(guests)),
+    spotValue,
     totalValue,
-    handoffHref: `/campgrounds/${camp.slug}?${query}`,
-    controls: [{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'cancel' }],
+    // CAM-703 (ADR-018 D2) — a WHOLE-CAMP summary always gets the real
+    // write CTA now, member or guest; a per-pitch camp (still no confirm
+    // story of its own) keeps the interim `handoff` escape so nothing is
+    // ever a dead button. `forceHandoff` is the one override (ADR-018 §4
+    // safety, see this param's own doc comment) — a data-failure downgrade
+    // must never pick up the whole-camp confirm rule. The guest branch's
+    // label/authState here are the build-time snapshot only —
+    // `AiChatBookingStep` re-derives the DISPLAYED label from the live
+    // session (see that file's own note).
+    cta: !camp.useSpotView && !forceHandoff
+      ? authed
+        ? { kind: 'confirm', label: t.aiChat.booking.confirm, authState: 'member' }
+        : { kind: 'confirm', label: t.aiChat.booking.loginToConfirm, authState: 'guest' }
+      : { kind: 'handoff', href: `/campgrounds/${camp.slug}?${query}` },
+    controls: spotValue
+      ? [{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'editSpot' }, { kind: 'cancel' }]
+      : [{ kind: 'editDate' }, { kind: 'editGuests' }, { kind: 'cancel' }],
+    useSpotView: camp.useSpotView,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// CAM-701 (design brief §6/§7/§8) — pure builders for the write-outcome
+// states, wired for real by CAM-702 (ADR-018). Each sets `isCurrent: true`
+// so a fresh write-outcome entry supersedes the block it replaces through
+// the SAME `appendBookingEntry` mechanism `question`/`summary` views already
+// use (`conversation.ts`) — a booking entry's controls only ever go inert
+// (real `disabled`, out of the tab order) once a NEWER booking entry
+// supersedes it. `booked`/F1/F3's `isCurrent` is what lets
+// `AiChatMessageList` decide whether `onConfirm`/`onCheckAndRetry` are even
+// wired for a given entry — an undefined `isCurrent` would leave those
+// handlers permanently unreachable.
+// ---------------------------------------------------------------------------
+
+export interface SubmittingParams {
+  /** The already-built summary (or the same frozen row data) — "the rows stay on screen, unchanged" (design brief §6). */
+  rows: BookingSummaryRows;
+  controls: readonly BookingControlSpec[];
+  useSpotView?: boolean;
+}
+
+export function buildSubmittingView({ rows, controls, useSpotView }: SubmittingParams): BookingSubmittingView {
+  return { kind: 'submitting', isCurrent: true, ...rows, controls, useSpotView };
+}
+
+export interface BookedParams {
+  bookingId: string;
+  /** The SERVER-recorded row data (design brief §7: `totalValue` here is `computeBookingPrice`'s recorded total, never a preview — never reuse the summary's `โดยประมาณ` value as-is). */
+  rows: BookingSummaryRows;
+}
+
+export function buildBookedView({ bookingId, rows }: BookedParams): BookingBookedView {
+  return { kind: 'booked', isCurrent: true, bookingId, ...rows };
+}
+
+export interface BookingFailedParams {
+  reason: BookingFailedReason;
+  rows: BookingSummaryRows;
+  /** F1 (re-enabled confirm, member) / F3 (reverted to `loginToConfirm`, guest) — absent for F2 (design brief §8). */
+  cta?: BookingConfirmCta;
+}
+
+export function buildBookingFailedView({ reason, rows, cta }: BookingFailedParams): BookingFailedView {
+  return { kind: 'bookingFailed', isCurrent: true, reason, cta, ...rows };
+}
+
+// ---------------------------------------------------------------------------
+// CAM-702 (ADR-018 D3/D8, design brief §7) — the frozen row set for a
+// SERVER-confirmed outcome (`booked`, and a reconciled `booked` via
+// `findJustCreatedBooking`). Identical row formatting to `buildSummaryView`
+// EXCEPT the total, which is the server-recorded amount handed in by the
+// caller — never re-derived from `computeBookingPrice` here (that function
+// prices an ESTIMATE; a written booking's total is a historical fact).
+// ---------------------------------------------------------------------------
+
+export interface BookedRowsParams {
+  /** Requires `checkIn`/`nights`/`guests` set — the same precondition `buildSummaryView` has (only ever called once a booking has actually written). */
+  slots: BookingSlots;
+  camp: BookingCampContext;
+  t: TranslationType;
+  language: Language;
+  /** [Financial] the server-recorded total (`data.snapshotTotalAmount` on a fresh create, or a reconciled row's own recorded total) — ADR-018 D6 refinement 4: "the reconciled success card renders the FOUND row's real id and total, never a re-render of the local estimate." */
+  serverTotal: number;
+}
+
+export function buildBookedRows({ slots, camp, t, language, serverTotal }: BookedRowsParams): BookingSummaryRows {
+  const checkIn = slots.checkIn!;
+  const nights = slots.nights!;
+  const guests = slots.guests!;
+  const dateLabel = formatBookingDate(checkIn, language);
+  const spotValue = slots.spotId && slots.spotName ? slots.spotName : undefined;
+  return {
+    campValue: camp.name,
+    datesValue: t.aiChat.booking.summary.datesValue.replace('{date}', dateLabel).replace('{nights}', String(nights)),
+    guestsValue: t.aiChat.booking.summary.guestsValue.replace('{count}', String(guests)),
+    spotValue,
+    totalValue: camp.priceIsFree ? t.aiChat.card.free : `฿${THB_FORMAT.format(serverTotal)}`,
   };
 }

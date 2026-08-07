@@ -44,6 +44,9 @@ const CAMP: BookingCampContext = {
   name: "ภูชี้ฟ้า",
   weekendAvailability: WEEKEND,
   maxGuestsPerDay: 10,
+  // CAM-700 — whole-camp fixture; the `spot` step's own view-builder coverage
+  // lives in cam-700-*.test.ts.
+  useSpotView: false,
   unitPrice: 500,
   priceUnit: "PER_SITE",
   priceIsFree: false,
@@ -153,7 +156,8 @@ describe("buildGuestsQuestionView", () => {
     );
     // ceiling = min(remaining=6, maxGuestsPerDay=10) = 6, capped at MAX_BOOKING_GUEST_CHIPS
     expect(view.chips.map((c) => (c.kind === "guests" ? c.count : null))).toEqual([1, 2, 3, 4]);
-    expect(view.controls).toEqual([{ kind: "back", toStep: "date" }, { kind: "cancel" }]);
+    // CAM-699 — `nights` now sits directly before `guests`; back returns there.
+    expect(view.controls).toEqual([{ kind: "back", toStep: "nights" }, { kind: "cancel" }]);
   });
 
   it("[boundary] reason:'ask' with remaining===null -> the askNoCap copy, no per-day count fabricated", () => {
@@ -188,14 +192,18 @@ describe("buildGuestsQuestionView", () => {
 });
 
 describe("buildSummaryView", () => {
-  const slots = { checkIn: "2026-08-01", checkOut: "2026-08-02", guests: 2 };
+  // CAM-699 — `nights` is now a real, required slot (ADR-018 D8: the
+  // round-1 hardcoded 1-night total).
+  const slots = { checkIn: "2026-08-01", checkOut: "2026-08-03", nights: 2, guests: 2 };
 
-  it("[normal] a priced camp — total via computeBookingPrice (unitPrice * 1 night, no VAT, no extra fee)", () => {
+  it("[normal][CAM-699] a priced camp — total via computeBookingPrice using the REAL night count (unitPrice * 2 nights, no VAT, no extra fee)", () => {
     const view = buildSummaryView({ slots, camp: CAMP, t, language: "th", today: "2026-07-22" });
     expect(view.campValue).toBe(CAMP.name);
-    expect(view.datesValue).toBe(t.aiChat.booking.summary.datesValue.replace("{date}", formatBookingDate("2026-08-01", "th")));
+    expect(view.datesValue).toBe(
+      t.aiChat.booking.summary.datesValue.replace("{date}", formatBookingDate("2026-08-01", "th")).replace("{nights}", "2")
+    );
     expect(view.guestsValue).toBe(t.aiChat.booking.summary.guestsValue.replace("{count}", "2"));
-    expect(view.totalValue).toBe("฿500"); // 500 * 1 night, no VAT
+    expect(view.totalValue).toBe("฿1,000"); // 500 * 2 nights, no VAT — was a hardcoded ฿500 (1 night) before CAM-699
     expect(view.controls).toEqual([{ kind: "editDate" }, { kind: "editGuests" }, { kind: "cancel" }]);
   });
 
@@ -205,19 +213,44 @@ describe("buildSummaryView", () => {
     expect(view.totalValue).toBe(t.aiChat.card.free);
   });
 
-  it("[normal] the handoff link carries checkIn/checkOut/guests/from=chat — the SAME contract lib/booking-prefill.ts's reader expects", () => {
-    const view = buildSummaryView({ slots, camp: CAMP, t, language: "th", today: "2026-07-22" });
-    expect(view.handoffHref).toBe(
-      `/campgrounds/${CAMP.slug}?checkIn=2026-08-01&checkOut=2026-08-02&guests=2&from=chat`
-    );
+  it("[normal] a PER-PITCH camp's handoff link carries the REAL checkIn/checkOut/guests/from=chat — the SAME contract lib/booking-prefill.ts's reader expects", () => {
+    // CAM-703 (2026-08-06 dated supersede) — `CAMP` (whole-camp) now gets
+    // `kind:'confirm'` unconditionally (guest or member); a per-pitch camp
+    // is the one case still keeping `handoff`, so this fixture proves the
+    // href contract against THAT camp shape instead. The whole-camp
+    // guest/member `confirm` cta shapes are covered by
+    // cam-703-login-gate.test.ts.
+    const perPitchCamp: BookingCampContext = { ...CAMP, useSpotView: true };
+    const view = buildSummaryView({ slots, camp: perPitchCamp, t, language: "th", today: "2026-07-22" });
+    expect(view.cta).toEqual({
+      kind: "handoff",
+      href: `/campgrounds/${CAMP.slug}?checkIn=2026-08-01&checkOut=2026-08-03&guests=2&from=chat`,
+    });
   });
 
   // CAM-652 (ADR-014): proves buildSummaryView is really routed through
   // buildBookingPriceArgs (not a hardcoded PER_SITE literal) — a PER_PERSON
   // camp's total multiplies by the party size the camper picked in this flow.
-  it("[normal] a PER_PERSON camp — total multiplies unitPrice x guests x 1 night", () => {
+  it("[normal] a PER_PERSON camp — total multiplies unitPrice x guests x nights", () => {
     const perPersonCamp: BookingCampContext = { ...CAMP, priceUnit: "PER_PERSON" };
     const view = buildSummaryView({ slots, camp: perPersonCamp, t, language: "th", today: "2026-07-22" });
-    expect(view.totalValue).toBe("฿1,000"); // 500 * 2 guests * 1 night
+    expect(view.totalValue).toBe("฿2,000"); // 500 * 2 guests * 2 nights
+  });
+
+  // CAM-699 — the exact regression this story exists to close: 1 night's
+  // worth of slots must NOT silently become the same total a 2-night span
+  // would produce.
+  it("[normal][CAM-699][regression] a 1-night stay prices differently from a 2-night stay for the SAME camp/party", () => {
+    const oneNight = buildSummaryView({
+      slots: { checkIn: "2026-08-01", checkOut: "2026-08-02", nights: 1, guests: 2 },
+      camp: CAMP,
+      t,
+      language: "th",
+      today: "2026-07-22",
+    });
+    expect(oneNight.totalValue).toBe("฿500");
+    expect(oneNight.datesValue).toBe(
+      t.aiChat.booking.summary.datesValue.replace("{date}", formatBookingDate("2026-08-01", "th")).replace("{nights}", "1")
+    );
   });
 });

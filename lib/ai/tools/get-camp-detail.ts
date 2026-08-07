@@ -129,6 +129,14 @@ export type GetCampDetailResult =
       nameTh: string;
       nameEn: string | null;
       description: string | null;
+      /**
+       * CAM-700 — whether this camp is booked per-pitch (`Spot`) rather than
+       * whole-camp. `CampSite.useSpotView` was already in this select
+       * (capacity/effective-capacity derivation); additive return-only
+       * change (api.md rule 12) so the in-chat booking flow can decide
+       * whether to show its `spot` step without a second query.
+       */
+      useSpotView: boolean;
       amenities: CampAmenity[];
       /** Verified reviews only (capped at MAX_REVIEWS_RETURNED, most recent first). */
       reviews: ReviewListItem[];
@@ -361,6 +369,7 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
     nameTh: campSite.nameTh,
     nameEn: campSite.nameEn,
     description: campSite.description,
+    useSpotView: campSite.useSpotView,
     amenities: campSite.options,
     reviews: campSite.reviews.map(toReviewListItem),
     reviewSummary: buildReviewSummary({

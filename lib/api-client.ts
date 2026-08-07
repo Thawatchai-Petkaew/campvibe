@@ -3,6 +3,7 @@ import type {
     CampgroundDTO,
     CampSiteDTO,
     BookingDTO,
+    BookingStatus,
     ReviewDTO,
     ApiResponse,
     PaginatedResponse,
@@ -101,17 +102,125 @@ export const campgroundAPI = {
     },
 };
 
-// Booking API
+// Booking API — ADR-018 D1: `POST /api/bookings` is the ONE deterministic
+// write path, shared unmodified by the camp page's own raw `fetch`
+// (components/CampgroundDetailClient.tsx) and this facade's first real
+// caller, the in-chat booking flow (CAM-702). `create` below REPLACES the
+// pre-CAM-702 shape (`BookingDTO` in/out, wrapped `ApiResponse`) — that
+// shape had zero callers anywhere in the repo (verified: `grep -rn
+// "bookingAPI" app components lib` matched only this declaration), so this
+// is not a breaking change to any live caller.
+export interface BookingCreateInput {
+    campSiteId: string;
+    checkInDate: string;
+    checkOutDate: string;
+    guests: number;
+    spotId?: string;
+}
+
+/** The atomic fields the chat needs from the raw created-Booking row (`route.ts`'s `apiSuccess(booking, 201)` — the row itself IS the body, never wrapped in `{data}`, per ADR-018 D1's contract table). */
+export interface BookingCreatedRow {
+    id: string;
+    status: BookingStatus;
+    /** [Financial] the server-recorded total (ADR-018 D3/D8) — never re-derived client-side. `null` only if the DB column is genuinely unset (defensive; the write path always sets it). */
+    snapshotTotalAmount: number | null;
+}
+
+/** Network I/O is an input boundary (code.md CAM-305) — narrowed before ever being trusted as a `BookingCreatedRow`. */
+function isBookingCreatedRow(value: unknown): value is BookingCreatedRow {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        typeof v.id === 'string' &&
+        typeof v.status === 'string' &&
+        (v.snapshotTotalAmount === null || typeof v.snapshotTotalAmount === 'number')
+    );
+}
+
+export type BookingCreateOutcome =
+    | { kind: 'created'; booking: BookingCreatedRow }
+    | { kind: 'conflict' }
+    | { kind: 'unauthorized' }
+    | { kind: 'rateLimited'; retryAfterSec: number }
+    | { kind: 'error' }
+    | { kind: 'network' };
+
 export const bookingAPI = {
-    create: async (data: BookingDTO): Promise<ApiResponse<BookingDTO>> => {
-        return fetchAPI<BookingDTO>('/bookings', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
+    /**
+     * POST /api/bookings (ADR-018 D1) — `source: 'CHAT'` is a CODE CONSTANT
+     * at THIS call site, hardcoded below and never read from `input`, a
+     * prop, or a model/chat payload (ADR-018 D1/R2, CAM-642's own
+     * constraint) — `BookingCreateInput` carries no `source` field at all,
+     * so a caller cannot even attempt to pass one.
+     *
+     * Parses BOTH failure shapes the route can return (ADR-018 D1's
+     * contract table): the `apiError` JSON shape (`{error,details?}`, every
+     * 4xx/5xx except 429) AND the raw 429 body (`{error:'rate_limited'}` +
+     * a `Retry-After` header, `route.ts:297`) — a client that reads only
+     * one shape mis-reads the other.
+     */
+    create: async (input: BookingCreateInput): Promise<BookingCreateOutcome> => {
+        try {
+            const response = await fetch(`${API_BASE}/bookings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    campSiteId: input.campSiteId,
+                    checkInDate: input.checkInDate,
+                    checkOutDate: input.checkOutDate,
+                    guests: input.guests,
+                    ...(input.spotId ? { spotId: input.spotId } : {}),
+                    source: 'CHAT', // ADR-018 D1 — hardcoded here, never from `input`.
+                }),
+            });
+
+            if (response.status === 401) return { kind: 'unauthorized' };
+            if (response.status === 409) return { kind: 'conflict' };
+            if (response.status === 429) {
+                // Raw body `{error:'rate_limited'}` — NOT the apiError shape
+                // (route.ts:297); the real number lives on the header.
+                const header = response.headers.get('Retry-After');
+                const parsed = header ? Number(header) : NaN;
+                return { kind: 'rateLimited', retryAfterSec: Number.isFinite(parsed) && parsed > 0 ? parsed : 60 };
+            }
+            if (!response.ok) return { kind: 'error' };
+
+            const data: unknown = await response.json();
+            return isBookingCreatedRow(data) ? { kind: 'created', booking: data } : { kind: 'error' };
+        } catch {
+            return { kind: 'network' };
+        }
     },
 
+    /** GET /api/bookings — newest-first, capped at 100 (`route.ts`). Used by the bookings list UI AND by the chat's post-write reconcile heuristic (ADR-018 D6, `findJustCreatedBooking` in `components/ai-chat/booking-turn.ts`). */
     list: async (): Promise<ApiResponse<BookingDTO[]>> => {
         return fetchAPI<BookingDTO[]>('/bookings');
+    },
+};
+
+// Remaining-capacity API — CAM-647: the in-chat booking flow's ONE
+// pre-summary live re-check (GET /api/campsites/[id]/remaining-capacity,
+// CAM-267 PREP-1, the SAME route the camp page's own booking widget already
+// calls). `remaining` is number|null (null = no per-day cap set, NEVER
+// treated as full — the caller, `components/ai-chat/booking-turn.ts`'s
+// `resolveSummaryCheck`, owns that rule) and `blockedByHost` is atomic
+// alongside it, per the route's own response shape.
+export interface RemainingCapacityDTO {
+    campSiteId: string;
+    capacity: number | null;
+    remaining: number | null;
+    blockedByHost: boolean;
+}
+
+export const campSiteAvailabilityAPI = {
+    /** GET /api/campsites/[id]/remaining-capacity?startDate&endDate — always dynamic server-side (`route.ts`'s own `force-dynamic`), never cached here either. */
+    getRemainingCapacity: async (
+        campSiteId: string,
+        startDate: string,
+        endDate: string
+    ): Promise<ApiResponse<RemainingCapacityDTO>> => {
+        const params = new URLSearchParams({ startDate, endDate });
+        return fetchAPI<RemainingCapacityDTO>(`/campsites/${campSiteId}/remaining-capacity?${params}`);
     },
 };
 
@@ -233,10 +342,13 @@ export interface AiChatCardResponse {
     priceLow: number | null;
     /**
      * CAM-653 (ADR-014): what `priceLow` is charged per. Additive + optional
-     * (api.md rule 12) — `lib/ai/**` (out of this story's surface, CAM-656)
-     * does not populate this yet, so it is always `undefined` today; every
-     * consumer defaults the missing value to `PER_SITE` (`priceUnitSuffix`,
-     * lib/price-unit-display.ts), matching the column default.
+     * (api.md rule 12) — `searchCampsites` populates this on every card
+     * (`aiCampCardSelect` inherits `CampSite.priceUnit` from
+     * `campCardSelect`, CAM-653), so a real unit rides the wire today.
+     * Stays optional so an older/unaware body still satisfies this type;
+     * every consumer defaults the missing value to `PER_SITE`
+     * (`priceUnitSuffix`, lib/price-unit-display.ts), matching the column
+     * default.
      */
     priceUnit?: PricingUnit;
     createdAt: string;
@@ -701,6 +813,9 @@ function isGetCampDetailOk(value: unknown): value is Extract<GetCampDetailResult
         typeof v.nameTh === 'string' &&
         (v.nameEn === null || typeof v.nameEn === 'string') &&
         (v.description === null || typeof v.description === 'string') &&
+        // CAM-700 additive field — checked explicitly, matching this
+        // function's own "every field of the tool's shape" policy.
+        typeof v.useSpotView === 'boolean' &&
         Array.isArray(v.amenities) &&
         v.amenities.every(isCampAmenity) &&
         Array.isArray(v.reviews) &&
@@ -720,6 +835,34 @@ function isGetCampDetailOk(value: unknown): value is Extract<GetCampDetailResult
         v.availableWeekendDates.every((d) => typeof d === 'string') &&
         Array.isArray(v.weekendAvailability) &&
         v.weekendAvailability.every(isWeekendAvailabilityEntry)
+    );
+}
+
+/**
+ * CAM-700 — one live pitch as the in-chat booking flow's `spot` step needs
+ * it: name, per-night price, and the party-size ceiling. Wire shape of one
+ * entry in `GET /api/campsites/[id]/spots`'s array body
+ * (`app/api/campsites/[id]/spots/route.ts` — `apiSuccess(spots)`, an
+ * UNWRAPPED array, not `{data: [...]}`). Deliberately narrow: the real
+ * `Spot` row carries host-facing fields (zone, images, deprecated price
+ * columns) this flow never needs.
+ */
+export interface CampSpotSummary {
+    id: string;
+    name: string;
+    maxCampers: number | null;
+    pricePerNight: number;
+}
+
+/** CAM-700 — narrows one `GET /api/campsites/[id]/spots` array entry (network I/O is an input boundary, code.md CAM-305). */
+function isCampSpotSummary(value: unknown): value is CampSpotSummary {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        typeof v.id === 'string' &&
+        typeof v.name === 'string' &&
+        (v.maxCampers === null || typeof v.maxCampers === 'number') &&
+        typeof v.pricePerNight === 'number'
     );
 }
 
@@ -816,6 +959,58 @@ export const aiChatAPI = {
             return isGetCampDetailOk(data) ? data : { ok: false, code: 'not_found' };
         } catch {
             return { ok: false, code: 'not_found' };
+        }
+    },
+
+    /**
+     * GET /api/campsites/[id]/spots (CAM-700) — the live, non-deleted
+     * pitches on a per-pitch camp, for the booking flow's `spot` step.
+     * `null` on any non-2xx status, a malformed body, or a network
+     * exception — the caller (booking-turn.ts's `resolveSpotStep`) treats
+     * that identically to a camp with zero live pitches: the step fails
+     * TOWARD the existing whole-camp handoff summary, never toward a
+     * pitch-less confirm.
+     */
+    getCampSpots: async (campSiteId: string): Promise<CampSpotSummary[] | null> => {
+        try {
+            const response = await fetch(`${API_BASE}/campsites/${campSiteId}/spots`);
+            if (!response.ok) return null;
+            const data: unknown = await response.json();
+            if (!Array.isArray(data)) return null;
+            return data.filter(isCampSpotSummary);
+        } catch {
+            return null;
+        }
+    },
+
+    /**
+     * GET /api/campsites/[id]/availability?spotId= (CAM-665/CAM-700) —
+     * checks ONE pitch's occupancy across every night of
+     * `[startDate, lastNightDate]` (both INCLUSIVE — this route's own
+     * per-day-loop convention, NOT the booking flow's exclusive-checkout
+     * one; the caller passes the last actual NIGHT, never the checkout day
+     * itself). `true` = free every queried night, `false` = occupied at
+     * least one night, `null` = could not determine (network error,
+     * off-contract body, or an empty `availability` array) — a caller must
+     * never treat `null` as free.
+     */
+    checkSpotAvailability: async (
+        campSiteId: string,
+        spotId: string,
+        startDate: string,
+        lastNightDate: string
+    ): Promise<boolean | null> => {
+        try {
+            const response = await fetch(
+                `${API_BASE}/campsites/${campSiteId}/availability?startDate=${startDate}&endDate=${lastNightDate}&spotId=${spotId}`
+            );
+            if (!response.ok) return null;
+            const data: unknown = await response.json();
+            const list = (data as { availability?: unknown } | null)?.availability;
+            if (!Array.isArray(list) || list.length === 0) return null;
+            return list.every((entry) => (entry as { spotAvailable?: unknown }).spotAvailable !== false);
+        } catch {
+            return null;
         }
     },
 };

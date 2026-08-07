@@ -346,6 +346,14 @@ const AiAmbientCanvas = dynamic(
   { ssr: false, loading: () => null }
 );
 
+// CAM-703 (ADR-018 D2) — same lazy idiom InfiniteScrollGrid.tsx uses for its
+// guest heart-click login prompt: LoginModal uses client-only hooks
+// (useSession/usePathname), so ssr:false is correct here too.
+const LoginModal = dynamic(
+  () => import("@/components/LoginModal").then((m) => ({ default: m.LoginModal })),
+  { ssr: false, loading: () => null }
+);
+
 interface AiChatPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -423,11 +431,20 @@ function useIsDesktopViewport(): boolean {
 
 export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const { t } = useLanguage();
+  // CAM-703 (ADR-018 D2) — the guest login gate's UI state: LoginModal's
+  // open flag + which subtitle applies. `useAiChat`'s `onBookingConfirm`
+  // signals here via `onNeedsLogin` (never opens the modal itself — that's
+  // UI state, this panel's job); the reason it hands back decides the
+  // subtitle (a fresh guest tap on the summary vs. F3's reverted button
+  // after a real mid-flight 401).
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [loginModalReason, setLoginModalReason] = useState<"confirm" | "sessionExpired">("confirm");
   const {
     entries,
     sending,
     disabled,
     resuming,
+    isAuthenticated,
     sendMessage,
     retryLast,
     abortActiveStream,
@@ -437,7 +454,18 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
     onBookingEditDate,
     onBookingEditGuests,
     onBookingCancel,
-  } = useAiChat();
+    // CAM-702/CAM-703 (ADR-018) — the confirm tap + F2's check-and-retry;
+    // mechanical pass-through only. `onNeedsLogin` is the ONE new wire this
+    // story adds — the hook itself decides submit-vs-needs-login, this
+    // panel only reacts by opening LoginModal.
+    onBookingConfirm,
+    onBookingCheckAndRetry,
+  } = useAiChat({
+    onNeedsLogin: (reason) => {
+      setLoginModalReason(reason);
+      setLoginModalOpen(true);
+    },
+  });
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(() => readExpandedFromStorage());
   // CAM-453 — desktop split gates on `expanded` (fullscreen has the room)
@@ -456,8 +484,20 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   // CAM-440's scrollbar-compensation bug). `data-ai-chat-node` marks this
   // panel's OWN portal-rendered nodes (backdrop + Content below) so they are
   // never inerted along with the rest of the page.
+  // CAM-703 — suspended (early return) while `loginModalOpen`: LoginModal
+  // renders its OWN Radix Dialog with the library's DEFAULT `modal={true}`
+  // (its focus trap + `hideOthers` already correctly own "the rest of the
+  // page is inert" while it is open). LoginModal's portaled nodes carry no
+  // `data-ai-chat-node` marker (rightly so — they are not part of this
+  // panel), so layering this manual "inert everything except our own
+  // marked nodes" lock on TOP of LoginModal's own modal behaviour would
+  // inert LoginModal itself the moment it opens while this panel is
+  // expanded. The cleanup below (undoing any already-applied lock) runs the
+  // instant `loginModalOpen` flips true, before LoginModal's own machinery
+  // ever needs to contend with it; the manual lock re-applies once
+  // LoginModal closes, provided `open && expanded` are still true.
   useEffect(() => {
-    if (typeof document === "undefined" || !(open && expanded)) return;
+    if (typeof document === "undefined" || !(open && expanded) || loginModalOpen) return;
     const root = document.documentElement;
     root.classList.add("ai-chat-scroll-lock", "no-scrollbar");
     const inerted: HTMLElement[] = [];
@@ -471,7 +511,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
       root.classList.remove("ai-chat-scroll-lock", "no-scrollbar");
       for (const el of inerted) el.inert = false;
     };
-  }, [open, expanded]);
+  }, [open, expanded, loginModalOpen]);
   // CAM-447 — panel-level view state (not use-ai-chat.ts): which camp's
   // floating detail card is open, plus the originating card button so
   // closing the detail restores focus to it.
@@ -601,7 +641,8 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
       <DialogPortal>
         {/* CAM-429: transparent, not removed — only the dark scrim over the
             page disappears; the Esc-dismiss/outside-dismiss/focus-on-open
@@ -860,6 +901,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                       entries={entries}
                       sending={sending}
                       resuming={resuming}
+                      liveAuthed={isAuthenticated}
                       onSuggestion={handleSuggestion}
                       onRetry={retryLast}
                       onSelectCamp={handleSelectCamp}
@@ -868,6 +910,8 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                       onBookingEditDate={onBookingEditDate}
                       onBookingEditGuests={onBookingEditGuests}
                       onBookingCancel={onBookingCancel}
+                      onBookingConfirm={onBookingConfirm}
+                      onBookingCheckAndRetry={onBookingCheckAndRetry}
                     />
                   </div>
                 </ScrollArea>
@@ -998,5 +1042,18 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
         </PanelPrimitive.Content>
       </DialogPortal>
     </Dialog>
+    {/* CAM-703 (ADR-018 D2) — the guest login gate, lazily imported exactly
+        as InfiniteScrollGrid.tsx does for its guest heart-click prompt. A
+        SEPARATE Dialog tree from the panel above (its own portal), so it
+        renders above the panel regardless of expanded/collapsed geometry.
+        `subtitle` picks the matching sentence: a fresh guest tap on the
+        summary reads `loginPrompt`; a guest tap on F3's reverted button
+        (a real mid-flight 401) reads `sessionExpired`. */}
+    <LoginModal
+      isOpen={loginModalOpen}
+      onClose={() => setLoginModalOpen(false)}
+      subtitle={loginModalReason === "sessionExpired" ? t.aiChat.booking.sessionExpired : t.aiChat.booking.loginPrompt}
+    />
+    </>
   );
 }

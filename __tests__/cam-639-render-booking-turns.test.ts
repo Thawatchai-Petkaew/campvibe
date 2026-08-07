@@ -56,16 +56,25 @@ function renderEntries(entries: ChatEntry[]) {
         entries,
         sending: false,
         resuming: false,
+        // CAM-703 (2026-08-06) — AiChatMessageListProps grew a required
+        // liveAuthed prop; false is neutral for every fixture this file
+        // renders (none of them use a `confirm`-kind cta).
+        liveAuthed: false,
         onSuggestion: vi.fn(),
         onRetry: vi.fn(),
         onSelectCamp: vi.fn(),
         // CAM-640 — this story wires these; fixture-only no-ops here (the
-        // real wiring is covered by cam-640-*.test.ts).
+        // real wiring is covered by cam-640-*.test.ts). CAM-702 (2026-08-06)
+        // added onBookingConfirm/onBookingCheckAndRetry to the same prop
+        // contract; fixture-only no-ops here too (real wiring covered by
+        // cam-702-*.test.ts).
         onBookingChipSelect: vi.fn(),
         onBookingBack: vi.fn(),
         onBookingEditDate: vi.fn(),
         onBookingEditGuests: vi.fn(),
         onBookingCancel: vi.fn(),
+        onBookingConfirm: vi.fn(),
+        onBookingCheckAndRetry: vi.fn(),
       })
     )
   );
@@ -110,7 +119,8 @@ describe("AiChatMessageList — kind:'booking' entry mounts AiChatBookingStep, p
       datesValue: "Sat, 8 Aug, 1 night",
       guestsValue: "2 people",
       totalValue: "฿500",
-      handoffHref: "/campgrounds/phu-chi-fa?checkIn=2026-08-08&checkOut=2026-08-09&guests=2",
+      // CAM-701 — `handoffHref` renamed to the `cta` discriminator.
+      cta: { kind: "handoff", href: "/campgrounds/phu-chi-fa?checkIn=2026-08-08&checkOut=2026-08-09&guests=2" },
       controls: [{ kind: "editDate" }, { kind: "editGuests" }, { kind: "cancel" }],
     };
     renderEntries([bookingEntry("summary", view)]);
