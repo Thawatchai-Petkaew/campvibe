@@ -312,10 +312,13 @@ describe('scripts/ai-eval/golden-cases.json — CAM-459 new zone-A smoke case', 
   // escape valve, demoted to guardrail:false rather than repeat that
   // regression risk — see test.md "Golden case" section for the full record.
   // 72 -> 73.
-  it('[boundary] total case count is the real fixture size (73: 72 prior + 1 CAM-717 terrain-carryover NON-guardrail case), bounded by DEFAULT_MAX_EVAL_CASES', () => {
+  // 2026-08-13 (CAM-719) — +1 NON-guardrail case (CAM719-DATE-RANGE): the
+  // golden corpus had no range-shaped date case at all (swept per BR-7);
+  // proves `resolveDates` still dispatches for a range phrase. 73 -> 74.
+  it('[boundary] total case count is the real fixture size (74: 73 prior + 1 CAM-719 date-range NON-guardrail case), bounded by DEFAULT_MAX_EVAL_CASES', () => {
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases } = loadCasesFromFile(fixturePath);
-    expect(cases.length).toBe(73);
+    expect(cases.length).toBe(74);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
   });
 });

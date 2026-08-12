@@ -34,10 +34,15 @@ describe("locales/translations.json — aiChat.booking namespace (TH verbatim, p
   it("date.chipsLabel", () => expect(th.date.chipsLabel).toBe("วันที่ยังว่าง"));
   it("BR-3: date.chip", () => expect(th.date.chip).toBe("{date} เหลือ {count} ที่"));
   it("EC-4: date.chipNoCap", () => expect(th.date.chipNoCap).toBe("{date} มีที่ว่าง"));
-  it("date.typeHint", () => expect(th.date.typeHint).toBe("หรือพิมพ์วันที่เองก็ได้ เช่น เสาร์หน้า หรือ 15 ส.ค."));
+  // 2026-08-13 (CAM-719) — superseded: gains a range example ("19-21 ส.ค.")
+  // so the copy ADVERTISES what the parser can now read (BR-6), not just the
+  // pre-CAM-719 single-day forms.
+  it("date.typeHint (superseded 2026-08-13, CAM-719: +range example)", () =>
+    expect(th.date.typeHint).toBe("หรือพิมพ์วันที่เองก็ได้ เช่น เสาร์หน้า 15 ส.ค. หรือ 19-21 ส.ค."));
   it("date.empty", () =>
     expect(th.date.empty).toBe("ช่วงนี้ยังไม่มีเสาร์ว่างเลย ลองพิมพ์วันที่อยากไปมาได้เลย เดี๋ยวเราหาให้"));
-  it("date.unreadable", () => expect(th.date.unreadable).toBe("ยังจับวันไม่ได้เลย ลองบอกใหม่อีกที เช่น เสาร์หน้า หรือ 15 ส.ค."));
+  it("date.unreadable (superseded 2026-08-13, CAM-719: +range example)", () =>
+    expect(th.date.unreadable).toBe("ยังจับวันไม่ได้เลย ลองบอกใหม่อีกที เช่น เสาร์หน้า 15 ส.ค. หรือ 19-21 ส.ค."));
   it("date.full", () => expect(th.date.full).toBe("{date} เต็มแล้ว ลองวันอื่นดูไหม"));
 
   it("guests.ask", () => expect(th.guests.ask).toBe("{date} นะ วันนั้นเหลือ {count} ที่ ไปกันกี่คน"));
