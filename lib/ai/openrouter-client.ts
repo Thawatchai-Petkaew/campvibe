@@ -519,22 +519,23 @@ function buildSystemPrompt(
     // P17-*): names the trigger words up front and states the "never stop"
     // rule as its own sentence, ahead of the tool-choice detail, so it reads
     // as a hard requirement rather than a side note.
+    // CAM-718 (2026-08-12) — a routing-nudge sentence was tried here (a SHOULD
+    // extending this MUST rule to a dated find/recommend request with no
+    // explicit availability trigger word) and was REVERTED after a real CI
+    // guardrail run showed it destabilizing the pre-existing, already-shipped
+    // GEO-8-CAM716-DATE-NEAR-SARABURI pin: the nudge's own worked example
+    // quoted the owner's incident phrase verbatim (GEO-8's own utterance),
+    // and on CI the model skipped searchCampsites entirely (resolveDates ->
+    // bulkAvailability, 0/3 attempts calling searchCampsites) — a live
+    // regression on a shipped case, for a nudge that only changed dispatch
+    // behaviour 1/15 times across this story's own local real-model sampling
+    // (test.md). Per the ticket's own escape valve ("if the model cannot be
+    // made to reliably join an availability call, say so and scope the fix
+    // to discipline-only"): the grounding clause added below (:718) already
+    // closes the actual incident (proven by the 5/5 zero-tolerance
+    // behavioural verify) with NO tool-routing change required — so the
+    // nudge was cut rather than kept as a net-negative, unproven addition.
     'Any question about availability or openness — for example using words like "ว่างไหม", "วันไหนว่าง", "โล่งสุด", "ช่วงไหนว่าง", or "เต็มไหม" — MUST end this turn with a checkAvailability or bulkAvailability call; resolveDates only converts a date phrase into ISO ranges, it never reports availability, and it is NEVER a sufficient final step for such a question by itself. If the question needs date conversion, call resolveDates first, then IMMEDIATELY chain into checkAvailability or bulkAvailability with the ranges it returned — never stop, summarize, or answer after resolveDates alone. Use checkAvailability for one specific named or referenced camp over a single date range; use bulkAvailability for an open-ended "which camps are free" or a "which of several dates/weekends is freest" question (for example "ปลายเดือนไปไหนดีที่ยังว่าง"). If resolveDates returns ok:false, ask the camper for the dates instead — never call an availability tool on a guessed date.',
-    //
-    // CAM-718 (2026-08-12) — a THIRD sentence, appended: the owner's incident
-    // query ("...แถวๆสระบุรี เข้าพักเสาร์หน้า") names a stay date but contains
-    // NONE of the MUST trigger words above, so the sentence right before this
-    // one never fires for it, and the model was free to stop at
-    // searchCampsites alone — the exact turn shape that then let the answer
-    // fabricate an availability claim (see the grounding clause added below,
-    // :718). This is deliberately a SHOULD, not a MUST: CAM-716's own
-    // real-model sampling on this phrasing (test.md) showed the model does
-    // not reliably obey even the stronger MUST sentence above, so a second
-    // MUST here would just be a second unenforceable promise — the actual
-    // safety net is the grounding clause, not this nudge. bulkAvailability's
-    // `near` (CAM-716) removes the one structural reason this chain used to
-    // be impossible.
-    'A find/recommend/list request that also names a stay date or date phrase (for example "แถวๆสระบุรี เข้าพักเสาร์หน้า") SHOULD also chain into bulkAvailability this turn — resolve the date first (call resolveDates if it is relative) and carry the SAME place, terrain, and other filters plus the resolved dates into that bulkAvailability call, rather than stopping at searchCampsites alone. If you cannot confidently resolve the date this turn, searchCampsites alone is still a valid answer — but then never state or imply availability for a date you did not check.',
     // CAM-477 (Theme A) — generalizes the checkAvailability vs bulkAvailability
     // routing beyond the resolveDates chain above: an open-ended "which camps
     // are free" question with no single named camp must still call

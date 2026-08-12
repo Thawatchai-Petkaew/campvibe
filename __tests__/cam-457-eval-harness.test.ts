@@ -154,13 +154,17 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // 2026-08-12 (CAM-718) — +1 guardrail case
     // (GEO-9-CAM718-AVAILABILITY-BULK-JOIN): the SAME query with an explicit
     // "ว่างไหม" suffix must dispatch bulkAvailability with near="Saraburi"
-    // AND terrain="RIVE" (subset match) — real-model sampling (5/5 locally,
-    // this story's test.md) showed this phrasing reliably joins an
-    // availability call, unlike the bare GEO-8 phrasing (CAM-716 measured
-    // ~3/8 there and deliberately declined to pin bulk-joining on it) —
-    // proves an availability-bearing call CAN be made reliable for a
-    // dated-proximity ask, closing the "does prose ever claim availability
-    // with nothing behind it" gap this story exists to fix.
+    // (subset match — NOT terrain, deliberately: a chained bulkAvailability
+    // call sometimes drops the taxonomy filter it should carry over, the
+    // ALREADY-FLAGGED, unrelated CAM-717 defect CAM-716's own Out of scope
+    // named; pinning terrain here would couple this case to THAT defect
+    // instead of the join-reliability property this case actually tests) —
+    // real-model sampling (5/5 locally, this story's test.md) showed this
+    // phrasing reliably joins an availability call, unlike the bare GEO-8
+    // phrasing (CAM-716 measured ~3/8 there and deliberately declined to pin
+    // bulk-joining on it) — proves an availability-bearing call CAN be made
+    // reliable for a dated-proximity ask, closing the "does prose ever claim
+    // availability with nothing behind it" gap this story exists to fix.
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);

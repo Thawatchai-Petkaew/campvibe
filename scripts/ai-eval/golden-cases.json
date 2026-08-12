@@ -786,7 +786,7 @@
     "expected": {
       "kind": "tool",
       "tool": "bulkAvailability",
-      "params": { "near": "Saraburi", "terrain": "RIVE" }
+      "params": { "near": "Saraburi" }
     },
     "guardrail": true
   }

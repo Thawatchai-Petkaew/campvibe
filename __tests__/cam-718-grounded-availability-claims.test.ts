@@ -16,19 +16,29 @@
  * ONE opening sentence — nothing stopped a LATER sentence in the same short
  * answer from stating a date/availability fact out of nowhere.
  *
- * TWO disciplines added to buildSystemPrompt() (prompt-only change, same
- * pattern as CAM-437/459/501/709/714 — source-of-truth for both is
+ * ONE discipline shipped in buildSystemPrompt() (prompt-only change, same
+ * pattern as CAM-437/459/501/709/714 — source-of-truth is
  * lib/ai/openrouter-client.ts; fetch is mocked, zero real spend):
- *   1. GROUNDING CLAUSE — a ว่าง/เหลือที่/date-free claim ANYWHERE in the
- *      answer must be sourced from THIS turn's own checkAvailability or
- *      bulkAvailability result; when neither ran, the answer must not claim
- *      availability at all and instead offers to check (three never-copy
- *      example sentences, particle-free voice, mirroring CAM-714's own
- *      anti-parrot mechanics).
- *   2. ROUTING NUDGE — a find/recommend request that also names a stay date
- *      SHOULD chain into bulkAvailability this turn (a SHOULD, not a second
- *      unenforceable MUST — CAM-716 already measured the existing MUST
- *      sentence is not reliably obeyed on this phrasing family).
+ *   1. GROUNDING CLAUSE — a ว่าง/เหลือที่/converted-absolute-date claim
+ *      ANYWHERE in the answer must be sourced from THIS turn's own
+ *      checkAvailability or bulkAvailability result; when neither ran, the
+ *      answer must not claim availability at all and instead offers to check
+ *      (three never-copy example sentences, particle-free voice, mirroring
+ *      CAM-714's own anti-parrot mechanics).
+ *
+ * A SECOND discipline (a routing nudge: a find/recommend request that also
+ * names a stay date SHOULD chain into bulkAvailability) was BUILT, tested
+ * locally (1/15 dispatch-behaviour change — negligible), pushed, and
+ * REVERTED after a real CI guardrail run showed it destabilizing the
+ * pre-existing, already-shipped GEO-8-CAM716-DATE-NEAR-SARABURI pin (the
+ * nudge's own worked example quoted the owner's incident phrase verbatim —
+ * GEO-8's own utterance — and the model skipped searchCampsites entirely,
+ * 0/3 attempts). Per the ticket's own escape valve ("if the model cannot be
+ * made to reliably join an availability call, say so and scope the fix to
+ * discipline-only"): GROUNDING CLAUSE alone already closes the incident
+ * (proven below), so the nudge was cut rather than kept as a net-negative,
+ * unproven addition. See test.md's "Routing nudge — built, tested, reverted"
+ * section for the full story.
  *
  * A static prompt-string pin CANNOT prove the model actually behaves this
  * way (qa.md: "a prompt/model change verified by diff read alone is not
@@ -46,10 +56,8 @@
  *     and requires the offer-to-check path instead
  *   - normal: anti-parrot mechanics present (3 never-copy examples, vary
  *     instruction, particle-free voice spec)
- *   - normal: the routing nudge SHOULD-chains a dated find/recommend request
- *     into bulkAvailability, carrying the same filters
- *   - boundary: the routing nudge explicitly allows the honest degrade
- *     (searchCampsites alone) rather than a forced/guessed call
+ *   - null/empty: the reverted routing-nudge sentence stays absent; the
+ *     pre-existing CAM-505 MUST sentence is unchanged, byte-identical
  *   - null/empty: neither new clause disturbs the pre-existing CAM-714/CAM-709
  *     honesty-spine strings (byte-identical regression guard)
  *   - boundary: MAX_TOKENS unchanged (680)
@@ -152,25 +160,17 @@ describe('CAM-718 (2) ANTI-PARROT MECHANICS — mirrors CAM-714\'s own (three ne
   });
 });
 
-describe('CAM-718 (3) ROUTING NUDGE — a dated find/recommend request SHOULD chain into bulkAvailability', () => {
-  it('[normal] a find/recommend/list request that also names a stay date SHOULD chain into bulkAvailability, carrying the same place/terrain filters plus resolved dates', async () => {
-    const prompt = await getSystemPrompt();
-    expect(prompt).toContain(
-      'A find/recommend/list request that also names a stay date or date phrase (for example "แถวๆสระบุรี เข้าพักเสาร์หน้า") SHOULD also chain into bulkAvailability this turn'
-    );
-    expect(prompt).toContain('carry the SAME place, terrain, and other filters plus the resolved dates into that bulkAvailability call, rather than stopping at searchCampsites alone');
-  });
-
-  it('[boundary] the nudge is a SHOULD, not a second unenforceable MUST — an honest degrade to searchCampsites alone is explicitly allowed, paired with the grounding rule', async () => {
-    const prompt = await getSystemPrompt();
-    expect(prompt).toContain('If you cannot confidently resolve the date this turn, searchCampsites alone is still a valid answer — but then never state or imply availability for a date you did not check.');
-  });
-
+describe('CAM-718 (3) ROUTING NUDGE — tried and REVERTED (regression guard: stays reverted)', () => {
   it('[normal] the pre-existing MUST availability-trigger sentence (CAM-505) is unchanged, byte-identical', async () => {
     const prompt = await getSystemPrompt();
     expect(prompt).toContain(
-      'Any question about availability or openness — for example using words like "ว่างไหม", "วันไหนว่าง", "โล่งสุด", "ช่วงไหนว่าง", or "เต็มไหม" — MUST end this turn with a checkAvailability or bulkAvailability call'
+      'Any question about availability or openness — for example using words like "ว่างไหม", "วันไหนว่าง", "โล่งสุด", "ช่วงไหนว่าง", or "เต็มไหม" — MUST end this turn with a checkAvailability or bulkAvailability call; resolveDates only converts a date phrase into ISO ranges, it never reports availability, and it is NEVER a sufficient final step for such a question by itself. If the question needs date conversion, call resolveDates first, then IMMEDIATELY chain into checkAvailability or bulkAvailability with the ranges it returned — never stop, summarize, or answer after resolveDates alone. Use checkAvailability for one specific named or referenced camp over a single date range; use bulkAvailability for an open-ended "which camps are free" or a "which of several dates/weekends is freest" question (for example "ปลายเดือนไปไหนดีที่ยังว่าง"). If resolveDates returns ok:false, ask the camper for the dates instead — never call an availability tool on a guessed date.'
     );
+  });
+
+  it('[null/empty] the reverted SHOULD-nudge sentence stays absent — a real CI guardrail run (GEO-8) showed it destabilizing a pre-existing pinned case for negligible local reliability gain (1/15); the grounding clause alone (BR-1/BR-2) already closes the incident', async () => {
+    const prompt = await getSystemPrompt();
+    expect(prompt).not.toContain('SHOULD also chain into bulkAvailability this turn');
   });
 });
 

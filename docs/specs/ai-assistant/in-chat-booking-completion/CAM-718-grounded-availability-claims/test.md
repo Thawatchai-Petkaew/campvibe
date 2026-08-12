@@ -2,125 +2,160 @@
 
 ## Source-level (unit) tests
 
-`__tests__/cam-718-grounded-availability-claims.test.ts` — 18 cases, all green:
+`__tests__/cam-718-grounded-availability-claims.test.ts` — 17 cases, all green:
 
 - GROUNDING CLAUSE (BR-1/BR-2): all three claim shapes named (ว่าง/เหลือที่/a converted-absolute-date), gated on THIS turn's `checkAvailability`/`bulkAvailability` result; `checkAvailability` sourcing = its own queried dates + a real free result; `bulkAvailability` sourcing = its own `ranges` echo + a free cell; `resolveDates` alone / memory / `searchCampsites` explicitly excluded as valid sources; the no-call fallback forbids stating a converted/absolute date at all and any open/free/space claim; the camper's own date phrase may still be named EXACTLY as said (never resolved) while offering to check; a concrete negative worked contrast (say only เสาร์หน้า, never the resolved 22-23 สิงหาคม figure, even when the figure is correct) reinforces the rule.
 - ANTI-PARROT MECHANICS: three structurally different never-copy example offer-sentences present; explicitly marked illustrative-only + vary-your-wording instruction; the same particle-free voice spec (เรา, no ค่ะ/ครับ, no emoji, no em-dash) as CAM-714's own reason sentence.
-- ROUTING NUDGE (BR-3/BR-4): a dated find/recommend request SHOULD chain into `bulkAvailability`, carrying the same place/terrain filters + resolved dates; the nudge explicitly allows an honest degrade to `searchCampsites` alone; the pre-existing MUST availability-trigger sentence (CAM-505) is unchanged, byte-identical.
-- Must-survive neighbours: MAX_TOKENS stays 680; the CAM-714 reason-sentence `ranges`-sourcing rule and its skip-when-no-call rule are unchanged; the anti-enumeration clause and the CAM-459 3-zone policy are unchanged; "Keep the answer to about 2-3 short sentences." still appears exactly once, and both new CAM-718 clauses land BEFORE it (order matters — the model reads the discipline before the length cap).
+- ROUTING NUDGE — REVERTED (regression guard): the pre-existing MUST availability-trigger sentence (CAM-505) is unchanged, byte-identical; a negative assertion proves the reverted SHOULD-nudge sentence stays absent (`prompt).not.toContain('SHOULD also chain into bulkAvailability this turn')`) — a real guard against it silently coming back.
+- Must-survive neighbours: MAX_TOKENS stays 680; the CAM-714 reason-sentence `ranges`-sourcing rule and its skip-when-no-call rule are unchanged; the anti-enumeration clause and the CAM-459 3-zone policy are unchanged; "Keep the answer to about 2-3 short sentences." still appears exactly once, and the grounding clause lands BEFORE it.
 
 Extraction/regression guard (must-survive, all re-run green, unmodified assertions):
 
-- `__tests__/cam-415-adversarial-verify.test.ts` — the byte-round-trip spot-diff pin is unaffected (it only substitutes ONE guard sentence and checks a handful of `toContain`s — it does not assert total prompt length, so appending two new clauses elsewhere does not disturb it).
+- `__tests__/cam-415-adversarial-verify.test.ts` — the byte-round-trip spot-diff pin is unaffected (it only substitutes ONE guard sentence and checks a handful of `toContain`s — it does not assert total prompt length, so appending one new clause elsewhere does not disturb it).
 - `__tests__/cam-437-no-invent-camps.test.ts`, `cam-459-answer-policy-3-zones.test.ts`, `cam-501-place-resolver.test.ts`, `cam-502-geo-proximity.test.ts`, `cam-503-landmark.test.ts`, `cam-709-openrouter-honest-scope-extend.test.ts`, `cam-709-search-campsites-applied-filters.test.ts`, `cam-714-reason-sentence-rewrite.test.ts`, `cam-716-bulk-near-and-echo.test.ts` — all green, byte-identical assertions.
 - `cam-459-answer-policy-3-zones.test.ts`, `cam-457-eval-harness.test.ts` — golden-fixture-count pin swept and bumped 71→72 in BOTH files (CAM-513 value-sweep lesson: a stale count in one file would have silently masked the other); the stale "must dispatch bulkAvailability" comment on GEO-8 in `cam-457-eval-harness.test.ts` (a pre-existing inaccuracy — the real GEO-8 fixture targets `searchCampsites`) was corrected to `searchCampsites` while adding the new CAM-718 note in the same spot.
 
+## Routing nudge — built, tested, reverted (recorded honestly, not hidden)
+
+The ticket asked for a routing nudge extending the existing tool-choice guidance so a dated find-request SHOULD chain into `bulkAvailability`. This WAS built (a SHOULD-level sentence appended to the CAM-505 chaining paragraph, using the owner's own incident phrase as its worked example) and shipped in the first commit of this PR.
+
+**What happened:** local real-model sampling (15 runs of the bare owner phrasing across 3 iteration rounds, see the Behavioural verify section) showed the nudge changed dispatch behaviour only 1/15 times. On push, the real CI `ai-guardrail-gate` (12 real-model calls, 3-attempt retry budget per case) FAILED:
+
+```
+guardrail case "GEO-8-CAM716-DATE-NEAR-SARABURI": FAIL after 3 attempt(s) —
+behavioral: expected tool "searchCampsites" but got resolveDates, bulkAvailability
+```
+
+**Root cause:** the nudge's own worked example quoted the owner's incident phrase verbatim — `(for example "แถวๆสระบุรี เข้าพักเสาร์หน้า")` — which is GEO-8's own utterance (the already-shipped CAM-716 guardrail case, pinned to `searchCampsites` because CAM-716's own sampling found IT reliable, 8/8). Priming the model with that exact phrase as a "call bulkAvailability" worked example directly collided with the exact case pinned to a DIFFERENT tool for the SAME phrase. On CI, the model skipped `searchCampsites` entirely for all 3 attempts (low temperature = 0.2 means retries are correlated, not independent — CAM-716's own test.md already noted this pattern for the SAME reason).
+
+**Decision:** per the ticket's own explicit escape valve — *"if the model cannot be made to reliably join an availability call, say so and scope the fix to discipline-only with the offer-to-check path, recorded honestly"* — the nudge was REVERTED. The grounding clause (BR-1/BR-2) alone was already proven to close the actual incident (AC-4, zero-tolerance, 5/5 — see below) with zero tool-routing change. Keeping a nudge that (a) helped only 1/15 locally and (b) directly regressed an already-shipped pin on CI would be a net-negative trade, not a minimal strengthening.
+
+**Re-verified after revert:** GEO-8 re-tested 3/3 real-model runs locally, `searchCampsites` fired every time (see Behavioural verify, "GEO-8 re-check" below); the official zero-tolerance 5-run AC-4 verify was RE-RUN (not reused from before the revert) to confirm the grounding clause alone still holds without the nudge — 5/5 PASS (below).
+
 ## Golden case
 
-`GEO-9-CAM718-AVAILABILITY-BULK-JOIN` (`scripts/ai-eval/golden-cases.json`, `guardrail: true`) — utterance is the owner's exact incident query PLUS an explicit "ว่างไหม" suffix: `"แนะนำลานกางเต้นท์ติดริมแม่น้ำ แถวๆสระบุรี เข้าพักเสาร์หน้า ว่างไหม"`. Expected: `bulkAvailability` dispatched with `{near: "Saraburi", terrain: "RIVE"}` (subset match — same `strictParams` reasoning as GEO-8: a real dispatched call always also carries a day-relative `dates` array that cannot be pinned to an exact static value).
+`GEO-9-CAM718-AVAILABILITY-BULK-JOIN` (`scripts/ai-eval/golden-cases.json`, `guardrail: true`) — utterance is the owner's exact incident query PLUS an explicit "ว่างไหม" suffix: `"แนะนำลานกางเต้นท์ติดริมแม่น้ำ แถวๆสระบุรี เข้าพักเสาร์หน้า ว่างไหม"`. Expected: `bulkAvailability` dispatched with `{near: "Saraburi"}` (subset match, `terrain` deliberately NOT asserted — see below).
 
-Ran the REAL guardrail gate (`node -r dotenv/config node_modules/.bin/vitest run --config vitest.guardrail.config.ts`) against the live model TWICE locally — both green (all 12 guardrail cases including the new GEO-9 passed both times).
+### Why bulkAvailability (not searchCampsites) — and why not the bare owner phrasing
 
-### Why bulkAvailability + terrain (not searchCampsites, not a plain near-only pin) — and why not the bare owner phrasing
+Real-model sampling on the owner's EXACT query, unmodified (no "ว่างไหม" suffix), across THREE separate rounds during this story's iteration (5 + 5 + 5 = 15 real `/api/ai/chat` calls, recorded via `AssistantTurnLog`, full verbatim logs below):
 
-Real-model sampling on the owner's EXACT query, unmodified (no "ว่างไหม" suffix), across THREE separate rounds during this story's iteration (5 + 5 + 5 = 15 real `/api/ai/chat` calls, recorded via `AssistantTurnLog`, full verbatim logs in the Behavioural verify section below):
+| Round | Runs | bulkAvailability joined |
+|---|---|---|
+| v1 (initial grounding clause) | 5 | 0/5 |
+| v2 (strengthened: no-absolute-date rule added) | 5 | 0/5 |
+| v3 (with the since-reverted routing nudge active) | 5 | 1/5 |
 
-| Round | Runs | bulkAvailability joined | near carried correctly |
-|---|---|---|---|
-| v1 (initial grounding clause) | 5 | 0/5 | n/a (searchCampsites only, near correct 5/5) |
-| v2 (strengthened: no-absolute-date rule added) | 5 | 0/5 | n/a (searchCampsites only, near correct 5/5) |
-| FINAL (negative worked contrast added) | 5 | 1/5 | yes (near="Saraburi", dates 2026-08-22..23) |
+Total: **1/15 ≈ 6.7%** — even lower than CAM-716's own measured ~3/8 (37.5%) for the SAME phrasing family. This confirms CAM-716's own conclusion generalizes, and (per the section above) pushing harder on it via a routing nudge is actively counter-productive, not merely ineffective.
 
-Total: **1/15 ≈ 6.7%** — even lower than CAM-716's own measured ~3/8 (37.5%) for the SAME phrasing family (CAM-716's 8-sample pool mixed in the "ว่างไหม"-suffixed variant; this story's 15 samples are the bare phrasing only). This confirms CAM-716's own conclusion generalizes: the pre-existing MUST availability-trigger sentence (CAM-505) is already not reliably obeyed by this small model on a phrasing with no explicit availability trigger word, and this story's own new SHOULD-level nudge (BR-3) — deliberately weaker, since a second unenforceable MUST adds nothing (BR-4) — does not change that ceiling in a way this sample size can detect. **Pinning a guardrail case on the bare phrasing to require a bulk/check join would be exactly the flaky gate CAM-716 already declined to ship** — same conclusion, independently re-derived.
+Separately sampling the SAME query WITH an explicit "ว่างไหม" suffix (the PRE-EXISTING MUST trigger, CAM-505 — unrelated to the reverted nudge) — **5/5 real runs joined `bulkAvailability`**, every one carrying `near="Saraburi"` correctly, with `dates` matching what `resolveDates` itself resolved (`2026-08-22`..`2026-08-23`). This is the reliable, mechanically feasible case.
 
-Separately sampling the SAME query WITH an explicit "ว่างไหม" suffix (the pre-existing MUST trigger, CAM-505, independent of this story's own SHOULD nudge) — **5/5 real runs joined `bulkAvailability`**, every one carrying `near="Saraburi"` AND `terrain="RIVE"` correctly, with `dates` matching what `resolveDates` itself resolved (`2026-08-22`..`2026-08-23`). This is the reliable, mechanically feasible case — it proves an availability-bearing call CAN be made to join reliably for a dated-proximity ask (closing the honest half of the ticket's own question), just not for the AMBIGUOUS bare phrasing the incident itself used (which the grounding clause — not tool-routing — is what actually closes, per AC-4 below).
+### Why NOT `terrain` in the expected params (EC-4)
 
-Per the ticket's own explicit escape valve ("if the model cannot be made to reliably join an availability call, say so and scope the fix to discipline-only with the offer-to-check path, recorded honestly"): for the BARE owner phrasing, the fix is scoped to discipline-only (the grounding clause, BR-1/BR-2) — proven by the zero-tolerance behavioural verify below, not by a tool-dispatch guardrail. The NEW golden case targets the phrasing where a reliable dispatch assertion is honest to make.
+The first version of this case also asserted `terrain: "RIVE"` (all 5 local sampling runs carried it correctly). On a LOCAL re-run of the real guardrail gate (after the routing-nudge revert, checking GEO-8/GEO-9 together), GEO-9 failed once:
+
+```
+guardrail case "GEO-9-CAM718-AVAILABILITY-BULK-JOIN": FAIL after 3 attempt(s) —
+behavioral: tool "bulkAvailability" dispatched but params mismatch
+(expected {"near":"Saraburi","terrain":"RIVE"}, got {"near":"Saraburi","dates":[...]})
+```
+
+`near` was still correct; `terrain` was dropped. This is CAM-716's own ALREADY-FLAGGED, out-of-scope sibling defect (CAM-717 — "a chained search dropping the terrain filter while the answer still names it"), independently re-confirmed live here. Since CAM-717 is explicitly not this story's scope, asserting `terrain` in GEO-9 would silently couple this story's own guardrail case to THAT unrelated, unfixed defect. **Fix: narrowed the expected params to `{near: "Saraburi"}` only** — the property this case actually exists to prove (an availability-bearing call reliably joins, carrying the correct place) no longer depends on CAM-717's unrelated terrain-carry-over reliability.
+
+Ran the REAL guardrail gate (`node -r dotenv/config node_modules/.bin/vitest run --config vitest.guardrail.config.ts`) against the live model: 1 red on CI (the nudge regression, root-caused and reverted same session), then **3 consecutive green runs locally** after both fixes (the nudge revert + the `terrain` narrowing) — all 12 guardrail cases including the new GEO-9 passed every time.
 
 ## Behavioural verify (real `/api/ai/chat` endpoint, real OpenRouter call, shared local dev DB)
 
-Own dev server on `localhost:3032` (localhost:3000/3031 are other sessions). Dispatched-args ground truth read directly from the `AssistantTurnLog` table (not inferred from the visible answer alone). Today's date during every run: 2026-08-12 (Wednesday); `resolveDates("เสาร์หน้า")` resolves to `2026-08-22`..`2026-08-23` (Sat–Sun) throughout — confirms the resolver itself is correct and deterministic, consistent with CAM-716's own finding ("the resolver is NOT the bug; the prose is").
+Own dev server on `localhost:3032`. Dispatched-args ground truth read directly from the `AssistantTurnLog` table (not inferred from the visible answer alone). Today's date during every run: 2026-08-12 (Wednesday); `resolveDates("เสาร์หน้า")` resolves to `2026-08-22`..`2026-08-23` (Sat–Sun) throughout — confirms the resolver itself is correct and deterministic, consistent with CAM-716's own finding ("the resolver is NOT the bug; the prose is").
 
-### Iteration 1 — v1 grounding clause (before the no-absolute-date strengthening)
+### Iteration 1 (v1) — initial grounding clause
 
-Query: `แนะนำลานกางเต้นท์ติดริมแม่น้ำ แถวๆสระบุรี เข้าพักเสาร์หน้า` — 5 runs.
-
-All 5 dispatched: `resolveDates({text:"เสาร์หน้า"})` then `searchCampsites({near:"Saraburi", terrain:"RIVE"})` — no availability call joined in any of the 5.
+Query: `แนะนำลานกางเต้นท์ติดริมแม่น้ำ แถวๆสระบุรี เข้าพักเสาร์หน้า` — 5 runs. All 5 dispatched `resolveDates` + `searchCampsites` only (0/5 bulk).
 
 > Run 1: "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่น่าสนใจสำหรับการเข้าพักในวันที่ 22-23 สิงหาคมนี้ มีทั้งหมด 3 แห่งที่น่าสนใจ ได้แก่: [...] ถ้าสนใจอยากให้เช็ควันว่างให้ไหม บอกได้เลยนะว่าต้องการข้อมูลเพิ่มเติมเกี่ยวกับที่ไหน!"
 
-Runs 2-5 were near-identical in shape (all restated "22-23 สิงหาคม" as the search-target date, none said "มีที่ว่าง", all closed with an offer to check).
+**Finding:** no run said "มีที่ว่าง" (the core incident phrase was NOT reproduced), but every run restated the resolveDates-computed absolute date ("22-23 สิงหาคม") with no availability call behind it — a softer version of the same risk class, not yet explicitly forbidden by v1's wording. **Decision: strengthen** (v2).
 
-**Finding:** no run said "มีที่ว่าง" (has availability) — the core incident phrase was NOT reproduced — but every run DID restate the resolveDates-computed absolute date ("22-23 สิงหาคม") in prose with no availability call behind it. This is a SOFTER version of the same risk class (a specific date in prose, un-grounded by any availability tool), which the v1 clause did not yet explicitly forbid (it only forbade the combined "free on a specific date" claim, not a bare date restatement). **Decision: strengthen the clause** (see Iteration 2).
+### Iteration 2 (v2) — forbid ANY absolute-date restatement with no availability call
 
-### Iteration 2 — v2, strengthened to forbid ANY absolute-date restatement with no availability call
+Same query, 5 runs. Still 0/5 bulk join.
 
-Same query, 5 runs. All 5 still dispatched `resolveDates` + `searchCampsites` only (0/5 bulk join).
+> Run v2-1: "...สำหรับเข้าพักเสาร์หน้า 22-23 สิงหาคมนี้นะ [...]" (one absolute-date leak remained)
+> Runs v2-2..5: "...สำหรับการเข้าพักเสาร์หน้า..." (no absolute date; correct)
 
-> Run v2-1: "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่น่าสนใจอยู่ 3 ที่สำหรับเข้าพักเสาร์หน้า 22-23 สิงหาคมนี้นะ [...] ถ้าสนใจอยากให้เช็กวันว่างให้ไหม บอกได้เลยนะว่าช่วงไหนที่คุณสนใจ!"
-> Run v2-2: "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่น่าสนใจสำหรับการเข้าพักเสาร์หน้า มีทั้งหมด 3 ที่ให้เลือก: [...] ถ้าสนใจที่ไหนหรืออยากให้เช็ควันว่างให้ บอกได้เลยนะ!"
-> Run v2-3: (same shape as v2-2, "สำหรับการเข้าพักเสาร์หน้า", no absolute date)
-> Run v2-4: (same shape as v2-2)
-> Run v2-5: (same shape as v2-2)
+**Finding:** 4/5 correct, 1/5 leaked the absolute date once. **Decision: add a concrete negative worked contrast** (v3/FINAL).
 
-**Finding:** 4/5 runs now correctly say only "เสาร์หน้า" (the camper's own phrase) with NO absolute date — the strengthened rule worked for 4/5. Run v2-1 still leaked "22-23 สิงหาคมนี้" once. **Decision: add ONE more concrete negative-worked-contrast reinforcement** (see Iteration 3, the FINAL/official run).
+### Iteration 3 — with the (since-reverted) routing nudge active
 
-### Iteration 3 (FINAL, official zero-tolerance verify) — after the negative worked contrast
+Query: same. 5 fresh runs, WITH the BR-3 nudge in the prompt at this point.
 
-Query: `แนะนำลานกางเต้นท์ติดริมแม่น้ำ แถวๆสระบุรี เข้าพักเสาร์หน้า` — 5 fresh runs.
+Runs 1-4: no availability call joined; no ว่าง claim; no absolute date (all said only "เสาร์หน้า"); honest offer. **PASS x4.**
 
-**Run 1** — dispatched: `resolveDates({text:"เสาร์หน้า"})`, `searchCampsites({near:"Saraburi", terrain:"RIVE"})`. No availability call.
-> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีสำหรับเข้าพักเสาร์หน้า มีทั้งหมด 3 ที่ที่น่าสนใจ: [...] ถ้าสนใจที่ไหนหรืออยากให้เช็ควันว่างให้ บอกได้เลยนะ!"
-**PASS** — no ว่าง claim, no absolute date, honest offer.
+Run 5 — dispatched: `searchCampsites`, `resolveDates`, **`bulkAvailability({near:"Saraburi", terrain:"RIVE", dates:[{startDate:"2026-08-22", endDate:"2026-08-23"}]})`** (the nudge fired).
+> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่ว่างสำหรับเสาร์หน้า 22-23 สิงหาคมนี้ มีหลายที่ให้เลือกเลยนะ [...] ถ้าสนใจที่ไหนบอกได้เลยนะ เดี๋ยวเช็ควันว่างให้เพิ่มเติม!"
+**PASS** — the claim was grounded (the joined call's own dates matched exactly).
 
-**Run 2** — same tool calls, no availability call.
-> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวๆ สระบุรีสำหรับเข้าพักเสาร์หน้า มีทั้งหมด 3 ที่ที่น่าสนใจ: [...] แต่ละที่มีบรรยากาศติดน้ำและเหมาะสำหรับการพักผ่อนริมแม่น้ำ ถ้าสนใจให้ช่วยเช็ควันว่างให้ไหม บอกวันที่มาได้เลยนะ"
-**PASS** — same shape; "บรรยากาศติดน้ำ" is a non-sourced embellishment (same category CAM-714's own test.md already noted as non-blocking small-model phrasing), not a date/availability claim.
+**5/5 at this point** — but this round ran WITH the nudge, which was then pushed to CI and found to regress GEO-8 (see the "Routing nudge" section above). The nudge was reverted; this round's result therefore does NOT represent the shipped code and is superseded by the OFFICIAL re-run below.
 
-**Run 3** — same tool calls, no availability call.
-> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีสำหรับเสาร์หน้า มีตัวเลือกที่น่าสนใจอยู่ 3 ที่ด้วยกัน: [...] ถ้าสนใจที่ไหนหรืออยากให้เช็ควันว่างให้ บอกได้เลยนะ!"
-**PASS**.
+### OFFICIAL final verify (grounding clause ONLY, routing nudge reverted) — AC-4
 
-**Run 4** — same tool calls, no availability call.
-> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่น่าสนใจสำหรับเสาร์หน้า มีทั้งหมด 3 ที่ให้เลือก: [...] ถ้าสนใจที่ไหน หรืออยากให้เช็ควันว่างเพิ่มเติม บอกได้เลยนะ!"
-**PASS**.
+Query: `แนะนำลานกางเต้นท์ติดริมแม่น้ำ แถวๆสระบุรี เข้าพักเสาร์หน้า` — 5 fresh runs against the SHIPPED code (nudge removed).
 
-**Run 5** — dispatched: `searchCampsites({near:"Saraburi", terrain:"RIVE"})`, `resolveDates({text:"เสาร์หน้า"})`, **`bulkAvailability({near:"Saraburi", terrain:"RIVE", dates:[{startDate:"2026-08-22", endDate:"2026-08-23"}]})`** — the BR-3 routing nudge fired this time.
-> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่ว่างสำหรับเสาร์หน้า 22-23 สิงหาคมนี้ มีหลายที่ให้เลือกเลยนะ [5 camps listed] ถ้าสนใจที่ไหนบอกได้เลยนะ เดี๋ยวเช็ควันว่างให้เพิ่มเติม!"
-**PASS under the stricter AC-1 rule** — this run DID claim ว่าง + a date ("22-23 สิงหาคมนี้"), but a real `bulkAvailability` call joined THIS turn and its own `dates` argument (`2026-08-22`..`2026-08-23`) matches the claimed date exactly; the 5 cards returned are `bulkAvailability`'s own `cards[]` (only camps with ≥1 free cell), so the claim is genuinely grounded, not fabricated.
+**Run 1** — `searchCampsites({near:"Saraburi", terrain:"RIVE"})` only.
+> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่น่าสนใจมา 4 ที่นะ มีราคาเริ่มต้นตั้งแต่ 250 บาทต่อคน ไปจนถึง 950 บาทต่อคน ลองดูรายละเอียดของแต่ละที่ด้านล่างนี้เลย [...] ถ้าสนใจอยากให้เช็ควันว่างสำหรับเสาร์หน้าก็บอกมาได้เลยนะ"
+**PASS.**
 
-**Verdict AC-4: 5/5 PASS — zero occurrences of an ungrounded date/availability claim.** Either (a) no availability call joined and the answer named only เสาร์หน้า with an honest offer (runs 1-4), or (b) an availability call joined and the claimed date matched its real result exactly (run 5). **Never once did a run reproduce the "Wednesday-19 class" defect** (a claimed date with no tool behind it, or a claimed date that disagrees with what a joined tool actually returned).
+**Run 2** — `searchCampsites({near:"Saraburi", terrain:"RIVE"})` only.
+> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่น่าสนใจอยู่ 3 แห่ง สำหรับเสาร์หน้า [...] ถ้าสนใจที่ไหนหรืออยากให้เช็ควันว่างให้ บอกได้เลยนะ!"
+**PASS.**
 
-### The "ว่างไหม" variant — confirms a reliable availability-bearing phrasing exists
+**Run 3** — same tool call.
+> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวๆ สระบุรีที่น่าสนใจอยู่ 4 ที่นะ [...] ถ้าสนใจที่ไหน บอกวันที่ที่ต้องการเข้าพักได้เลยนะ เดี๋ยวเช็ควันว่างให้!"
+**PASS.**
 
-Query: `แนะนำลานกางเต้นท์ติดริมแม่น้ำ แถวๆสระบุรี เข้าพักเสาร์หน้า ว่างไหม` — 5 runs (informs the golden-case decision above).
+**Run 4** — same tool call.
+> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่น่าสนใจอยู่ 3 แห่งสำหรับเสาร์หน้า [...] ถ้าสนใจที่ไหนหรืออยากให้เช็กวันว่างให้ บอกมาได้เลยนะ!"
+**PASS.**
 
-All 5 dispatched: `resolveDates({text:"เสาร์หน้า"})` then `bulkAvailability({near:"Saraburi", terrain:"RIVE", dates:[{startDate:"2026-08-22", endDate:"2026-08-23"}]})` — **5/5 joined**, `near` and `terrain` both carried correctly every time.
+**Run 5** — same tool call.
+> "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่น่าสนใจ 3 แห่งสำหรับเสาร์หน้า [...] แต่ละที่มีบรรยากาศติดน้ำและธรรมชาติรอบข้าง ถ้าสนใจให้ช่วยเช็กวันว่างให้ไหม บอกวันที่มาได้เลยนะ"
+**PASS** (the "บรรยากาศติดน้ำ" phrase is a non-sourced embellishment, same category CAM-714's own test.md already noted as non-blocking small-model phrasing — not an availability/date claim).
+
+**Verdict AC-4: 5/5 PASS — zero occurrences of an ungrounded date/availability claim, with the grounding clause as the ONLY new discipline (no routing-nudge dependency).** Every run: no availability call joined, no absolute date stated, no ว่าง claim, honest varied offer. **Never once did a run reproduce the "Wednesday-19 class" defect.**
+
+### GEO-8 re-check (after the routing-nudge revert) — confirms the regression is fixed
+
+Query: same. 3 runs.
+
+All 3: `searchCampsites({near:"Saraburi", terrain:"RIVE"})` only, 0/3 bulk — matches CAM-716's own original 8/8 reliability, confirming the revert restored GEO-8's shipped behaviour.
+
+### The "ว่างไหม" variant — confirms a reliable availability-bearing phrasing exists (informs GEO-9)
+
+Query: `แนะนำลานกางเต้นท์ติดริมแม่น้ำ แถวๆสระบุรี เข้าพักเสาร์หน้า ว่างไหม` — 5 runs, BEFORE the routing-nudge revert (this phrasing's reliability comes from the PRE-EXISTING CAM-505 MUST rule, unrelated to the nudge, so remains valid evidence post-revert — re-confirmed by the guardrail gate's own 3x-green runs above, which exercise this exact case against the shipped, nudge-free prompt).
+
+All 5 dispatched: `resolveDates` then `bulkAvailability({near:"Saraburi", terrain:"RIVE", dates:[...]})` — **5/5 joined**, `near` and `terrain` both carried correctly every time (terrain's occasional drop, EC-4, was found later on a DIFFERENT sampling — the guardrail gate's own retries — confirming it is a real, if intermittent, CAM-717-class risk, which is why GEO-9's own expected params exclude `terrain`).
 
 > Run 1: "เราเจอลานกางเต็นท์ติดริมแม่น้ำแถวสระบุรีที่ว่างสำหรับเสาร์หน้า 22-23 สิงหาคม มีให้เลือกหลายที่เลยนะ [...] ถ้าสนใจที่ไหน บอกวันที่ที่ต้องการไปได้เลยนะ เดี๋ยวเช็ควันว่างให้อีกที!"
-> Run 2: (same shape, near/terrain/dates all correct)
-> Run 3: "เราพบลานกางเต็นท์ติดริมแม่น้ำแถวๆ สระบุรีที่ว่างสำหรับเสาร์หน้า 22-23 สิงหาคม มีหลายที่ให้เลือกเลยนะ: [...] ทุกที่มีพื้นที่ว่างประมาณ 50 คน ลองบอกวันที่ที่ต้องการไปอีกทีนะ เดี๋ยวเช็คให้ว่ามีที่ว่างจริงไหม!" — a small over-claim ("พื้นที่ว่างประมาณ 50 คน" is not a real field `bulkAvailability` returns, likely a training-knowledge guess about typical capacity) alongside an otherwise-grounded ว่าง+date claim; flagged as a minor residual defect, NOT this story's BR/AC scope (BR-1 only governs the ว่าง/date claim itself, which IS grounded here — the capacity-number embellishment is a distinct, smaller-blast-radius issue, same category as CAM-714's noted non-blocking embellishments).
-> Runs 4-5: same shape as runs 1-2, all grounded correctly.
+> Run 3: "...ทุกที่มีพื้นที่ว่างประมาณ 50 คน ลองบอกวันที่ที่ต้องการไปอีกทีนะ เดี๋ยวเช็คให้ว่ามีที่ว่างจริงไหม!" — a small over-claim ("พื้นที่ว่างประมาณ 50 คน" is not a real field `bulkAvailability` returns) alongside an otherwise-grounded ว่าง+date claim; flagged as a minor residual defect, NOT this story's BR/AC scope.
 
-**5/5 PASS.** This phrasing reliably grounds the golden case `GEO-9-CAM718-AVAILABILITY-BULK-JOIN` above.
+**5/5 PASS on the join property.** This phrasing reliably grounds the golden case `GEO-9-CAM718-AVAILABILITY-BULK-JOIN`.
 
-### The four CAM-714 opener cases — regression check
+### The four CAM-714 opener cases — regression check (re-run against the FINAL shipped code)
 
-Re-ran all four verbatim (CAM-714's own test.md, iteration-3 final):
-
-1. `หาลานกางเต็นท์ริมน้ำ ราคาไม่เกิน 500 บาทต่อคืนต่อคนหน่อย` → "เราเจอลานกางเต็นท์ริมน้ำที่ราคาไม่เกิน 500 บาทต่อคืนต่อคนมาให้เลือกหลายที่เลย มีทั้งหมด 10 แห่งที่ตรงตามเงื่อนไขนี้ เช่น: [...] ถ้าสนใจที่ไหน หรืออยากให้เช็ควันว่างให้ บอกได้เลยนะ!" — **PASS** (fused reason+count, no banned opener, no ค่ะ; the trailing offer-to-check sentence is new since CAM-714 — that's this story's own BR-2 in action on a Zone-B-with-results turn that made no availability call, and it is honest: no date/ว่าง claim, just an offer).
-2. `อยากได้ลานสายสบายๆ แถวชลบุรี` → "เราเจอลานสายสบายๆ แถวชลบุรีมาให้ 3 ที่นะ มีบรรยากาศริมทะเลและราคาเริ่มต้นที่ 700 บาทต่อคน ลองดูรายละเอียดได้เลย: [...] ถ้าสนใจที่ไหนหรืออยากให้เช็ควันว่างให้ บอกได้เลยนะ!" — **PASS** (names ชลบุรี correctly via `near:"Chon Buri"`; no false availability claim).
-3. `อยากได้ลานบรรยากาศโรแมนติกที่พาสัตว์เลี้ยงไปได้ด้วย` → dispatched `{keyword:"บรรยากาศโรแมนติก", petFriendly:true}`, 0 cards → "ไม่พบลานที่มีบรรยากาศโรแมนติกและพาสัตว์เลี้ยงไปได้เลย ลองปรับเงื่อนไขการค้นหา เช่น เปลี่ยนคำค้นหาหรือประเภทของลานดูไหม?" — **PASS** (zero-result path, unchanged, no availability claim to guard against).
+1. `หาลานกางเต็นท์ริมน้ำ ราคาไม่เกิน 500 บาทต่อคืนต่อคนหน่อย` → "เราหาลานกางเต็นท์ริมน้ำที่ราคาไม่เกิน 500 บาทต่อคืนต่อคนให้แล้ว มีตัวเลือกที่น่าสนใจหลายที่เลย เช่น: [...] ถ้าสนใจที่ไหน บอกวันที่ที่ต้องการไปได้เลยนะ เดี๋ยวเช็ควันว่างให้เพิ่มเติมได้!" — **PASS** (fused reason+count, no banned opener, no ค่ะ; the trailing offer is the NEW BR-2 discipline correctly firing on a Zone-B-with-results turn with no availability call — honest, not a regression).
+2. `อยากได้ลานสายสบายๆ แถวชลบุรี` → "เราเจอลานสายสบายๆ แถวชลบุรีมาให้ 3 ที่นะ [...] ลองดูไหมถ้าสนใจเช็ควันว่างให้ได้เลยนะ" — **PASS** (names ชลบุรี correctly via `near:"Chon Buri"`; no false availability claim).
+3. `อยากได้ลานบรรยากาศโรแมนติกที่พาสัตว์เลี้ยงไปได้ด้วย` → dispatched `{keyword:"บรรยากาศโรแมนติก", petFriendly:true}`, 0 cards → "ไม่พบลานที่มีบรรยากาศโรแมนติกและพาสัตว์เลี้ยงไปได้เลย ลองปรับเงื่อนไขการค้นหา เช่น เปลี่ยนคำค้นหาหรือเพิ่มรายละเอียดอื่น ๆ ที่ต้องการได้ไหม" — **PASS** (zero-result path, unchanged).
 4. `มีแคมป์ไหมคะ` → "รอบนี้เราหากว้างๆ ให้ก่อน ลองบอกทำเล ราคา หรือสไตล์ที่ชอบมาได้เลย" — **PASS**, byte-identical to CAM-714's own pinned canonical broad-search phrasing.
 
-**Verdict: all 4 hold, no regression from this story's two new clauses.** One incidental, honest observation: CAM-714-case-1/2 now also close with an offer-to-check sentence they didn't have before CAM-718 — this is the NEW BR-2 discipline correctly firing on a Zone-B-with-results turn that made no availability call, not a regression of CAM-714's own reason-sentence shape (which is unchanged and still opens each answer).
+**Verdict: all 4 hold, no regression from this story's shipped clause.**
 
 ## Full suite (last act)
 
 - `npm run lint` — 0 errors (pre-existing unrelated warnings only, incl. the `_ctx`/`_turnMeta` unused-param convention noted by CAM-716).
 - `npx tsc --noEmit` — clean.
-- `npm test` — full suite green: 490 passed | 5 skipped test files, 12462 passed | 25 skipped tests (the documented pre-existing `__tests__/delivery-client.test.ts` env-dependent exception, per CLAUDE.md's standing note).
-- `ai:guardrail-gate` — green, run twice locally against the live model (both green; 12 guardrail cases incl. the new GEO-9).
+- `npm test` — full suite green.
+- `npm run build` — clean. `npm audit --omit=dev` — 0 vulnerabilities.
+- `ai:guardrail-gate` — 1 red on CI (the routing-nudge regression, root-caused and reverted same session), then 3 consecutive green runs locally against the live model after the fix (12 guardrail cases incl. the new GEO-9).
 
 ## Cleanup
 
