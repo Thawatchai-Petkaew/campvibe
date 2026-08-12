@@ -291,10 +291,15 @@ describe('scripts/ai-eval/golden-cases.json — CAM-459 new zone-A smoke case', 
   // the owner's exact incident query, asserting the model SETS `near` on a
   // date-led bulkAvailability call (the CAM-587 lesson: a green gate is only
   // green over the cases it contains). 70 -> 71.
-  it('[boundary] total case count is the real fixture size (71: 70 prior + 1 CAM-716 date-led near-on-bulk guardrail case), bounded by DEFAULT_MAX_EVAL_CASES', () => {
+  // 2026-08-12 (CAM-718) — +1 guardrail case (GEO-9-CAM718-AVAILABILITY-BULK-JOIN):
+  // the SAME owner query with an explicit "ว่างไหม" suffix — real-model
+  // sampling (5/5 locally, test.md) showed bulkAvailability reliably joins
+  // for THIS phrasing (unlike the bare GEO-8 phrasing, which CAM-716 already
+  // measured as flaky and deliberately did not pin on bulk). 71 -> 72.
+  it('[boundary] total case count is the real fixture size (72: 71 prior + 1 CAM-718 availability-bearing bulk-join guardrail case), bounded by DEFAULT_MAX_EVAL_CASES', () => {
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases } = loadCasesFromFile(fixturePath);
-    expect(cases.length).toBe(71);
+    expect(cases.length).toBe(72);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
   });
 });
