@@ -133,7 +133,13 @@ describe('searchCampsites — lookup error after alias normalization (CAM-458 BR
     mockFindMany.mockResolvedValueOnce([]);
 
     const args = searchCampsitesArgsSchema.parse({ province: 'กทม' });
-    await expect(executeSearchCampsites(args)).resolves.toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); the raw camper-supplied alias
+    // still echoes (BR-1 — it still constrained the query, asserted below).
+    await expect(executeSearchCampsites(args)).resolves.toEqual({
+      cards: [],
+      appliedFilters: { province: 'กทม', taxonomy: [] },
+    });
 
     const queryCall = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: string } } };
     // raw ORIGINAL value (the alias itself), not the normalized canonical name
@@ -183,7 +189,10 @@ describe('searchCampsites — resolved province with zero camps returns honest e
     const args = searchCampsitesArgsSchema.parse({ province: 'บึงกาฬ' });
     const result = await executeSearchCampsites(args);
 
-    expect(result).toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); the raw camper-supplied Thai
+    // province name still echoes (BR-1 — it constrained the query).
+    expect(result).toEqual({ cards: [], appliedFilters: { province: 'บึงกาฬ', taxonomy: [] } });
     const queryCall = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: string } } };
     expect(queryCall.where.location?.province).toBe('Bueng Kan');
   });
