@@ -355,8 +355,9 @@ close. No new overlay pattern.
 
 ### Once the flow leaves `summary`, the historical summary must go inert
 
-> **⚠ Critical.** `appendBookingEntry` (`components/ai-chat/conversation.ts:127-134`) revises
-> exactly one field on a superseded entry: `isCurrent`. Everything else in a scrolled-back block
+> **⚠ Critical.** `appendBookingEntry` (`components/ai-chat/conversation.ts:139` — the supersede
+> mechanics live in the shared `supersedeCurrentBookingEntries` helper at `:129-136`, CAM-720)
+> revises exactly one field on a superseded entry: `isCurrent`. Everything else in a scrolled-back block
 > stays live. A superseded summary block therefore keeps a **working `ยืนยันการจอง` button**, and
 > scrolling up and tapping it would write a second booking. A summary view with
 > `isCurrent === false` renders its confirm button and every control **`disabled`** (the real
@@ -367,6 +368,14 @@ close. No new overlay pattern.
 superseded blocks tappable, so an old date chip can still be pressed mid-flow. That is a round-1
 behaviour, it writes nothing, and widening this dispatch to fix it would be scope creep — but it
 is named here so it is not rediscovered as new.
+
+> **Closed 2026-08-13 (CAM-720).** The gap above is fixed, for every `question` step, not only
+> `summary`: `AiChatBookingStep`'s `question` branch now computes the same
+> `controlsDisabled = !view.isCurrent` and passes it to both `ChatChipRow` and `ControlsRow`, so
+> a superseded step's chips take the real `disabled` attribute exactly like a superseded
+> summary's confirm button does. CAM-720 also closes the matching gap at the flow's EXIT
+> (`bookingRef` going `null` used to leave the last block's `isCurrent` untouched) — see that
+> story's `story.md` BR-3/BR-4.
 
 ---
 
@@ -581,6 +590,24 @@ Round 1's four elements are unchanged and are not restated. Four new ones ship h
 `nights` and `spot` chips inherit round 1's **B** column verbatim (`Button outline size="sm"
 h-11 rounded-full`, all eight states), and the two new controls `แก้จำนวนคืน` / `แก้จุดกางเต็นท์`
 inherit its **C** column verbatim.
+
+> **Superseded 2026-08-13 (CAM-720).** Round 1's **C** column (`Button ghost size="sm" h-11
+> rounded-full`, restated at §6 above as "the control row's ghost buttons") is retired for
+> `ControlsRow`'s back/edit/cancel controls only. `ghost` carries no fill and no border at
+> rest, so beside the outline-variant chips (column **B**) a working control read as plain
+> text — the owner's own report on this surface: "ไม่ดูเป็น button เพราะมีแค่ text".
+> `ControlsRow` now renders `Button secondary size="sm" h-11 rounded-full`: the
+> `secondary` variant's flat `bg-secondary` fill at rest is what makes a pressable control
+> read as one before any interaction, matching column **B**'s own already-filled/outlined
+> rest state. Every other column in this table (**F**/**G**/**H**/**I**, the primary
+> confirm/handoff CTAs) and every chip (**B**) are untouched — they already carry a fill or
+> outline at rest, so the report never applied to them. The **loading**/**disabled** rows
+> above are unaffected: `components/ui/button.tsx`'s disabled styling forces the flat
+> `disabled`/`disabled-foreground` token pair over any variant, so the ghost→secondary swap
+> changes only the enabled-state look. See
+> `docs/specs/ai-assistant/in-chat-booking-completion/CAM-720-honest-booking-controls/story.md`
+> BR-1. The reasoning that chose `ghost` in round 1 (CAM-637 §4) is not deleted by this note —
+> only this surface's own re-affirmation of it is superseded.
 
 | | **F** confirm / login-to-confirm | **G** `ดูรายละเอียดการจอง` | **H** `ดูการจองทั้งหมด` | **I** `ตรวจสอบแล้วลองใหม่` |
 |---|---|---|---|---|
@@ -891,7 +918,7 @@ module. Delete both in the PR that lands the confirm.
     `bookings.bookingRefLabel` — no new copy, no new pattern.
 
 **Pre-existing, named so it is not rediscovered as new (Info):** superseded blocks keep their
-chips tappable (`conversation.ts:127-134` revises only `isCurrent`). Harmless in round 1, and out
+chips tappable (`conversation.ts:129-136` revises only `isCurrent`). Harmless in round 1, and out
 of this dispatch's surface. §5.
 
 ---
@@ -926,3 +953,6 @@ Nothing else in `DESIGN.md` changes: no token, no scale, no component contract, 
 
 ## Changelog
 - v1 (2026-08-06) — created
+- v1.1 (2026-08-13, CAM-720) — superseded §9's `ControlsRow` ghost re-affirmation (now
+  `secondary`) and closed §5's "Important, pre-existing" superseded-chips gap; no token/flow
+  change

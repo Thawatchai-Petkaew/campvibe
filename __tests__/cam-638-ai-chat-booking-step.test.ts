@@ -119,8 +119,10 @@ describe("date question — AC-1 default/hover/focus states + BR-8 testids", () 
     fireEvent.click(chips[0]!);
     expect(onChipSelect).toHaveBeenCalledWith("2026-08-08");
 
+    // 2026-08-13 (CAM-719) — superseded: +range example ("19-21 Aug") so the
+    // copy advertises what the parser can now read (BR-6).
     expect(screen.getByTestId("text--ai-chat-booking-type-hint").textContent).toBe(
-      'Or type a date yourself, like "next Saturday" or "15 Aug".'
+      'Or type a date yourself, like "next Saturday", "15 Aug", or "19-21 Aug".'
     );
 
     expect(screen.queryByTestId("btn--ai-chat-booking-back")).toBeNull();
@@ -130,6 +132,11 @@ describe("date question — AC-1 default/hover/focus states + BR-8 testids", () 
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
+  // CAM-720 (2026-08-13, supersede note, not a contradiction) — a superseded
+  // question block ALSO disables its chips + controls now (AC-2), not just
+  // the caption. This fixture keeps `chips`/`controls` empty on purpose so
+  // this test stays scoped to its own title (caption only); the disabled
+  // treatment is covered by `cam-720-honest-booking-controls.test.ts`.
   it("[unit] a superseded (non-current) block's caption loses aria-current", () => {
     renderStep({
       kind: "question",

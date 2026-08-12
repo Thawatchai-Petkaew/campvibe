@@ -187,6 +187,48 @@ function toAbsoluteISO(y: number, m: number, d: number): string {
   return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+type SingleDayResolution = { kind: 'resolved'; iso: string } | { kind: 'past' } | { kind: 'invalid' };
+
+/**
+ * CAM-719/BR-4 — the ONE place a single (day, month[, explicit year]) triple
+ * becomes an ISO date; shared by `resolveAbsoluteDate` (rule 9, immediately
+ * below) AND each side of a date RANGE (`resolveRangeSide`, the new "Date
+ * RANGE" section further down) — extracted out of what used to be
+ * `resolveAbsoluteDate`'s own inline logic (byte-identical behavior, only
+ * factored out) so a range's two endpoints never need a SECOND copy of this
+ * year/next-occurrence math (BR-4 — no second month table, no second year
+ * table either). An explicit 4-digit year (Buddhist-era normalized) is used
+ * as given and rejected as `past` if it lands before `todayISO`; an OMITTED
+ * year always resolves to the NEXT occurrence (this year if not yet past,
+ * else next year).
+ */
+function resolveSingleCalendarDay(
+  day: number,
+  month: number,
+  explicitYearRaw: string | undefined,
+  todayISO: string
+): SingleDayResolution {
+  const todayYear = Number(todayISO.slice(0, 4));
+
+  if (explicitYearRaw) {
+    const year = normalizeYearToGregorian(Number(explicitYearRaw));
+    if (!isValidCalendarDate(year, month, day)) return { kind: 'invalid' };
+    const iso = toAbsoluteISO(year, month, day);
+    if (iso < todayISO) return { kind: 'past' };
+    return { kind: 'resolved', iso };
+  }
+
+  // No year given -> NEXT occurrence (this year if not past, else next year).
+  if (isValidCalendarDate(todayYear, month, day)) {
+    const thisYearISO = toAbsoluteISO(todayYear, month, day);
+    if (thisYearISO >= todayISO) {
+      return { kind: 'resolved', iso: thisYearISO };
+    }
+  }
+  if (!isValidCalendarDate(todayYear + 1, month, day)) return { kind: 'invalid' };
+  return { kind: 'resolved', iso: toAbsoluteISO(todayYear + 1, month, day) };
+}
+
 type AbsoluteDateOutcome = { kind: 'resolved'; range: DateRange } | { kind: 'past' } | { kind: 'invalid' };
 
 /**
@@ -197,7 +239,7 @@ type AbsoluteDateOutcome = { kind: 'resolved'; range: DateRange } | { kind: 'pas
  * rejected as `past` if it lands before `todayISO`; an OMITTED year always
  * resolves to the NEXT occurrence (this year if not yet past, else next
  * year) — a bare day+month can therefore never itself be "past" (only an
- * explicit past year can be — see the rule-8 dispatch site for how `past`
+ * explicit past year can be — see the rule-9 dispatch site for how `past`
  * reuses that rule's existing `unsupported` shape rather than a new one).
  */
 function resolveAbsoluteDate(text: string, todayISO: string): AbsoluteDateOutcome | null {
@@ -219,26 +261,125 @@ function resolveAbsoluteDate(text: string, todayISO: string): AbsoluteDateOutcom
     explicitYearRaw = numericMatch[3];
   }
 
+  const resolved = resolveSingleCalendarDay(day, month, explicitYearRaw, todayISO);
+  if (resolved.kind === 'invalid') return { kind: 'invalid' };
+  if (resolved.kind === 'past') return { kind: 'past' };
+  return { kind: 'resolved', range: { startDate: resolved.iso, endDate: addDaysISO(resolved.iso, 1) } };
+}
+
+// ---------------------------------------------------------------------------
+// Date RANGE (CAM-719) — a camper naming an explicit CHECK-IN/CHECKOUT span
+// outright: "19-21", "19-21 ส.ค.", "19 ส.ค. - 21 ส.ค.", "19 ถึง 21 สิงหา",
+// "วันที่ 19 ถึง 21". BR-1 — this rule MUST sit BETWEEN rule 7 (single
+// weekday, above) and rule 9/absolute-date (below) in `resolveDatesCore`'s
+// dispatch: `ABSOLUTE_THAI_MONTH_RE` is UNANCHORED, so running rule 9 first
+// against a range like "19-21 ส.ค." would scan straight past the range's own
+// "19-" and silently resolve only the trailing "21 ส.ค." as a SINGLE day —
+// the exact silent misread (owner-reported: "ต้องการจอง 19-21 ที่จะถึง"
+// landing on 21-only, one night) this ticket exists to close. Reuses
+// `THAI_MONTH_ALIAS_TO_NUMBER`/`isValidCalendarDate`/`normalizeYearToGregorian`
+// via the SAME `resolveSingleCalendarDay` rule 9 now calls (BR-4).
+// ---------------------------------------------------------------------------
+
+const RANGE_SEPARATOR_SOURCE = '(?:-|ถึง)';
+
+/** One side's optional own month(+year) — same shape as `ABSOLUTE_THAI_MONTH_RE`'s own tail, reused inline (BR-4, no second month table). */
+const RANGE_SIDE_MONTH_SOURCE = `(?:\\s*(${MONTH_ALTERNATION_SOURCE})(?:\\s*(\\d{4}))?)?`;
+
+/**
+ * day1[+month1[+year1]], a separator, day2[+month2[+year2]]. The
+ * `(?<!\d{4}-)(?<!\d)` / `(?!\d)` boundary guards on EACH day token stop this
+ * from ever matching a substring of a longer digit run — a bare ISO-shaped
+ * string like "2026-08-01" must stay `unsupported`, exactly as before this
+ * rule existed (cam-645's own regression pin): a day token can only start
+ * where it is not itself preceded by another digit, and (via the `\d{4}-`
+ * lookbehind) not immediately preceded by a 4-digit year+dash either.
+ */
+const DATE_RANGE_RE = new RegExp(
+  `(?:วันที่\\s*)?(?<!\\d{4}-)(?<!\\d)(\\d{1,2})(?!\\d)${RANGE_SIDE_MONTH_SOURCE}\\s*${RANGE_SEPARATOR_SOURCE}\\s*(?<!\\d)(\\d{1,2})(?!\\d)${RANGE_SIDE_MONTH_SOURCE}`
+);
+
+/**
+ * BR-2 (EC-1) — a day with NO month at all (neither its own nor a borrowed
+ * one) resolves to the next occurrence of that CALENDAR DAY: this month if
+ * not yet past, else next month (with a December -> January year rollover).
+ * `null` only when the day is invalid in BOTH this month and next month.
+ */
+function resolveMonthlessCalendarDay(day: number, todayISO: string): { iso: string } | null {
   const todayYear = Number(todayISO.slice(0, 4));
+  const todayMonth = Number(todayISO.slice(5, 7));
 
-  if (explicitYearRaw) {
-    const year = normalizeYearToGregorian(Number(explicitYearRaw));
-    if (!isValidCalendarDate(year, month, day)) return { kind: 'invalid' };
-    const iso = toAbsoluteISO(year, month, day);
-    if (iso < todayISO) return { kind: 'past' };
-    return { kind: 'resolved', range: { startDate: iso, endDate: addDaysISO(iso, 1) } };
+  if (isValidCalendarDate(todayYear, todayMonth, day)) {
+    const thisMonthISO = toAbsoluteISO(todayYear, todayMonth, day);
+    if (thisMonthISO >= todayISO) return { iso: thisMonthISO };
   }
+  const nextMonth = todayMonth === 12 ? 1 : todayMonth + 1;
+  const nextYear = todayMonth === 12 ? todayYear + 1 : todayYear;
+  if (!isValidCalendarDate(nextYear, nextMonth, day)) return null;
+  return { iso: toAbsoluteISO(nextYear, nextMonth, day) };
+}
 
-  // No year given -> NEXT occurrence (this year if not past, else next year).
-  if (isValidCalendarDate(todayYear, month, day)) {
-    const thisYearISO = toAbsoluteISO(todayYear, month, day);
-    if (thisYearISO >= todayISO) {
-      return { kind: 'resolved', range: { startDate: thisYearISO, endDate: addDaysISO(thisYearISO, 1) } };
-    }
+type RangeSideResolution = { kind: 'resolved'; iso: string } | { kind: 'invalid' };
+
+/**
+ * One side of a range. A side with its OWN month (its own regex capture)
+ * always uses ITS OWN month/year, resolved exactly like rule 9's single-day
+ * case, and never reads the other side. A side with NO month of its own
+ * BORROWS the other side's month(+year) whole — the common shorthand
+ * "19-21 ส.ค." means the trailing month qualifies the WHOLE range, never a
+ * bare "19" resolved with no month at all. Only when NEITHER side names a
+ * month does this fall back to `resolveMonthlessCalendarDay` (BR-2) —
+ * independently per side, against `todayISO` directly, which is what
+ * correctly rolls "5-7" on the 13th into NEXT month's 5-7 (EC-1: each number
+ * is "past" relative to TODAY on its own, never relative to the other side).
+ */
+function resolveRangeSide(
+  day: number,
+  ownMonth: number | undefined,
+  ownYearRaw: string | undefined,
+  otherMonth: number | undefined,
+  otherYearRaw: string | undefined,
+  todayISO: string
+): RangeSideResolution {
+  const month = ownMonth ?? otherMonth;
+  if (month === undefined) {
+    const resolved = resolveMonthlessCalendarDay(day, todayISO);
+    return resolved ? { kind: 'resolved', iso: resolved.iso } : { kind: 'invalid' };
   }
-  if (!isValidCalendarDate(todayYear + 1, month, day)) return { kind: 'invalid' };
-  const nextYearISO = toAbsoluteISO(todayYear + 1, month, day);
-  return { kind: 'resolved', range: { startDate: nextYearISO, endDate: addDaysISO(nextYearISO, 1) } };
+  const yearRaw = ownMonth !== undefined ? ownYearRaw : otherYearRaw;
+  const resolved = resolveSingleCalendarDay(day, month, yearRaw, todayISO);
+  // 'past' folds into 'invalid' here too — both reuse the SAME final
+  // `unsupported` shape at the resolveDatesCore dispatch site (BR-5: never
+  // fabricate/resolve a stale date; no new rejection kind for a range).
+  return resolved.kind === 'resolved' ? { kind: 'resolved', iso: resolved.iso } : { kind: 'invalid' };
+}
+
+type DateRangeOutcome = { kind: 'resolved'; range: DateRange } | { kind: 'invalid' };
+
+/**
+ * `null` if the text carries no day-separator-day pattern at all (the
+ * dispatcher falls through to rule 9). BR-2 — "19-21" = check-in 19, checkout
+ * 21 EXCLUSIVE (the second number IS the exclusive checkout day itself, the
+ * standard Thai stay-range reading — never `day2 + 1`). BR-3 — exactly one
+ * `DateRange` is ever returned; an inverted result (`end <= start`, e.g. a
+ * genuine "21-19") is `invalid` here, never silently swapped.
+ */
+function resolveDateRange(text: string, todayISO: string): DateRangeOutcome | null {
+  const match = DATE_RANGE_RE.exec(text);
+  if (!match) return null;
+  const [, day1Raw, month1Alias, year1Raw, day2Raw, month2Alias, year2Raw] = match;
+
+  const day1 = Number(day1Raw);
+  const day2 = Number(day2Raw);
+  const month1 = month1Alias ? THAI_MONTH_ALIAS_TO_NUMBER.get(month1Alias) : undefined;
+  const month2 = month2Alias ? THAI_MONTH_ALIAS_TO_NUMBER.get(month2Alias) : undefined;
+
+  const start = resolveRangeSide(day1, month1, year1Raw, month2, year2Raw, todayISO);
+  const end = resolveRangeSide(day2, month2, year2Raw, month1, year1Raw, todayISO);
+
+  if (start.kind === 'invalid' || end.kind === 'invalid') return { kind: 'invalid' };
+  if (end.iso <= start.iso) return { kind: 'invalid' }; // BR-3 — inverted, never silently swapped
+  return { kind: 'resolved', range: { startDate: start.iso, endDate: end.iso } };
 }
 
 // ---------------------------------------------------------------------------
@@ -517,12 +658,34 @@ export function resolveDatesCore(
     };
   }
 
-  // 8) Absolute Thai date (CAM-645) — an explicit day+month(+year) phrase
+  // 8) A date RANGE (CAM-719/BR-1) — "19-21", "19-21 ส.ค.", "19 ส.ค. - 21
+  // ส.ค.", "19 ถึง 21 สิงหา", "วันที่ 19 ถึง 21" — a camper naming an explicit
+  // check-in/checkout span outright. MUST run here, between the single-
+  // weekday rule above and the absolute-date rule below: rule 9's
+  // `ABSOLUTE_THAI_MONTH_RE` is UNANCHORED and would otherwise scan straight
+  // past a range's own "19-" and silently resolve only the SECOND number as
+  // a single day (the exact silent misread this ticket closes).
+  const range = resolveDateRange(text, todayISO);
+  if (range) {
+    if (range.kind === 'resolved') {
+      return {
+        ok: true,
+        dates: [range.range],
+        interpretation: formatRangeGloss('ช่วงที่ระบุ', range.range),
+      };
+    }
+    // Invalid/inverted reuses the SAME unsupported shape every other
+    // never-fabricate rejection below already returns (BR-5) — no new
+    // rejection kind for a range.
+    return { ok: false, reason: 'unsupported' };
+  }
+
+  // 9) Absolute Thai date (CAM-645) — an explicit day+month(+year) phrase
   // ("15 ส.ค.", "วันที่ 15 สิงหาคม 2569", "15/8") the camper named outright,
   // resolved deterministically, never guessed. Runs AFTER every named-term
-  // relative rule above (none of those ever contain a digit or a month
-  // alias, so none is shadowed) and BEFORE the past-phrase/vague-phrase
-  // rules below.
+  // relative rule above AND the range rule (rule 8 — a lone day+month never
+  // matches the range rule's own separator requirement, so none is
+  // shadowed) and BEFORE the past-phrase/vague-phrase rules below.
   const absolute = resolveAbsoluteDate(text, todayISO);
   if (absolute) {
     if (absolute.kind === 'resolved') {
@@ -532,21 +695,21 @@ export function resolveDatesCore(
         interpretation: formatRangeGloss('วันที่ระบุ', absolute.range),
       };
     }
-    // 'past' and 'invalid' both reuse rule 9's existing unsupported shape
+    // 'past' and 'invalid' both reuse rule 10's existing unsupported shape
     // below (BR-5 — never guess/fabricate a date), not a new rejection kind.
     return { ok: false, reason: 'unsupported' };
   }
 
-  // 9) A past-resolving phrase (EC-1) — a past stay is meaningless, never resolved.
+  // 10) A past-resolving phrase (EC-1) — a past stay is meaningless, never resolved.
   if (/เมื่อวาน/.test(text)) {
     return { ok: false, reason: 'unsupported' };
   }
 
-  // 10) A vague phrase with no resolvable time reference (AC-5).
+  // 11) A vague phrase with no resolvable time reference (AC-5).
   if (/ช่วงนี้/.test(text)) {
     return { ok: false, reason: 'ambiguous' };
   }
 
-  // 11) No rule matched at all (BR-5 — never guess).
+  // 12) No rule matched at all (BR-5 — never guess).
   return { ok: false, reason: 'unsupported' };
 }

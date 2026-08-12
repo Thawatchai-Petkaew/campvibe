@@ -801,5 +801,13 @@
       "params": { "near": "ยะลา", "terrain": "FILD" }
     },
     "guardrail": false
+  },
+  {
+    "id": "CAM719-DATE-RANGE",
+    "group": "P3",
+    "zone": "B",
+    "utterance": "มีลานว่างช่วง 19-21 ส.ค. ไหม",
+    "expected": { "kind": "tool", "tool": "resolveDates", "params": {} },
+    "guardrail": false
   }
 ]

@@ -290,6 +290,15 @@ const DATE_STEP_KEYS: readonly (keyof BookingSlots)[] = ['checkIn', 'checkOut'];
  * CHIP's own `checkIn+1` placeholder from `use-ai-chat.ts`) also produces
  * exactly that same span — so `nights` is deliberately left UNSET and the
  * `nights` step still asks.
+ *
+ * CAM-719/BR-5/EC-5 — a typed date RANGE (`resolveDatesCore`'s new rule 8)
+ * pre-fills `nights` from its own span the SAME way a weekend/holiday phrase
+ * already did, on purpose: a decision made here, not accidental. EC-5 asked
+ * whether a 1-night range ("19-20") should ALSO pre-fill `nights:1` — this
+ * function answers NO, deliberately preserving the pre-CAM-719 cam-699 pin
+ * (a 1-night span is never itself evidence of an explicit choice, since a
+ * typed single date collapses to the exact same span). Disclosed per the
+ * ticket's own instruction, not left silent.
  */
 function acceptDateCandidate(candidate: Partial<BookingSlots>, ctx: BookingParseContext): BookingStepParseResult {
   if (!candidateStaysWithinKeys(candidate, DATE_STEP_KEYS)) {
@@ -306,6 +315,16 @@ function acceptDateCandidate(candidate: Partial<BookingSlots>, ctx: BookingParse
     return { ok: false, kind: 'rejected', reasonKey: 'in_the_past' };
   }
   const span = nightsBetweenIso(checkIn, checkOut);
+  // CAM-719/BR-5 — closes the typed-range MAX_BOOKING_NIGHTS bypass: before
+  // this check, a range phrase resolving to a span above the real server
+  // ceiling would pre-fill `nights` above that ceiling and skip the `nights`
+  // step's OWN check entirely (that step never runs once pre-filled).
+  // Reuses the EXACT same rejection shape `acceptNightsCandidate` already
+  // returns for `too_long` (reasonKey + `data:{max}`) — no new rejection
+  // kind, per AC-4's own "ใช้ shape ปฏิเสธเดิมของขั้นคืน" instruction.
+  if (span > MAX_BOOKING_NIGHTS) {
+    return { ok: false, kind: 'rejected', reasonKey: 'too_long', data: { max: MAX_BOOKING_NIGHTS } };
+  }
   return span > 1 ? { ok: true, slots: { checkIn, checkOut, nights: span } } : { ok: true, slots: { checkIn, checkOut } };
 }
 
