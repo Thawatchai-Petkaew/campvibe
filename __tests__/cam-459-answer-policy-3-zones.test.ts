@@ -296,10 +296,26 @@ describe('scripts/ai-eval/golden-cases.json — CAM-459 new zone-A smoke case', 
   // sampling (5/5 locally, test.md) showed bulkAvailability reliably joins
   // for THIS phrasing (unlike the bare GEO-8 phrasing, which CAM-716 already
   // measured as flaky and deliberately did not pin on bulk). 71 -> 72.
-  it('[boundary] total case count is the real fixture size (72: 71 prior + 1 CAM-718 availability-bearing bulk-join guardrail case), bounded by DEFAULT_MAX_EVAL_CASES', () => {
+  // 2026-08-12 (CAM-717) — +1 NON-guardrail case (GEO-10-CAM717-TERRAIN-CARRYOVER):
+  // a terrain+date+place ask (แนะนำลานทุ่งหญ้า แถวๆยะลา เข้าพักเสาร์หน้า
+  // ว่างไหม) asserting bulkAvailability dispatches with BOTH near AND
+  // terrain — the exact assertion GEO-9 deliberately avoided because this
+  // defect was still live when GEO-9 was written. Tried as guardrail:true
+  // first: real-model sampling (6/6 informal curl runs against the dev
+  // server, test.md) showed terrain reliably surviving onto bulk once the
+  // fix shipped, but the REAL ai:guardrail-gate itself (3-attempt retry
+  // budget, same low-temperature-correlated-retries pattern CAM-716/718
+  // already documented) failed 3/3 on a run where the model chose
+  // searchCampsites+checkAvailability instead of bulkAvailability — a
+  // ROUTING choice unrelated to the terrain-carryover fix itself (CAM-718's
+  // own territory, already tried and reverted once). Per the ticket's own
+  // escape valve, demoted to guardrail:false rather than repeat that
+  // regression risk — see test.md "Golden case" section for the full record.
+  // 72 -> 73.
+  it('[boundary] total case count is the real fixture size (73: 72 prior + 1 CAM-717 terrain-carryover NON-guardrail case), bounded by DEFAULT_MAX_EVAL_CASES', () => {
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases } = loadCasesFromFile(fixturePath);
-    expect(cases.length).toBe(72);
+    expect(cases.length).toBe(73);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
   });
 });
