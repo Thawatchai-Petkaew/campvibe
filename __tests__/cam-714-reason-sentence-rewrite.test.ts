@@ -91,15 +91,18 @@ describe('CAM-714 (1) SHAPE — the reason fuses INTO the found-sentence, no sep
 });
 
 describe('CAM-714 (2) HONESTY SPINE — full-strength constraints, extended coherently', () => {
-  it('[normal] petFriendly and type are now enumerated dimensions (buildAppliedFilters echoes both, search-campsites.ts:603/:607)', async () => {
+  it('[normal] petFriendly and type are now enumerated dimensions (buildAppliedFilters echoes both, search-campsites.ts:603/:607); CAM-716 — the clause now covers searchCampsites OR bulkAvailability', async () => {
     const prompt = await getSystemPrompt();
-    expect(prompt).toContain('price (priceMin/priceMax), taxonomy, location (province/near/district/subDistrict/region), keyword, petFriendly, type, and sort');
+    expect(prompt).toContain(
+      'price (priceMin/priceMax), taxonomy, location (province/near/region, plus district/subDistrict for searchCampsites only), keyword, petFriendly, type, and sort'
+    );
   });
 
-  it('[normal] bulkAvailability sources dates ONLY from its own `ranges` echo, never from memory', async () => {
+  it('[normal] CAM-716: bulkAvailability now ALSO sources location/taxonomy facts from its own `appliedFilters` (mirroring searchCampsites), and dates ONLY from its own `ranges` echo, never from memory', async () => {
     const prompt = await getSystemPrompt();
-    expect(prompt).toContain("for bulkAvailability, whose result carries no `appliedFilters` echo, source date facts ONLY from that result's own `ranges`");
+    expect(prompt).toContain("for bulkAvailability specifically, ALSO source date facts from that same result's own `ranges`");
     expect(prompt).toContain('you may say the camps shown are free on those dates because the tool itself verified that');
+    expect(prompt).toContain("when a bulkAvailability result's `appliedFilters` has nothing set at all, state only the dates and the count");
     expect(prompt).toContain('never a terrain/province/taxonomy criterion from memory');
   });
 
