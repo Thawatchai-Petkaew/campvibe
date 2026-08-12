@@ -789,5 +789,17 @@
       "params": { "near": "Saraburi" }
     },
     "guardrail": true
+  },
+  {
+    "id": "GEO-10-CAM717-TERRAIN-CARRYOVER",
+    "group": "geo-proximity",
+    "zone": "B",
+    "utterance": "แนะนำลานทุ่งหญ้า แถวๆยะลา เข้าพักเสาร์หน้า ว่างไหม",
+    "expected": {
+      "kind": "tool",
+      "tool": "bulkAvailability",
+      "params": { "near": "ยะลา", "terrain": "FILD" }
+    },
+    "guardrail": false
   }
 ]

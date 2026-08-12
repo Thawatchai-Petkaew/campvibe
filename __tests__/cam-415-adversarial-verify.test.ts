@@ -209,6 +209,16 @@ describe('runAssistantTurn — (c) legacy entry point request body spot-diff vs 
   // See __tests__/cam-709-openrouter-honest-scope-extend.test.ts and
   // __tests__/cam-714-reason-sentence-rewrite.test.ts for the CAM-714
   // content assertions themselves.
+  //
+  // CAM-717 (2026-08-12) dated note: the new carry-over pin (a same-turn
+  // searchCampsites + bulkAvailability pair repeats every filter argument)
+  // is a NEW array entry inserted elsewhere in buildSystemPrompt() (between
+  // the pre-existing bulk-routing rule and the structured-filter-preference
+  // rule) — it does not touch or reorder the ONE guard sentence this test
+  // substitutes, so this test needed no assertion change; recorded here per
+  // the "every prompt edit lands a dated note in this file" rule. See
+  // __tests__/cam-717-chained-filter-carryover.test.ts for the CAM-717
+  // content assertions themselves.
   it('[normal] the system prompt is byte-identical to the pre-refactor fixture except the ONE AC-4-mandated guard-line rewording', async () => {
     const { runAssistantTurn } = await import('../lib/ai/openrouter-client');
     const mockFetch = vi.fn().mockResolvedValue({
