@@ -777,5 +777,17 @@
       "params": { "near": "Saraburi", "terrain": "RIVE" }
     },
     "guardrail": true
+  },
+  {
+    "id": "GEO-9-CAM718-AVAILABILITY-BULK-JOIN",
+    "group": "geo-proximity",
+    "zone": "B",
+    "utterance": "แนะนำลานกางเต้นท์ติดริมแม่น้ำ แถวๆสระบุรี เข้าพักเสาร์หน้า ว่างไหม",
+    "expected": {
+      "kind": "tool",
+      "tool": "bulkAvailability",
+      "params": { "near": "Saraburi" }
+    },
+    "guardrail": true
   }
 ]
