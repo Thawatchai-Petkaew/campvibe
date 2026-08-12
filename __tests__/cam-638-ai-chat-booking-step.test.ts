@@ -132,6 +132,11 @@ describe("date question — AC-1 default/hover/focus states + BR-8 testids", () 
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
+  // CAM-720 (2026-08-13, supersede note, not a contradiction) — a superseded
+  // question block ALSO disables its chips + controls now (AC-2), not just
+  // the caption. This fixture keeps `chips`/`controls` empty on purpose so
+  // this test stays scoped to its own title (caption only); the disabled
+  // treatment is covered by `cam-720-honest-booking-controls.test.ts`.
   it("[unit] a superseded (non-current) block's caption loses aria-current", () => {
     renderStep({
       kind: "question",
