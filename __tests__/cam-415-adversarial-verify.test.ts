@@ -198,6 +198,17 @@ describe('runAssistantTurn — (c) legacy entry point request body spot-diff vs 
     delete process.env.OPENROUTER_API_KEY;
   });
 
+  // CAM-714 (2026-08-12) dated note: this spot-diff pins the ONE guard-line
+  // rewording against the pre-CAM-415 fixture — a narrower, unrelated seam
+  // than CAM-714's reason-sentence rewrite (:700) and honest-scope example
+  // re-registration (:691). Both CAM-714 edits land in `newSystemPrompt`
+  // below but are never asserted against by this test's `toContain` checks
+  // or its old<->new round-trip (which only ever substitutes the ONE guard
+  // sentence pinned here), so this test needed no assertion change; recorded
+  // here per the "every prompt edit lands a dated note in this file" rule.
+  // See __tests__/cam-709-openrouter-honest-scope-extend.test.ts and
+  // __tests__/cam-714-reason-sentence-rewrite.test.ts for the CAM-714
+  // content assertions themselves.
   it('[normal] the system prompt is byte-identical to the pre-refactor fixture except the ONE AC-4-mandated guard-line rewording', async () => {
     const { runAssistantTurn } = await import('../lib/ai/openrouter-client');
     const mockFetch = vi.fn().mockResolvedValue({
