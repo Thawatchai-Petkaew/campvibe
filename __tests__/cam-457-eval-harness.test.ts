@@ -186,10 +186,16 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // pass rate, just does not block the gate on routing flakiness that is
     // explicitly out of this story's scope (CAM-718's territory, already
     // tried and reverted once). Full record in test.md.
+    // 2026-08-13 (CAM-719) — +1 NON-guardrail case (CAM719-DATE-RANGE): the
+    // golden corpus had NO range case at all before this story (swept per
+    // BR-7); "มีลานว่างช่วง 19-21 ส.ค. ไหม" proves the model still dispatches
+    // `resolveDates` for a range-shaped date phrase, additive only (the
+    // parser itself is proven by the deterministic unit matrix, not this
+    // eval case — no model call is needed for CORRECTNESS, per the ticket).
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBe(73);
+    expect(cases.length).toBe(74);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);

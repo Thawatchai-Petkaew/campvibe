@@ -1127,9 +1127,9 @@
                     "chipsLabel": "Days still open",
                     "chip": "{date}, {count} spots left",
                     "chipNoCap": "{date}, spots open",
-                    "typeHint": "Or type a date yourself, like \"next Saturday\" or \"15 Aug\".",
+                    "typeHint": "Or type a date yourself, like \"next Saturday\", \"15 Aug\", or \"19-21 Aug\".",
                     "empty": "No Saturdays are open in this stretch. Type the day you have in mind and I'll go look.",
-                    "unreadable": "I didn't catch a date there. Try again, like \"next Saturday\" or \"15 Aug\".",
+                    "unreadable": "I didn't catch a date there. Try again, like \"next Saturday\", \"15 Aug\", or \"19-21 Aug\".",
                     "full": "{date} is fully booked. Want to try another day?"
                 },
                 "nights": {
@@ -2338,9 +2338,9 @@
                     "chipsLabel": "วันที่ยังว่าง",
                     "chip": "{date} เหลือ {count} ที่",
                     "chipNoCap": "{date} มีที่ว่าง",
-                    "typeHint": "หรือพิมพ์วันที่เองก็ได้ เช่น เสาร์หน้า หรือ 15 ส.ค.",
+                    "typeHint": "หรือพิมพ์วันที่เองก็ได้ เช่น เสาร์หน้า 15 ส.ค. หรือ 19-21 ส.ค.",
                     "empty": "ช่วงนี้ยังไม่มีเสาร์ว่างเลย ลองพิมพ์วันที่อยากไปมาได้เลย เดี๋ยวเราหาให้",
-                    "unreadable": "ยังจับวันไม่ได้เลย ลองบอกใหม่อีกที เช่น เสาร์หน้า หรือ 15 ส.ค.",
+                    "unreadable": "ยังจับวันไม่ได้เลย ลองบอกใหม่อีกที เช่น เสาร์หน้า 15 ส.ค. หรือ 19-21 ส.ค.",
                     "full": "{date} เต็มแล้ว ลองวันอื่นดูไหม"
                 },
                 "nights": {
