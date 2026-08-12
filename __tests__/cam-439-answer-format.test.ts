@@ -10,6 +10,15 @@
  * The injection-literal tests below prove a `<script>`/`<img onerror>`
  * string in model text survives as plain, inert text in the parsed output —
  * the renderer maps it to a React child, which auto-escapes on render.
+ *
+ * CAM-715 (2026-08-12, dated note — SUPERSEDES the original CAM-439
+ * "inline emphasis is out of scope" decision recorded in answer-format.ts's
+ * own docblock): parseAnswer now also strips `**bold**`/`*italic*`/`` `code` ``
+ * markers at render time (streamed answers reach the client with no
+ * server-side markdown strip applied). None of the fixtures below exercise
+ * bold/italic/code, so every pin in this file is unaffected and stays
+ * green; the new inline-emphasis coverage lives in
+ * __tests__/cam-715-inline-emphasis-strip.test.ts.
  */
 import { describe, expect, it } from "vitest";
 import { parseAnswer, type AnswerBlock } from "@/components/ai-chat/answer-format";

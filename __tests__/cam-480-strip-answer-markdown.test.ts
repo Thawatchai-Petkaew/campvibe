@@ -18,6 +18,16 @@
  *     a bare `(url)` with no preceding `[text]` is left alone (not a link)
  *   - each markdown kind in isolation: image, link, bold (`**`/`__`),
  *     italic (`*`/`_`), heading, list markers (`1.` `2)` `-` `*`)
+ *
+ * CAM-715 (2026-08-12, dated note): this file only pins the SERVER-side
+ * strip (`finalizeAnswer`'s non-streaming path). The guest chat's STREAMING
+ * path never called this function, so a model that emitted raw markdown mid
+ * -stream reached the camper's screen unstripped (owner screenshot,
+ * 2026-08-08). CAM-715 closes that gap with a CLIENT-side mirror in
+ * components/ai-chat/answer-format.ts (`stripInlineEmphasis`, bold/italic
+ * bounds copied from this file's regexes) so both paths are covered —
+ * covered in __tests__/cam-715-inline-emphasis-strip.test.ts. Every pin
+ * below is unaffected and stays green.
  */
 import { describe, it, expect } from 'vitest';
 import { stripAnswerMarkdown } from '@/lib/ai/sanitize';
