@@ -153,7 +153,7 @@ All 5 dispatched: `resolveDates` then `bulkAvailability({near:"Saraburi", terrai
 
 - `npm run lint` — 0 errors (pre-existing unrelated warnings only, incl. the `_ctx`/`_turnMeta` unused-param convention noted by CAM-716).
 - `npx tsc --noEmit` — clean.
-- `npm test` — full suite green.
+- `npm test` — 12464/12465 tests green. ONE unrelated failure observed locally: `__tests__/cam-650-pricing-unit-schema.test.ts` (`[normal] an existing (seeded) CampSite row defaults priceUnit to PER_SITE without ever setting it`) — this test reads the FIRST `CampSite` row in the shared local dev Postgres and asserts `priceUnit === 'PER_SITE'`; the row it found has drifted to `PER_PERSON` in the shared dev DB, unrelated to this story's diff (confirmed: no diff on `CampSite`/pricing/schema files at all — `git diff --stat` against `lib/booking-pricing.ts`/`prisma/schema.prisma`/that test file is empty). CI's `quality-gate` runs against a fresh, freshly-seeded ephemeral Postgres, so this local shared-DB drift should not reproduce there — confirmed green on CI (see PR #801 checks).
 - `npm run build` — clean. `npm audit --omit=dev` — 0 vulnerabilities.
 - `ai:guardrail-gate` — 1 red on CI (the routing-nudge regression, root-caused and reverted same session), then 3 consecutive green runs locally against the live model after the fix (12 guardrail cases incl. the new GEO-9).
 
