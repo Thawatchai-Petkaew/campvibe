@@ -165,10 +165,31 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // bulk-joining on it) — proves an availability-bearing call CAN be made
     // reliable for a dated-proximity ask, closing the "does prose ever claim
     // availability with nothing behind it" gap this story exists to fix.
+    // 2026-08-12 (CAM-717) — +1 NON-guardrail case
+    // (GEO-10-CAM717-TERRAIN-CARRYOVER): now that the CAM-717 fix has
+    // shipped (a system-prompt carry-over pin + an answer-side backstop +
+    // a bulkAvailability tool-description note — see openrouter-client.ts
+    // and lib/ai/tools/bulk-availability.ts), this case pins the EXACT
+    // assertion GEO-9 above deliberately avoided: bulkAvailability
+    // dispatches with BOTH near="ยะลา" AND terrain="FILD" (subset match).
+    // guardrail:true was tried first — 6/6 informal curl sampling against
+    // the dev server passed, but the REAL ai:guardrail-gate (3-attempt
+    // retry budget) failed 3/3 in one run where the model routed to
+    // searchCampsites+checkAvailability instead of bulkAvailability, the
+    // SAME join-reliability ceiling CAM-716/718 already measured for this
+    // phrasing family (a ROUTING choice, not a terrain-carryover failure —
+    // no attempt carried an incomplete/dropped terrain on an actual bulk
+    // dispatch). Per the ticket's own escape valve ("if the model cannot
+    // be made to chain reliably enough for a guardrail-grade case, add it
+    // as a NON-guardrail eval case and say so"), demoted to
+    // guardrail:false: it still runs every eval pass and reports its real
+    // pass rate, just does not block the gate on routing flakiness that is
+    // explicitly out of this story's scope (CAM-718's territory, already
+    // tried and reverted once). Full record in test.md.
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBe(72);
+    expect(cases.length).toBe(73);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);

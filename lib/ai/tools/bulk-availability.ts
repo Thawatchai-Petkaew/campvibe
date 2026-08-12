@@ -551,6 +551,19 @@ export const bulkAvailabilityTool: ToolDefinition<BulkAvailabilityArgs, BulkAvai
   name: 'bulkAvailability',
   description:
     'Check LIVE availability for MANY published CampVibe campsites across MULTIPLE date ranges in ONE call — use this instead of calling checkAvailability repeatedly when the camper asks about several dates or wants to know which camps (matching a filter) are free. ' +
+    // CAM-717 (2026-08-12) — placed as the SECOND sentence, right at the
+    // point the model is choosing THIS call's own arguments (higher
+    // salience than a system-prompt paragraph for a small model — see
+    // story.md/test.md for the measured comparison): if a searchCampsites
+    // call already ran this turn for the same request, its filter
+    // arguments (province/near/region/terrain/access/activities/
+    // facilities/annotatedFeatures/camperStyle/type/price/petFriendly/
+    // keyword) MUST be copied onto this call unchanged — never dropped
+    // just because this is a different tool. Fixes a real, repro'd defect:
+    // a taxonomy filter like terrain set on searchCampsites silently not
+    // surviving onto this call, so the availability check below ran over a
+    // wider, wrong candidate set than the camper actually asked for.
+    'If you already called searchCampsites earlier THIS turn for the SAME request, you MUST copy every filter argument that call used onto THIS call too (province, near, region, terrain, access, activities, facilities, annotatedFeatures, camperStyle, type, price, petFriendly, keyword) — never drop, narrow, or forget one just because you are switching tools; only `dates`/`guests` are new here. ' +
     // CAM-505 — names the ONE-camp-many-dates case explicitly: even one
     // named camp still routes here (via `keyword`) once the question spans
     // multiple candidate dates or asks a superlative ("which date is best").
