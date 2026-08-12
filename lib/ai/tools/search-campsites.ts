@@ -398,7 +398,7 @@ const MATCHED_TAG_GROUP_PRIORITY = [
   'access',
   'equipment',
 ] as const;
-type MatchedTagGroupKey = (typeof MATCHED_TAG_GROUP_PRIORITY)[number];
+export type MatchedTagGroupKey = (typeof MATCHED_TAG_GROUP_PRIORITY)[number];
 
 /** A single-string arg is one code; an array arg (OR-within-group, CAM-461) is 1+ — either way, normalize to a code list. Absent -> []. */
 function toCodeList(value: string | string[] | undefined): string[] {
@@ -482,9 +482,158 @@ async function deriveMatchedTags(
   return matchedTagByCampId;
 }
 
+/**
+ * CAM-709 BR-3 — resolves Thai labels for the taxonomy codes actually
+ * supplied on THIS call, via ONE small batched `MasterData` read (never a
+ * per-code loop) — mirrors the exact batching discipline `deriveMatchedTags`
+ * above already uses (ONE `findMany`, no loop), but reads `MasterData`
+ * directly rather than through `CampSite.options`: `deriveMatchedTags`'s own
+ * read is scoped to `cardIds` and short-circuits entirely on a zero-result
+ * search (`cardIds.length === 0`) or omits a code that lost every card in an
+ * OR-array group, so it cannot be the source for an echo that must stay
+ * truthful even on a zero-result search (EC-4) or for a losing OR-array code
+ * that still genuinely constrained the query (BR-1). `MasterData.nameTh` is
+ * a property of the CODE, not of any one camp, so a direct, independent
+ * lookup is both simpler and more complete than deriving it from the
+ * per-card read. Fail-open (EC-3): a lookup failure never blocks the search
+ * — the reason sentence simply omits that taxonomy entry.
+ */
+async function resolveTaxonomyLabels(candidateCodes: string[]): Promise<Record<string, string>> {
+  if (candidateCodes.length === 0) return {};
+
+  try {
+    const rows = await prisma.masterData.findMany({
+      where: { code: { in: candidateCodes } },
+      select: { code: true, nameTh: true },
+    });
+    return Object.fromEntries(rows.map((row) => [row.code, row.nameTh]));
+  } catch (error) {
+    console.error('[CAM-709] taxonomy label lookup failed (fail-open, entries omitted this turn)', error);
+    return {};
+  }
+}
+
+/**
+ * CAM-709 BR-3 — one taxonomy criterion inside the `appliedFilters` echo
+ * (below), Thai-labeled from MasterData. `group` names the tool's OWN
+ * argument dimension (terrain/access/activities/facilities/equipment/
+ * annotatedFeatures/camperStyle — the SAME `MatchedTagGroupKey` set
+ * `MATCHED_TAG_GROUP_PRIORITY` already uses), never the DB's free-text
+ * `MasterData.group` column, which this echo does not read.
+ */
+export interface SearchCampsitesAppliedTaxonomyFilter {
+  group: MatchedTagGroupKey;
+  code: string;
+  labelTh: string;
+}
+
+/**
+ * CAM-709 BR-1/BR-2/BR-4 — the honest "why these camps" echo added to
+ * `SearchCampsitesResult` below: lists ONLY the arguments that ACTUALLY
+ * constrained THIS call's query, so the model composes its opening reason
+ * sentence from real facts in the tool result instead of recalling its own
+ * tool-call arguments from memory (the exact CAM-500/CAM-501 failure mode
+ * this closes off at the source, per the openrouter-client.ts honest-scope
+ * clause this story extends). Every field is present ONLY when that
+ * dimension really filtered the result set this call — an argument the
+ * tool dropped, ignored, or could not resolve (for example `province`/
+ * `sort` when `near` wins, or an unresolved district/sub-district) is
+ * OMITTED entirely, never echoed as if it had applied (BR-1). Location
+ * fields carry the RAW value the caller supplied (whatever language it
+ * used), not the server's resolved/canonicalized form, since that is the
+ * value the model itself already knows how to phrase naturally in its
+ * answer. `taxonomy` is always present (possibly `[]`) so a consumer never
+ * has to branch on its absence.
+ */
+export interface SearchCampsitesAppliedFilters {
+  province?: string;
+  near?: string;
+  district?: string;
+  subDistrict?: string;
+  region?: string;
+  type?: string;
+  keyword?: string;
+  priceMin?: number;
+  priceMax?: number;
+  /** Present only when `true` — a `false`/absent value never constrained the query (BR-1). */
+  petFriendly?: true;
+  sort?: (typeof VALID_SORTS)[number];
+  taxonomy: SearchCampsitesAppliedTaxonomyFilter[];
+}
+
+/**
+ * CAM-709 — the ONE resolved location dimension that actually constrained
+ * this call, derived by `executeSearchCampsites` from its own already-
+ * finalized branch state (never a parallel re-interpretation of `args`) so
+ * this can never drift from the real behavior above it. `kind: 'district'`
+ * carries whichever of `district`/`subDistrict` the caller actually
+ * supplied (both, when a sub-district was scoped by a district).
+ */
+type AppliedLocationFilter =
+  | { kind: 'near'; value: string }
+  | { kind: 'province'; value: string }
+  | { kind: 'region'; value: string }
+  | { kind: 'district'; district?: string; subDistrict?: string };
+
+/**
+ * CAM-709 BR-1/BR-2 — assembles the `appliedFilters` echo from the args that
+ * genuinely constrained this call, plus the resolved `location` decision the
+ * caller already made and the `sortApplied` flag (false when `near`/an
+ * unresolved place made `args.sort` moot — see the tool's own jsonSchema
+ * description: "sort is ignored when near is set"). `type` additionally
+ * guards against the literal `'ALL'` sentinel some callers use for "no type
+ * filter" — `buildCampSiteWhere` itself never applies a `type` filter for
+ * that value (BR-1: an argument the tool ignores must not echo).
+ */
+async function buildAppliedFilters(
+  args: SearchCampsitesArgs,
+  location: AppliedLocationFilter | undefined,
+  sortApplied: boolean
+): Promise<SearchCampsitesAppliedFilters> {
+  const filters: SearchCampsitesAppliedFilters = { taxonomy: [] };
+
+  if (location?.kind === 'near') filters.near = location.value;
+  if (location?.kind === 'province') filters.province = location.value;
+  if (location?.kind === 'region') filters.region = location.value;
+  if (location?.kind === 'district') {
+    if (location.district !== undefined) filters.district = location.district;
+    if (location.subDistrict !== undefined) filters.subDistrict = location.subDistrict;
+  }
+
+  if (args.type !== undefined && args.type !== 'ALL') filters.type = args.type;
+  if (args.keyword !== undefined) filters.keyword = args.keyword;
+  if (args.priceMin !== undefined) filters.priceMin = args.priceMin;
+  if (args.priceMax !== undefined) filters.priceMax = args.priceMax;
+  if (args.petFriendly === true) filters.petFriendly = true;
+  if (sortApplied && args.sort !== undefined) filters.sort = args.sort;
+
+  const codesByGroup: Record<MatchedTagGroupKey, string[]> = {
+    terrain: toCodeList(args.terrain),
+    camperStyle: toCodeList(args.camperStyle),
+    annotatedFeatures: toCodeList(args.annotatedFeatures),
+    activities: toCodeList(args.activities),
+    facilities: toCodeList(args.facilities),
+    access: toCodeList(args.access),
+    equipment: toCodeList(args.equipment),
+  };
+  const candidateCodes = Array.from(new Set(MATCHED_TAG_GROUP_PRIORITY.flatMap((key) => codesByGroup[key])));
+  const labelByCode = await resolveTaxonomyLabels(candidateCodes);
+
+  for (const group of MATCHED_TAG_GROUP_PRIORITY) {
+    for (const code of codesByGroup[group]) {
+      const labelTh = labelByCode[code];
+      if (labelTh) filters.taxonomy.push({ group, code, labelTh }); // EC-3 — omit on a missing label
+    }
+  }
+
+  return filters;
+}
+
 export interface SearchCampsitesResult {
   /** Never null — a zero-match search returns [] so the caller can render an empty state (AC-8). */
   cards: SearchCampsiteCard[];
+  /** CAM-709 BR-1/BR-2 — additive (api.md rule 12): the honest "why these camps" echo, see `SearchCampsitesAppliedFilters` above. */
+  appliedFilters: SearchCampsitesAppliedFilters;
 }
 
 /** CAM-404 — a province arg containing any Thai character triggers the AdminArea resolve below (CAM-574: was ThailandLocation). */
@@ -884,6 +1033,28 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     provinceFilter = resolveRegionForSearchWithAlias(args.region);
   }
 
+  // CAM-709 BR-1 — derives which location arg ACTUALLY constrained this call,
+  // by mirroring the exact precedence (near > district/sub-district >
+  // province > region) the if/else-if chain above just applied — never a
+  // parallel re-interpretation of `args`, so this cannot drift from the real
+  // decision. `near` always constrains once set (both the geo path and the
+  // EC-2 province-equality fallback are driven by it). A district/sub-
+  // district that failed to resolve (`unresolvedNamedPlace`) is the BR-1
+  // "dropped" case — it never reaches a real `where` clause, so it is never
+  // echoed.
+  let appliedLocationFilter: AppliedLocationFilter | undefined;
+  if (args.near !== undefined) {
+    appliedLocationFilter = { kind: 'near', value: args.near };
+  } else if (args.district !== undefined || args.subDistrict !== undefined) {
+    if (!unresolvedNamedPlace) {
+      appliedLocationFilter = { kind: 'district', district: args.district, subDistrict: args.subDistrict };
+    }
+  } else if (args.province !== undefined) {
+    appliedLocationFilter = { kind: 'province', value: args.province };
+  } else if (args.region !== undefined) {
+    appliedLocationFilter = { kind: 'region', value: args.region };
+  }
+
   // CAM-461 BR-1/EC-1 — bound the model-controlled excludeIds array BEFORE
   // buildCampSiteWhere/findMany ever runs (CAM-344 lesson: cap before the
   // query, never after). Over the cap → keep the first MAX_EXCLUDE_IDS,
@@ -1043,12 +1214,21 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     args
   );
 
+  // CAM-709 EC-2 — `sort` only genuinely constrained the RETURNED order when
+  // the plain query path actually ran it: the near-path (whether resolved or
+  // unresolved-to-zero) orders by distance or returns nothing, and never
+  // consults `args.sort` at all (mirrors the tool's own jsonSchema note,
+  // "sort is ignored when near is set").
+  const sortApplied = !unresolvedNamedPlace && !nearCentroid;
+  const appliedFilters = await buildAppliedFilters(args, appliedLocationFilter, sortApplied);
+
   return {
     cards: cards.map((card) => ({
       ...card,
       remaining: remainingByCampId[card.id]?.remaining ?? null,
       matchedTag: matchedTagByCampId[card.id] ?? null,
     })),
+    appliedFilters,
   };
 }
 
