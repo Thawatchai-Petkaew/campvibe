@@ -115,22 +115,29 @@ export function appendUserQuestion(entries: ChatEntry[], text: string): ChatEntr
 }
 
 /**
- * CAM-640 — appends one booking-flow turn. The previous CURRENT booking
- * entry (if any) loses `isCurrent` first — the ONE field an otherwise-frozen
- * historical entry ever has revised after append (design brief's step-
- * indicator verdict: "when a step block is superseded its caption keeps its
- * text... and loses `aria-current`"). A `kind:"checkFailed"` view carries no
- * `isCurrent` field at all (never produced by this story — see booking-
- * turn.ts) and is left untouched.
+ * CAM-640/CAM-720 — flips the one still-CURRENT booking entry's
+ * `view.isCurrent` to `false` — the ONE field an otherwise-frozen historical
+ * entry ever has revised after append (design brief's step-indicator
+ * verdict: "when a step block is superseded its caption keeps its text...
+ * and loses `aria-current`"). A `kind:"checkFailed"` view carries no
+ * `isCurrent` field at all (never produced by this story — see
+ * booking-turn.ts) and is left untouched. Shared by `appendBookingEntry`
+ * (a new booking entry supersedes the old one) and `appendBookingNotice`
+ * (CAM-720 BR-4: the flow EXITS with no new booking entry, so the last live
+ * block must supersede itself) — one mutation, both callers.
  */
-export function appendBookingEntry(entries: ChatEntry[], step: BookingStepId, view: BookingStepView): ChatEntry[] {
-  const superseded = entries.map((entry) => {
+function supersedeCurrentBookingEntries(entries: ChatEntry[]): ChatEntry[] {
+  return entries.map((entry) => {
     if (entry.role !== "assistant" || entry.kind !== "booking") return entry;
     if (entry.view.kind === "checkFailed") return entry;
     if (!entry.view.isCurrent) return entry;
     return { ...entry, view: { ...entry.view, isCurrent: false } };
   });
-  return [...superseded, { id: nextEntryId(), role: "assistant", kind: "booking", step, view }];
+}
+
+/** CAM-640 — appends one booking-flow turn, superseding the prior current entry first (see `supersedeCurrentBookingEntries`). */
+export function appendBookingEntry(entries: ChatEntry[], step: BookingStepId, view: BookingStepView): ChatEntry[] {
+  return [...supersedeCurrentBookingEntries(entries), { id: nextEntryId(), role: "assistant", kind: "booking", step, view }];
 }
 
 /**
@@ -138,9 +145,22 @@ export function appendBookingEntry(entries: ChatEntry[], step: BookingStepId, vi
  * Reuses the existing `kind:"answer"` entry shape rather than a new kind —
  * it is a plain assistant sentence with no cards/chips, same as any other
  * answer (design brief: "no new pattern").
+ *
+ * CAM-720 (AC-3/BR-4, "the exit-supersede") — supersedes the last still-
+ * current booking entry FIRST, the same way `appendBookingEntry` does for a
+ * live advance. Before this, `bookingRef`/the flow going `null` left the
+ * last block's `isCurrent` untouched, so every one of its chips + controls
+ * kept rendering enabled with an undefined handler underneath (a live-
+ * looking control that silently did nothing). Both exit shapes
+ * (`processBookingTurn`'s 2-strike escape hatch and `processBookingCancel`'s
+ * `ยกเลิกการจอง`) call this one function, so one mutation covers both — no
+ * separate fix needed in `booking-turn.ts`.
  */
 export function appendBookingNotice(entries: ChatEntry[], text: string): ChatEntry[] {
-  return [...entries, { id: nextEntryId(), role: "assistant", kind: "answer", text, cards: [], zeroResult: false, suggestions: [] }];
+  return [
+    ...supersedeCurrentBookingEntries(entries),
+    { id: nextEntryId(), role: "assistant", kind: "answer", text, cards: [], zeroResult: false, suggestions: [] },
+  ];
 }
 
 /** AC-2/AC-4/AC-5/AC-6/AC-7 + BR-5: maps one API outcome to the next entries list. */
