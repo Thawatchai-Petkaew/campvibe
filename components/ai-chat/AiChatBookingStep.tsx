@@ -497,6 +497,12 @@ export function AiChatBookingStep({
 
   // view.kind === "question"
   const step = view.step;
+  // CAM-720 (AC-2/BR-3) — extends CAM-701's exact `summary`/`submitting`
+  // pattern (`controlsDisabled = !view.isCurrent`) to every question step: a
+  // superseded block's chips + controls take the real `disabled` attribute,
+  // never a merely-undefined handler (design brief CAM-697 §5's "Important,
+  // pre-existing" gap — chips stayed tappable — is what this closes).
+  const controlsDisabled = !view.isCurrent;
   // CAM-700 — a `spot` block with no chips WHILE loading (`isChecking`, the
   // step-entry /spots fetch) is not the "no offers fit" empty state; exclude
   // it so the fetch-in-flight moment never wears the empty-state testid/copy.
@@ -521,7 +527,10 @@ export function AiChatBookingStep({
         groupTestId="group--ai-chat-booking-chips"
         chipTestId="btn--ai-chat-booking-chip"
         dataStep={step}
-        disabled={view.isChecking}
+        // CAM-720 (EC-1) — an OR: an already-disabled (isChecking) row never
+        // flickers back to enabled once superseded, and a superseded row
+        // stays disabled regardless of its frozen isChecking snapshot.
+        disabled={view.isChecking || controlsDisabled}
         onSelect={(value) => onChipSelect?.(value)}
       />
 
@@ -537,7 +546,15 @@ export function AiChatBookingStep({
         </p>
       )}
 
-      <ControlsRow step={step} controls={view.controls} onBack={onBack} onEditDate={onEditDate} onEditGuests={onEditGuests} onCancel={onCancel} />
+      <ControlsRow
+        step={step}
+        controls={view.controls}
+        disabled={controlsDisabled}
+        onBack={onBack}
+        onEditDate={onEditDate}
+        onEditGuests={onEditGuests}
+        onCancel={onCancel}
+      />
     </div>
   );
 }
@@ -646,7 +663,7 @@ function ControlsRow({
   onEditDate?: () => void;
   onEditGuests?: () => void;
   onCancel?: () => void;
-  /** CAM-701 — real `disabled` on every control (design brief §5/§6: a superseded summary or a write in flight). Defaults `false`, unchanged for `question` steps (the pre-existing chip-tappable-when-superseded gap named in the brief §5 is explicitly out of this story's surface). */
+  /** CAM-701 — real `disabled` on every control (design brief §5/§6: a superseded summary or a write in flight). CAM-720 (2026-08-13) supersedes this doc's own "unchanged for `question` steps" note — the design brief §5 gap it named is now closed: every `question` step passes `controlsDisabled = !view.isCurrent` here too (see the `question` branch above), so `disabled` covers all six control-bearing view kinds. */
   disabled?: boolean;
 }) {
   const { t } = useLanguage();
@@ -666,7 +683,7 @@ function ControlsRow({
             <Button
               key="back"
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               className="h-11 rounded-full"
               data-testid="btn--ai-chat-booking-back"
@@ -683,7 +700,7 @@ function ControlsRow({
             <Button
               key="editDate"
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               className="h-11 rounded-full"
               data-testid="btn--ai-chat-booking-edit"
@@ -700,7 +717,7 @@ function ControlsRow({
             <Button
               key="editGuests"
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               className="h-11 rounded-full"
               data-testid="btn--ai-chat-booking-edit"
@@ -719,7 +736,7 @@ function ControlsRow({
             <Button
               key="editNights"
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               className="h-11 rounded-full"
               data-testid="btn--ai-chat-booking-edit"
@@ -736,7 +753,7 @@ function ControlsRow({
             <Button
               key="editSpot"
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               className="h-11 rounded-full"
               data-testid="btn--ai-chat-booking-edit"
@@ -752,7 +769,7 @@ function ControlsRow({
           <Button
             key="cancel"
             type="button"
-            variant="ghost"
+            variant="secondary"
             size="sm"
             className="h-11 rounded-full"
             data-testid="btn--ai-chat-booking-cancel"
