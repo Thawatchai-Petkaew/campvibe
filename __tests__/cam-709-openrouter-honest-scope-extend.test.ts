@@ -115,10 +115,10 @@ describe('buildSystemPrompt — CAM-709 BR-4 (CAM-714 rewrite): the opening-sent
     expect(prompt).toContain('if a labelTh itself contains a parenthesis, keep only the plain Thai part before it');
   });
 
-  it('[normal] CAM-714: bulkAvailability sources date facts from its own `ranges` echo, degrading to dates+count with no filter echo', async () => {
+  it('[normal] CAM-716: bulkAvailability now ALSO sources location/taxonomy facts from its own `appliedFilters` (mirroring searchCampsites), plus date facts from its own `ranges` echo, degrading to dates+count when `appliedFilters` is empty', async () => {
     const prompt = await getSystemPrompt();
-    expect(prompt).toContain('whose result carries no `appliedFilters` echo, source date facts ONLY from that result\'s own `ranges`');
-    expect(prompt).toContain('state only the dates and the count, never a terrain/province/taxonomy criterion from memory');
+    expect(prompt).toContain('for bulkAvailability specifically, ALSO source date facts from that same result\'s own `ranges`');
+    expect(prompt).toContain('when a bulkAvailability result\'s `appliedFilters` has nothing set at all, state only the dates and the count, never a terrain/province/taxonomy criterion from memory');
   });
 });
 

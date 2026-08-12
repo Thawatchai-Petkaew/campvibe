@@ -21,119 +21,35 @@ import { aiCampCardSelect, toAiCampCard, type AiCampCard } from '@/lib/read-mode
 import { getRemainingCapacityForCamps } from '@/lib/campsite-availability';
 import { VALID_SORTS, orderByFor } from '@/lib/catalog-cursor';
 import { resolveRegionForSearch } from '@/lib/thai-regions';
-import { haversineDistanceKm } from '@/lib/geo/distance';
 import { matchAdminArea, listChildAdminAreaIds, type AdminAreaMatchPrisma } from '@/lib/geo/admin-area-match';
 import {
-  resolveProvinceAliasToCanonicalTh,
+  MAX_NEAR_KM,
+  NEAR_CANDIDATE_CAP,
+  bboxForRadius,
+  resolveNearOrigin,
+  resolveProvinceForSearch,
+  rankCampsiteIdsByProximity,
+} from '@/lib/geo/province-proximity';
+import {
+  type MatchedTagGroupKey,
+  deriveMatchedTags,
+  buildTaxonomyEcho,
+  type AppliedTaxonomyFilter,
+} from '@/lib/ai/tools/taxonomy-tags';
+import {
   resolveRegionAliasToCanonicalPhrase,
   resolveZoneAliasToDistrict,
 } from '@/lib/ai/place-aliases';
-import provinceCentroidsData from '@/prisma/data/province-centroids.json';
-import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
 import type { AiChatCardTag } from '@/lib/api-client';
 
-/**
- * CAM-502 (P2 geo proximity) BR-1 — the committed, build-step-derived
- * province centroid table (`scripts/build-province-centroids.mjs`), keyed
- * by the SAME `Location.province` English canonical value
- * `resolveProvinceForSearch` already resolves to. A province backed by too
- * few real camps at build time is OMITTED from this table entirely (sparse
- * guard) — treated below as "no centroid available", never a crash.
- */
-const PROVINCE_CENTROIDS: Readonly<
-  Record<string, { lat: number; lng: number; campCount: number }>
-> = provinceCentroidsData;
-
-/**
- * CAM-502 BR-2 — "ใกล้X" caps at this radius so a proximity search never
- * silently drifts into "basically the whole country" territory. Tunable
- * const (not a magic number inline) — ~250km covers a realistic weekend-trip
- * radius from a major province without dragging in unrelated regions.
- */
-export const MAX_NEAR_KM = 250;
-
-/**
- * CAM-502 BR-2/EC-4 (CAM-344 lesson) — the candidate set pulled by the bbox
- * pre-filter is capped BEFORE the haversine sort/distance-filter ever runs,
- * independent of how many camps a real province's bbox happens to contain.
- * 475 camps exist in total today; this cap is a defensive ceiling, not a
- * tuned-to-today's-count value.
- */
-export const NEAR_CANDIDATE_CAP = 500;
-
-/**
- * CAM-503 (P3 landmark search) BR-1/BR-3 — the curated, committed landmark
- * gazetteer (`prisma/data/landmark-gazetteer.json`; hand-authored, NOT
- * data-derived the way `province-centroids.json` is, since a landmark's
- * "center" is a real-world place, not a mean of camp rows). Looked up
- * FIRST in the `near` resolution below — a landmark like เขาใหญ่ spans
- * multiple provinces and therefore has no `PROVINCE_CENTROIDS` entry of its
- * own; checking the gazetteer first is what makes that geo-radius search
- * possible at all, not merely an optimization over the province path.
- */
-interface LandmarkGazetteerEntry {
-  id: string;
-  nameTh: string;
-  aliases: string[];
-  lat: number;
-  lng: number;
-  radiusKm: number;
-  kind: string;
-}
-
-const LANDMARK_GAZETTEER: readonly LandmarkGazetteerEntry[] = landmarkGazetteerData as LandmarkGazetteerEntry[];
-
-/**
- * Keyed by every `nameTh` + alias (+ a lowercased variant for an ASCII
- * alias, e.g. "khao yai") so an exact-string `near` value the model emits —
- * whether the resolver's own hint (BR-2, always the canonical `nameTh`) or
- * a value the model composed from its own general knowledge — resolves to
- * the same gazetteer entry. Built once at module load (pure, no DB).
- */
-const LANDMARK_BY_NAME: ReadonlyMap<string, LandmarkGazetteerEntry> = (() => {
-  const map = new Map<string, LandmarkGazetteerEntry>();
-  for (const entry of LANDMARK_GAZETTEER) {
-    for (const key of [entry.nameTh, ...entry.aliases]) {
-      map.set(key, entry);
-      const lower = key.toLowerCase();
-      if (lower !== key) map.set(lower, entry);
-    }
-  }
-  return map;
-})();
-
-/** CAM-503 BR-3 — exact-string gazetteer lookup (falls back to a lowercase match for an ASCII alias); undefined = not a known landmark, caller falls through to the province-centroid path. */
-function findLandmark(near: string): LandmarkGazetteerEntry | undefined {
-  return LANDMARK_BY_NAME.get(near) ?? LANDMARK_BY_NAME.get(near.toLowerCase());
-}
-
-const KM_PER_DEG_LAT = 111.32;
-
-/**
- * A rectangular lat/lng bbox that FULLY CONTAINS the circle of radius
- * `radiusKm` around `center` — a cheap Prisma-level pre-filter (candidates),
- * never the final circular cut (that's the haversine distance-filter next
- * to this bbox's only caller, `executeSearchCampsites`'s near-path).
- * Exported (pure math, no DB) so `__tests__/cam-502-geo-proximity.test.ts`
- * can assert the exact bounds deterministically.
- */
-export function bboxForRadius(
-  center: { lat: number; lng: number },
-  radiusKm: number
-): { latMin: number; latMax: number; lngMin: number; lngMax: number } {
-  const latDelta = radiusKm / KM_PER_DEG_LAT;
-  const cosLat = Math.cos((center.lat * Math.PI) / 180);
-  // Guard a near-zero cosine (would only occur at the poles — never a real
-  // Thai province) so this never divides by ~0.
-  const lngDelta = radiusKm / (KM_PER_DEG_LAT * (Math.abs(cosLat) > 1e-6 ? cosLat : 1e-6));
-  return {
-    latMin: center.lat - latDelta,
-    latMax: center.lat + latDelta,
-    lngMin: center.lng - lngDelta,
-    lngMax: center.lng + lngDelta,
-  };
-}
+// CAM-716 — the CAM-502/CAM-503 proximity machinery (centroid table, radius
+// cap, landmark-first resolution, bbox+haversine ranking) moved to
+// `lib/geo/province-proximity.ts` so `bulk-availability.ts` can reuse it
+// (the CAM-566 shared-matcher precedent). Re-exported here so every
+// pre-existing consumer of these three names from THIS module (e.g.
+// `__tests__/cam-502-geo-proximity.test.ts`) keeps working unmodified.
+export { MAX_NEAR_KM, NEAR_CANDIDATE_CAP, bboxForRadius };
 
 /** BR-2 — the tool NEVER returns more than this many cards, regardless of any model-requested count. */
 export const SEARCH_CAMPSITES_MAX_RESULTS = 10;
@@ -389,143 +305,15 @@ export interface SearchCampsiteCard extends AiCampCard {
  * carry the tag" fact to verify for it the way there is for every group
  * below (see story.md Seams & refs).
  */
-const MATCHED_TAG_GROUP_PRIORITY = [
-  'terrain',
-  'camperStyle',
-  'annotatedFeatures',
-  'activities',
-  'facilities',
-  'access',
-  'equipment',
-] as const;
-export type MatchedTagGroupKey = (typeof MATCHED_TAG_GROUP_PRIORITY)[number];
+// CAM-716 — `MATCHED_TAG_GROUP_PRIORITY`/`MatchedTagGroupKey`/`toCodeList`/
+// `deriveMatchedTags`/`resolveTaxonomyLabels` moved to
+// `lib/ai/tools/taxonomy-tags.ts` so `bulk-availability.ts` can derive its
+// own cards' `matchedTag` and `appliedFilters.taxonomy` identically (BR-3/
+// BR-4). Re-exported below for backward compatibility.
+export type { MatchedTagGroupKey };
 
-/** A single-string arg is one code; an array arg (OR-within-group, CAM-461) is 1+ — either way, normalize to a code list. Absent -> []. */
-function toCodeList(value: string | string[] | undefined): string[] {
-  if (value === undefined) return [];
-  return Array.isArray(value) ? value : [value];
-}
-
-/**
- * CAM-564 BR-1/BR-3 — derives, per returned card, the ONE taxonomy tag that
- * honestly explains why THAT card is in these results.
- *
- * Why a second, small, BATCHED query is needed (never inferred from `args`
- * alone): `buildCampSiteWhere` ANDs each supplied GROUP against the where
- * clause, but a group's own ARRAY form is OR-within-group (CAM-461) — e.g.
- * `terrain:["RIVE","BEAC"]` guarantees a returned card has AT LEAST ONE of
- * the two, never tells the caller WHICH one. Only a real read of this card's
- * own MasterData rows (bounded to the small set of codes THIS search itself
- * supplied — never the whole taxonomy) can say which specific code the card
- * carries — anything else would be a guess dressed as a fact.
- *
- * Batched (BR-4, performance.md no-N+1): ONE extra `findMany` for the WHOLE
- * page of ≤`SEARCH_CAMPSITES_MAX_RESULTS` cards, never a per-card query in a
- * loop — the same pattern `getRemainingCapacityForCamps` already uses below.
- * Skipped entirely when the search supplied no taxonomy filter at all
- * (`candidateCodes` empty) — the common free-text/location-only case never
- * pays for a query whose answer is always "no match" (EC — no-match case).
- *
- * Fail-open (BR-5): a lookup failure never blocks the search itself — the
- * worst case is simply no badge on this turn's cards, the same fail-open
- * convention `resolveProvinceAdminAreaIds` above already uses.
- */
-async function deriveMatchedTags(
-  cardIds: string[],
-  args: Pick<
-    SearchCampsitesArgs,
-    'terrain' | 'camperStyle' | 'annotatedFeatures' | 'activities' | 'facilities' | 'access' | 'equipment'
-  >
-): Promise<Record<string, AiChatCardTag>> {
-  const codesByGroup: Record<MatchedTagGroupKey, string[]> = {
-    terrain: toCodeList(args.terrain),
-    camperStyle: toCodeList(args.camperStyle),
-    annotatedFeatures: toCodeList(args.annotatedFeatures),
-    activities: toCodeList(args.activities),
-    facilities: toCodeList(args.facilities),
-    access: toCodeList(args.access),
-    equipment: toCodeList(args.equipment),
-  };
-  const candidateCodes = Array.from(new Set(MATCHED_TAG_GROUP_PRIORITY.flatMap((key) => codesByGroup[key])));
-
-  const matchedTagByCampId: Record<string, AiChatCardTag> = {};
-  if (candidateCodes.length === 0 || cardIds.length === 0) return matchedTagByCampId;
-
-  try {
-    const rows = await prisma.campSite.findMany({
-      where: { id: { in: cardIds } },
-      select: {
-        id: true,
-        options: {
-          where: { code: { in: candidateCodes } },
-          select: { code: true, nameTh: true, nameEn: true },
-        },
-      },
-    });
-
-    for (const row of rows) {
-      const presentCodes = new Set(row.options.map((o) => o.code));
-      for (const key of MATCHED_TAG_GROUP_PRIORITY) {
-        // Within a tier, preserve the CAMPER'S own supplied order (e.g. the
-        // model's own `["RIVE","BEAC"]` order) — never DB/return order.
-        const winnerCode = codesByGroup[key].find((code) => presentCodes.has(code));
-        if (!winnerCode) continue;
-        const opt = row.options.find((o) => o.code === winnerCode);
-        if (opt) matchedTagByCampId[row.id] = { nameTh: opt.nameTh, nameEn: opt.nameEn };
-        break;
-      }
-    }
-  } catch (error) {
-    console.error('[CAM-564] matched-tag lookup failed (fail-open, no badge this turn)', error);
-  }
-
-  return matchedTagByCampId;
-}
-
-/**
- * CAM-709 BR-3 — resolves Thai labels for the taxonomy codes actually
- * supplied on THIS call, via ONE small batched `MasterData` read (never a
- * per-code loop) — mirrors the exact batching discipline `deriveMatchedTags`
- * above already uses (ONE `findMany`, no loop), but reads `MasterData`
- * directly rather than through `CampSite.options`: `deriveMatchedTags`'s own
- * read is scoped to `cardIds` and short-circuits entirely on a zero-result
- * search (`cardIds.length === 0`) or omits a code that lost every card in an
- * OR-array group, so it cannot be the source for an echo that must stay
- * truthful even on a zero-result search (EC-4) or for a losing OR-array code
- * that still genuinely constrained the query (BR-1). `MasterData.nameTh` is
- * a property of the CODE, not of any one camp, so a direct, independent
- * lookup is both simpler and more complete than deriving it from the
- * per-card read. Fail-open (EC-3): a lookup failure never blocks the search
- * — the reason sentence simply omits that taxonomy entry.
- */
-async function resolveTaxonomyLabels(candidateCodes: string[]): Promise<Record<string, string>> {
-  if (candidateCodes.length === 0) return {};
-
-  try {
-    const rows = await prisma.masterData.findMany({
-      where: { code: { in: candidateCodes } },
-      select: { code: true, nameTh: true },
-    });
-    return Object.fromEntries(rows.map((row) => [row.code, row.nameTh]));
-  } catch (error) {
-    console.error('[CAM-709] taxonomy label lookup failed (fail-open, entries omitted this turn)', error);
-    return {};
-  }
-}
-
-/**
- * CAM-709 BR-3 — one taxonomy criterion inside the `appliedFilters` echo
- * (below), Thai-labeled from MasterData. `group` names the tool's OWN
- * argument dimension (terrain/access/activities/facilities/equipment/
- * annotatedFeatures/camperStyle — the SAME `MatchedTagGroupKey` set
- * `MATCHED_TAG_GROUP_PRIORITY` already uses), never the DB's free-text
- * `MasterData.group` column, which this echo does not read.
- */
-export interface SearchCampsitesAppliedTaxonomyFilter {
-  group: MatchedTagGroupKey;
-  code: string;
-  labelTh: string;
-}
+/** CAM-709 BR-3 — kept as a named alias for backward compatibility; the real type now lives in `lib/ai/tools/taxonomy-tags.ts` (shared with `bulk-availability.ts`, CAM-716). */
+export type SearchCampsitesAppliedTaxonomyFilter = AppliedTaxonomyFilter;
 
 /**
  * CAM-709 BR-1/BR-2/BR-4 — the honest "why these camps" echo added to
@@ -607,24 +395,10 @@ async function buildAppliedFilters(
   if (args.petFriendly === true) filters.petFriendly = true;
   if (sortApplied && args.sort !== undefined) filters.sort = args.sort;
 
-  const codesByGroup: Record<MatchedTagGroupKey, string[]> = {
-    terrain: toCodeList(args.terrain),
-    camperStyle: toCodeList(args.camperStyle),
-    annotatedFeatures: toCodeList(args.annotatedFeatures),
-    activities: toCodeList(args.activities),
-    facilities: toCodeList(args.facilities),
-    access: toCodeList(args.access),
-    equipment: toCodeList(args.equipment),
-  };
-  const candidateCodes = Array.from(new Set(MATCHED_TAG_GROUP_PRIORITY.flatMap((key) => codesByGroup[key])));
-  const labelByCode = await resolveTaxonomyLabels(candidateCodes);
-
-  for (const group of MATCHED_TAG_GROUP_PRIORITY) {
-    for (const code of codesByGroup[group]) {
-      const labelTh = labelByCode[code];
-      if (labelTh) filters.taxonomy.push({ group, code, labelTh }); // EC-3 — omit on a missing label
-    }
-  }
+  // CAM-716 — the taxonomy echo (candidate-code collection + MasterData
+  // label lookup) now lives in the shared `buildTaxonomyEcho`
+  // (lib/ai/tools/taxonomy-tags.ts), reused identically by bulkAvailability.
+  filters.taxonomy = await buildTaxonomyEcho(prisma, args);
 
   return filters;
 }
@@ -636,60 +410,11 @@ export interface SearchCampsitesResult {
   appliedFilters: SearchCampsitesAppliedFilters;
 }
 
-/** CAM-404 — a province arg containing any Thai character triggers the AdminArea resolve below (CAM-574: was ThailandLocation). */
-const THAI_CHAR_PATTERN = /[ก-๙]/;
-
-/**
- * CAM-458 BR-3/D1 — canonical Bangkok-variant alias map (exact-key), applied
- * BEFORE the `ThailandLocation` lookup below. Covers the high-frequency,
- * non-substring ways campers refer to Bangkok; substring forms (e.g.
- * `กรุงเทพ`) already resolve via the existing `contains` query and need no
- * entry. Pure + deterministic (no DB round-trip for the alias step itself);
- * scope is Bangkok only — provincial nicknames/slang are phase-2 (out of
- * scope, see story Out-of-scope).
- */
-const BANGKOK_ALIASES: Readonly<Record<string, string>> = Object.freeze({
-  'กทม': 'กรุงเทพมหานคร',
-  'กทม.': 'กรุงเทพมหานคร',
-  'กรุงเทพฯ': 'กรุงเทพมหานคร',
-  'บางกอก': 'กรุงเทพมหานคร',
-});
-
-/**
- * CAM-404 — `Location.province` is stored in English (e.g. "Kanchanaburi"), but
- * the model frequently emits the Thai province name it was given by the user
- * (e.g. "กาญจนบุรี"). `buildCampSiteWhere` does an exact match on `province`,
- * so an un-resolved Thai value matches zero rows forever even when camps
- * exist. CAM-574: resolve via `AdminArea` (`nameTh` ↔ `nameEn`, PROVINCE
- * level — was `ThailandLocation.provinceName`/`provinceNameEn`, retired);
- * English input is returned unchanged (no DB round-trip). CAM-458 seeds all
- * 77 provinces (was ~12) and adds the Bangkok-alias normalization above — an
- * unmapped Thai word, or any lookup error, still falls back to the raw value
- * unchanged (never throws), matching the search's prior behavior.
- *
- * CAM-587 — `resolveProvinceAliasToCanonicalTh` (the 52-province owner-
- * authored alias dataset, `prisma/data/place-aliases.json`) is consulted
- * FIRST, ahead of the pre-existing `BANGKOK_ALIASES` map: it is a strict
- * superset (Bangkok's own alias-file entry covers every `BANGKOK_ALIASES`
- * key plus more) but `BANGKOK_ALIASES` is kept as-is, never removed, so a
- * value neither table recognizes still falls through unchanged exactly as
- * before this story (byte-identical for every pre-CAM-587 caller/test).
- */
-async function resolveProvinceForSearch(province: string): Promise<string> {
-  if (!THAI_CHAR_PATTERN.test(province)) return province;
-
-  const normalized = resolveProvinceAliasToCanonicalTh(province) ?? BANGKOK_ALIASES[province] ?? province;
-
-  try {
-    const match = await prisma.adminArea.findFirst({
-      where: { countryCode: 'TH', level: 'PROVINCE', nameTh: { contains: normalized } },
-      select: { nameEn: true },
-    });
-    return match?.nameEn ?? province;
-  } catch {
-    return province;
-  }
-}
+// CAM-716 — `resolveProvinceForSearch` (Thai/English province resolution)
+// moved to `lib/geo/province-proximity.ts` (imported above) so
+// `resolveNearOrigin` in that same module — and `bulk-availability.ts`'s own
+// `near` handling — reuse the IDENTICAL resolution, not a second port.
+// Behavior is byte-identical for every existing caller in this file below.
 
 /**
  * CAM-587 — layers the `place-aliases.json` `regionAliases` group (e.g.
@@ -794,7 +519,7 @@ async function resolveExactInsideAdminAreaIds(
 ): Promise<string[] | null> {
   let provinceParentId: string | undefined;
   if (args.province !== undefined) {
-    const resolvedProvinceName = await resolveProvinceForSearch(args.province);
+    const resolvedProvinceName = await resolveProvinceForSearch(matcherPrisma, args.province);
     const provinceNode = await matchAdminArea(matcherPrisma, 'PROVINCE', resolvedProvinceName);
     if (!provinceNode) return null; // named province used for scoping could not itself be resolved — honest empty
     provinceParentId = provinceNode.id;
@@ -987,28 +712,23 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
   // fork"), only its origin+radius differ per source.
   let nearRadiusKm: number = MAX_NEAR_KM;
   if (args.near !== undefined) {
-    // BR-3 — try the landmark gazetteer FIRST: a landmark (e.g. เขาใหญ่)
-    // spans multiple provinces and has no `PROVINCE_CENTROIDS` entry, so
-    // checking the province path first would always miss it, not just find
-    // it more slowly.
-    const landmark = findLandmark(args.near);
-    if (landmark) {
-      nearCentroid = { lat: landmark.lat, lng: landmark.lng };
-      nearRadiusKm = landmark.radiusKm;
+    // CAM-716 — the landmark-first / centroid / EC-2 fallback resolution now
+    // lives in the shared `resolveNearOrigin` (lib/geo/province-proximity.ts,
+    // reused by bulk-availability.ts). Byte-identical decision tree, just
+    // relocated: landmark gazetteer FIRST, else the province-centroid table,
+    // else an honest exact-province fallback.
+    const origin = await resolveNearOrigin(prisma, args.near);
+    if (origin.kind === 'geo') {
+      nearCentroid = origin.centroid;
+      nearRadiusKm = origin.radiusKm;
+      // Geo path: the location filter is the bbox pushed onto `where`
+      // below, NOT an exact-province equality — `provinceFilter` stays
+      // unset.
     } else {
-      const resolvedNear = await resolveProvinceForSearch(args.near);
-      const centroid = PROVINCE_CENTROIDS[resolvedNear];
-      if (centroid) {
-        nearCentroid = { lat: centroid.lat, lng: centroid.lng };
-        // Geo path: the location filter is the bbox pushed onto `where`
-        // below, NOT an exact-province equality — `provinceFilter` stays
-        // unset.
-      } else {
-        // EC-2 — sparse/unknown centroid AND not a known landmark: fall
-        // back to an exact-province filter on the resolved value itself
-        // (never crash, never a fabricated point).
-        provinceFilter = resolvedNear;
-      }
+      // EC-2 — sparse/unknown centroid AND not a known landmark: fall back
+      // to an exact-province filter on the resolved value itself (never
+      // crash, never a fabricated point).
+      provinceFilter = origin.province;
     }
   } else if (args.district !== undefined || args.subDistrict !== undefined) {
     // CAM-587 BR-3 — the district/sub-district "exact-inside" family: wins
@@ -1028,7 +748,7 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
       unresolvedNamedPlace = true;
     }
   } else if (args.province !== undefined) {
-    provinceFilter = await resolveProvinceForSearch(args.province);
+    provinceFilter = await resolveProvinceForSearch(prisma, args.province);
   } else if (args.region !== undefined) {
     provinceFilter = resolveRegionForSearchWithAlias(args.region);
   }
@@ -1134,37 +854,17 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     // still apply exactly as they do on every other path.
     // CAM-503 BR-3 — `nearRadiusKm` is the landmark's own curated radius
     // when `nearCentroid` came from the gazetteer, else MAX_NEAR_KM (P2,
-    // province proximity) — the bbox/haversine/cap logic itself is
-    // unchanged, only the radius input differs (no forked near-path).
-    const bbox = bboxForRadius(nearCentroid, nearRadiusKm);
-    const andArray = Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : [];
-    andArray.push({
-      latitude: { gte: bbox.latMin, lte: bbox.latMax },
-      longitude: { gte: bbox.lngMin, lte: bbox.lngMax },
-    });
-    where.AND = andArray;
+    // province proximity). CAM-716 — the bbox-AND + capped candidate query +
+    // exact circular cut + ascending haversine sort + page-size cap now live
+    // in the shared `rankCampsiteIdsByProximity` (lib/geo/province-
+    // proximity.ts, reused by bulk-availability.ts) — byte-identical logic,
+    // just relocated (no forked near-path).
+    const rankedIds = await rankCampsiteIdsByProximity(prisma, where, nearCentroid, nearRadiusKm, take);
 
-    // CAM-344 lesson (EC-4) — cap the candidate set BEFORE the haversine
-    // sort/filter runs, independent of how many camps the bbox matches.
-    const candidates = await prisma.campSite.findMany({
-      where,
-      select: { id: true, latitude: true, longitude: true },
-      take: NEAR_CANDIDATE_CAP,
-    });
-
-    // Exact circular cut (the bbox above is only a rectangular superset) +
-    // ascending haversine sort + page-size cap, in that order (BR-2).
-    const ranked = candidates
-      .map((c) => ({ id: c.id, distanceKm: haversineDistanceKm(nearCentroid!, { lat: c.latitude, lng: c.longitude }) }))
-      .filter((c) => c.distanceKm <= nearRadiusKm)
-      .sort((a, b) => a.distanceKm - b.distanceKm)
-      .slice(0, take);
-
-    if (ranked.length === 0) {
+    if (rankedIds.length === 0) {
       // AC-4 — honest empty: no camp within radius, never mislabel/crash.
       cards = [];
     } else {
-      const rankedIds = ranked.map((c) => c.id);
       const rows = await prisma.campSite.findMany({
         where: { id: { in: rankedIds } },
         select: aiCampCardSelect,
@@ -1210,6 +910,7 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
   // own doc comment for why a second, small, batched query is the honest way
   // to derive it — never inferred from `args` alone).
   const matchedTagByCampId = await deriveMatchedTags(
+    prisma,
     cards.map((c) => c.id),
     args
   );

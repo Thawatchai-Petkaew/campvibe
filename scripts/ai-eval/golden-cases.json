@@ -765,5 +765,17 @@
       "strictParams": true
     },
     "guardrail": true
+  },
+  {
+    "id": "GEO-8-CAM716-DATE-NEAR-SARABURI",
+    "group": "geo-proximity",
+    "zone": "B",
+    "utterance": "แนะนำลานกางเต้นท์ติดริมแม่น้ำ แถวๆสระบุรี เข้าพักเสาร์หน้า",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "near": "Saraburi", "terrain": "RIVE" }
+    },
+    "guardrail": true
   }
 ]
