@@ -164,7 +164,10 @@ describe('CAM-587 AC-1/AC-2 — province/district/sub-district each narrow stric
   it('[error/validation] district scoped by the WRONG province (Hua Hin\'s, not Chiang Mai\'s) fails to resolve — the scoping is real, not silently dropped (DEF-1/DEF-2 lesson)', async () => {
     const args = searchCampsitesArgsSchema.parse({ district: 'เมืองเชียงใหม่', province: 'ประจวบคีรีขันธ์' });
     const result = await executeSearchCampsites(args);
-    expect(result).toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); the district arg is DROPPED
+    // (never echoed) since it never resolved to a real query filter (BR-1).
+    expect(result).toEqual({ cards: [], appliedFilters: { taxonomy: [] } });
     expect(mockCampSiteFindMany).not.toHaveBeenCalled();
   });
 
@@ -216,21 +219,28 @@ describe('CAM-587 AC-6/BR-2 — an unresolvable district/sub-district fails hone
   it('[null/empty] an unknown district name returns { cards: [] } and never calls campSite.findMany', async () => {
     const args = searchCampsitesArgsSchema.parse({ district: 'ไม่มีอำเภอนี้จริง' });
     const result = await executeSearchCampsites(args);
-    expect(result).toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); an unresolvable district is
+    // DROPPED (never echoed) — it never resolved to a real query filter (BR-1).
+    expect(result).toEqual({ cards: [], appliedFilters: { taxonomy: [] } });
     expect(mockCampSiteFindMany).not.toHaveBeenCalled();
   });
 
   it('[null/empty] an unknown sub-district name returns { cards: [] } and never calls campSite.findMany', async () => {
     const args = searchCampsitesArgsSchema.parse({ subDistrict: 'ไม่มีตำบลนี้จริง' });
     const result = await executeSearchCampsites(args);
-    expect(result).toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); dropped for the same reason.
+    expect(result).toEqual({ cards: [], appliedFilters: { taxonomy: [] } });
     expect(mockCampSiteFindMany).not.toHaveBeenCalled();
   });
 
   it('[error/validation] a scoping `province` that itself cannot be resolved fails the whole district lookup honestly, rather than searching unscoped', async () => {
     const args = searchCampsitesArgsSchema.parse({ district: 'เมืองเชียงใหม่', province: 'ดินแดนมหัศจรรย์' });
     const result = await executeSearchCampsites(args);
-    expect(result).toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); dropped for the same reason.
+    expect(result).toEqual({ cards: [], appliedFilters: { taxonomy: [] } });
     expect(mockCampSiteFindMany).not.toHaveBeenCalled();
   });
 });

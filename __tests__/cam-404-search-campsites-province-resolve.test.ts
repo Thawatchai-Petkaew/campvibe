@@ -113,7 +113,15 @@ describe('searchCampsites — lookup error (CAM-404 error/validation)', () => {
     mockFindMany.mockResolvedValueOnce([]);
 
     const args = searchCampsitesArgsSchema.parse({ province: 'เชียงใหม่' });
-    await expect(executeSearchCampsites(args)).resolves.toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape: the result
+    // now additionally carries the `appliedFilters` echo (api.md rule 12,
+    // additive). The raw camper-supplied province still echoes even though
+    // the AdminArea lookup itself failed (BR-1: the arg still constrained
+    // the query via the raw-value fallback asserted below).
+    await expect(executeSearchCampsites(args)).resolves.toEqual({
+      cards: [],
+      appliedFilters: { province: 'เชียงใหม่', taxonomy: [] },
+    });
 
     const queryCall = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: string } } };
     expect(queryCall.where.location?.province).toBe('เชียงใหม่');

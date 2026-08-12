@@ -233,7 +233,9 @@ describe('executeSearchCampsites — near=landmark (CAM-503 BR-3)', () => {
     const result = await executeSearchCampsites(args);
 
     expect(mockAdminAreaFindFirst).not.toHaveBeenCalled();
-    expect(result).toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); `near` always echoes once set.
+    expect(result).toEqual({ cards: [], appliedFilters: { near: 'เขาใหญ่', taxonomy: [] } });
 
     const candidateCall = mockFindMany.mock.calls[0][0] as {
       where: { AND?: Array<{ latitude?: { gte: number; lte: number }; longitude?: { gte: number; lte: number } }> };
@@ -292,7 +294,9 @@ describe('executeSearchCampsites — near=landmark (CAM-503 BR-3)', () => {
     const args = searchCampsitesArgsSchema.parse({ near: 'เขาใหญ่' });
     const result = await executeSearchCampsites(args);
 
-    expect(result).toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); `near` always echoes once set.
+    expect(result).toEqual({ cards: [], appliedFilters: { near: 'เขาใหญ่', taxonomy: [] } });
     expect(mockFindMany).toHaveBeenCalledOnce();
   });
 
@@ -338,7 +342,12 @@ describe('executeSearchCampsites — near=landmark (CAM-503 BR-3)', () => {
     const args = searchCampsitesArgsSchema.parse({ near: 'Neverland Province' });
     const result = await executeSearchCampsites(args);
 
-    expect(result).toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); `near` echoes its RAW value
+    // even on the EC-2 province-equality fallback (BR-1 — this is still the
+    // arg that constrained the query, see `call.where.location?.province`
+    // below).
+    expect(result).toEqual({ cards: [], appliedFilters: { near: 'Neverland Province', taxonomy: [] } });
     const call = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: string }; AND?: unknown[] } };
     expect(call.where.location?.province).toBe('Neverland Province');
     const bboxClause = (call.where.AND ?? []).find((c) => typeof c === 'object' && c !== null && 'latitude' in c);

@@ -104,7 +104,10 @@ describe('searchCampsites — honest empty (CAM-463 AC-5/AC-6)', () => {
     const args = searchCampsitesArgsSchema.parse({ region: 'ภาคใต้' });
     const result = await executeSearchCampsites(args);
 
-    expect(result).toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); the raw camper-supplied region
+    // still echoes (BR-1 — it constrained the query, asserted below).
+    expect(result).toEqual({ cards: [], appliedFilters: { region: 'ภาคใต้', taxonomy: [] } });
     const queryCall = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: unknown } } };
     expect(queryCall.where.location?.province).toEqual({ in: [...REGION_TO_PROVINCES.SOUTH] });
   });
@@ -114,7 +117,15 @@ describe('searchCampsites — honest empty (CAM-463 AC-5/AC-6)', () => {
     mockFindMany.mockResolvedValueOnce([]);
 
     const args = searchCampsitesArgsSchema.parse({ region: 'ภาคสวรรค์' });
-    await expect(executeSearchCampsites(args)).resolves.toEqual({ cards: [] });
+    // CAM-709 — supersedes the pre-CAM-709 `{ cards: [] }` shape (additive
+    // `appliedFilters` echo, api.md rule 12); the raw camper-supplied region
+    // still echoes even though it resolved to zero real provinces (BR-1 —
+    // it still constrained the query, as the raw-passthrough assertion below
+    // proves).
+    await expect(executeSearchCampsites(args)).resolves.toEqual({
+      cards: [],
+      appliedFilters: { region: 'ภาคสวรรค์', taxonomy: [] },
+    });
 
     const queryCall = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: unknown } } };
     // raw value passed through as a single-province equality — matches no real camp
